@@ -1,0 +1,319 @@
+# Конфигурация
+
+> **Цель документа**: Все параметры конфигурации приложения.
+
+---
+
+## 1. Формат
+
+- **Библиотека**: Hoplite
+- **Формат**: YAML
+- **Файлы**: `application.yaml`, `application-{profile}.yaml`
+- **Environment variables**: Поддерживаются через Hoplite
+
+---
+
+## 2. Полная схема
+
+```yaml
+# Server
+server:
+  port: 8080
+  host: "0.0.0.0"
+  baseUrl: "https://your-domain.com"
+
+# Telegram
+telegram:
+  botToken: "123456:ABC-DEF..."        # REQUIRED, через env
+  allowedUserIds:                       # REQUIRED
+    - "123456789"
+  devMode: false                        # NEVER true in production
+
+# Database
+db:
+  url: "jdbc:postgresql://localhost:5432/tgvd"
+  user: "tgvd"
+  password: "secret"                    # через env
+  poolSize: 10
+  minIdle: 2
+
+# Storage
+storage:
+  baseDirectories:
+    - "/media/Music Videos"
+    - "/media/TV"
+    - "/media/Videos"
+  tempDirectory: "/tmp/tgvd"
+
+# yt-dlp
+ytDlp:
+  path: "yt-dlp"                        # или абсолютный путь
+  timeout: "30m"
+  retries: 3
+  fragmentRetries: 10
+
+# ffmpeg
+ffmpeg:
+  path: "ffmpeg"
+  timeout: "60m"
+
+# Post-processing
+postProcess:
+  taggingTool: "FFMPEG"                 # FFMPEG | ATOMICPARSLEY | MP4BOX
+  embedThumbnail: true
+  embedMetadata: true
+
+# Jobs
+jobs:
+  maxConcurrentDownloads: 2
+  maxAttempts: 3
+  pollIntervalMs: 5000
+  retryDelayMs: 30000
+
+# Logging
+logging:
+  level: "INFO"
+  format: "JSON"                        # JSON | TEXT
+```
+
+---
+
+## 3. Data Classes
+
+```kotlin
+data class AppConfig(
+    val server: ServerConfig,
+    val telegram: TelegramConfig,
+    val db: DbConfig,
+    val storage: StorageConfig,
+    val ytDlp: YtDlpConfig,
+    val ffmpeg: FfmpegConfig,
+    val postProcess: PostProcessConfig,
+    val jobs: JobsConfig,
+    val logging: LoggingConfig,
+)
+
+data class ServerConfig(
+    val port: Int = 8080,
+    val host: String = "0.0.0.0",
+    val baseUrl: String,
+)
+
+data class TelegramConfig(
+    val botToken: String,
+    val allowedUserIds: List<String>,
+    val devMode: Boolean = false,
+)
+
+data class DbConfig(
+    val url: String,
+    val user: String,
+    val password: String,
+    val poolSize: Int = 10,
+    val minIdle: Int = 2,
+)
+
+data class StorageConfig(
+    val baseDirectories: List<String>,
+    val tempDirectory: String = "/tmp/tgvd",
+)
+
+data class YtDlpConfig(
+    val path: String = "yt-dlp",
+    val timeout: Duration = 30.minutes,
+    val retries: Int = 3,
+    val fragmentRetries: Int = 10,
+)
+
+data class FfmpegConfig(
+    val path: String = "ffmpeg",
+    val timeout: Duration = 60.minutes,
+)
+
+data class PostProcessConfig(
+    val taggingTool: TaggingTool = TaggingTool.FFMPEG,
+    val embedThumbnail: Boolean = true,
+    val embedMetadata: Boolean = true,
+) {
+    enum class TaggingTool { FFMPEG, ATOMICPARSLEY, MP4BOX }
+}
+
+data class JobsConfig(
+    val maxConcurrentDownloads: Int = 2,
+    val maxAttempts: Int = 3,
+    val pollIntervalMs: Long = 5000,
+    val retryDelayMs: Long = 30000,
+)
+
+data class LoggingConfig(
+    val level: String = "INFO",
+    val format: String = "JSON",
+)
+```
+
+---
+
+## 4. Загрузка конфигурации
+
+```kotlin
+fun loadConfig(): AppConfig {
+    return ConfigLoaderBuilder.default()
+        .addResourceSource("/application.yaml")
+        .addResourceOrFileSource("/application-${getProfile()}.yaml", optional = true)
+        .addEnvironmentSource()
+        .build()
+        .loadConfigOrThrow<AppConfig>()
+}
+
+private fun getProfile(): String {
+    return System.getenv("APP_PROFILE") ?: "local"
+}
+```
+
+---
+
+## 5. Environment Variables
+
+Hoplite автоматически мапит env variables:
+
+| Env Variable                | Config Path                                 |
+|-----------------------------|---------------------------------------------|
+| `SERVER_PORT`               | `server.port`                               |
+| `TELEGRAM_BOT_TOKEN`        | `telegram.botToken`                         |
+| `TELEGRAM_ALLOWED_USER_IDS` | `telegram.allowedUserIds` (comma-separated) |
+| `DB_URL`                    | `db.url`                                    |
+| `DB_USER`                   | `db.user`                                   |
+| `DB_PASSWORD`               | `db.password`                               |
+
+---
+
+## 6. Profiles
+
+### 6.1 local
+
+`application-local.yaml`:
+
+```yaml
+telegram:
+  devMode: true
+
+db:
+  url: "jdbc:postgresql://localhost:5432/tgvd"
+  user: "tgvd"
+  password: "tgvd"
+
+storage:
+  baseDirectories:
+    - "/Users/you/Downloads/videos"
+  tempDirectory: "/tmp/tgvd-local"
+
+logging:
+  level: "DEBUG"
+  format: "TEXT"
+```
+
+### 6.2 production
+
+`application-production.yaml`:
+
+```yaml
+telegram:
+  devMode: false
+  botToken: "${TELEGRAM_BOT_TOKEN}"
+
+db:
+  url: "${DB_URL}"
+  user: "${DB_USER}"
+  password: "${DB_PASSWORD}"
+
+storage:
+  baseDirectories:
+    - "/media/Music Videos"
+    - "/media/TV"
+  tempDirectory: "/data/tgvd-temp"
+
+logging:
+  level: "INFO"
+  format: "JSON"
+```
+
+---
+
+## 7. Валидация конфигурации
+
+```kotlin
+fun AppConfig.validate() {
+    require(telegram.botToken.isNotBlank()) { "telegram.botToken is required" }
+    require(telegram.allowedUserIds.isNotEmpty()) { "telegram.allowedUserIds cannot be empty" }
+    require(storage.baseDirectories.isNotEmpty()) { "storage.baseDirectories cannot be empty" }
+    
+    if (!telegram.devMode) {
+        require(!telegram.botToken.startsWith("test")) { 
+            "Invalid botToken in production mode" 
+        }
+    }
+    
+    // Проверка доступности директорий
+    storage.baseDirectories.forEach { dir ->
+        val path = Path.of(dir)
+        require(Files.exists(path) && Files.isDirectory(path)) {
+            "storage.baseDirectories: $dir does not exist or is not a directory"
+        }
+    }
+}
+```
+
+---
+
+## 8. Использование в приложении
+
+```kotlin
+fun main() {
+    val config = loadConfig()
+    config.validate()
+    
+    embeddedServer(Netty, port = config.server.port, host = config.server.host) {
+        install(Koin) {
+            modules(
+                module {
+                    single { config }
+                    single { config.telegram }
+                    single { config.db }
+                    // ...
+                }
+            )
+        }
+        
+        configureFlyway()
+        configureSerialization()
+        configureRouting()
+    }.start(wait = true)
+}
+```
+
+---
+
+## 9. Docker environment
+
+```dockerfile
+ENV SERVER_PORT=8080
+ENV TELEGRAM_BOT_TOKEN=""
+ENV DB_URL="jdbc:postgresql://postgres:5432/tgvd"
+ENV DB_USER="tgvd"
+ENV DB_PASSWORD=""
+ENV APP_PROFILE="production"
+```
+
+```yaml
+# docker-compose.yml
+services:
+  app:
+    environment:
+      - SERVER_PORT=8080
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - DB_URL=jdbc:postgresql://postgres:5432/tgvd
+      - DB_USER=tgvd
+      - DB_PASSWORD=${DB_PASSWORD}
+      - APP_PROFILE=production
+```
+
