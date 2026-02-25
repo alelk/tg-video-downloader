@@ -379,7 +379,7 @@ class PathTemplateEngineTest : FunSpec({
             
             result.shouldBeRight()
             result.getOrNull() shouldBe 
-                "/media/Music/Rick Astley/Never Gonna Give You Up.mp4"
+                FilePath("/media/Music/Rick Astley/Never Gonna Give You Up.mp4")
         }
         
         test("sanitizes forbidden characters") {
@@ -390,7 +390,7 @@ class PathTemplateEngineTest : FunSpec({
             val result = engine.render("/media/{title}.mp4", context)
             
             result.shouldBeRight()
-            result.getOrNull() shouldBe "/media/Video_ Part 1_2 _HD_.mp4"
+            result.getOrNull() shouldBe FilePath("/media/Video_ Part 1_2 _HD_.mp4")
         }
         
         test("handles missing variable") {

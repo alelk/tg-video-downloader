@@ -54,9 +54,9 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 **KMP-замечания**:
 - `kotlin.uuid.Uuid` вместо `java.util.UUID`
 - `kotlin.time.Instant` для timestamps (в stdlib с Kotlin 2.1.20+)
-- Даты — `String` в формате ISO 8601 (`"2024-02-25"`)
+- `kotlin.time.Duration` для длительностей (в stdlib)
+- `LocalDate`, `Url`, `FilePath` — собственные value classes (Kotlin stdlib не содержит KMP-совместимых аналогов)
 - `value class` поддерживается на JS с Kotlin 2.1+
-- `Path` не используется в domain — только `String` для путей
 
 ---
 
@@ -96,6 +96,74 @@ value class TelegramUserId(val value: Long) {
         require(value > 0) { "TelegramUserId must be positive" }
     }
 }
+
+/**
+ * Идентификатор экстрактора yt-dlp (название платформы-источника).
+ * Примеры: "youtube", "rutube", "vk", "generic".
+ * Определяется автоматически yt-dlp при извлечении метаданных.
+ */
+@JvmInline
+value class Extractor(val value: String) {
+    init {
+        require(value.isNotBlank()) { "Extractor cannot be blank" }
+    }
+    
+    companion object {
+        val YOUTUBE = Extractor("youtube")
+        val RUTUBE = Extractor("rutube")
+        val VK = Extractor("vk")
+        val GENERIC = Extractor("generic")
+    }
+}
+
+/**
+ * URL видео. Базовая валидация без внешних библиотек.
+ * Kotlin stdlib не содержит KMP-совместимого типа URL.
+ */
+@JvmInline
+value class Url(val value: String) {
+    init {
+        require(value.isNotBlank()) { "URL cannot be blank" }
+        require(value.startsWith("http://") || value.startsWith("https://")) {
+            "URL must start with http:// or https://"
+        }
+    }
+}
+
+/**
+ * Дата в формате ISO 8601 (YYYY-MM-DD).
+ * Kotlin stdlib не содержит KMP-совместимого типа LocalDate.
+ */
+@JvmInline
+value class LocalDate(val value: String) {
+    init {
+        require(ISO_DATE_REGEX.matches(value)) { "LocalDate must be in ISO 8601 format (YYYY-MM-DD): $value" }
+    }
+
+    val year: Int get() = value.substring(0, 4).toInt()
+    val month: Int get() = value.substring(5, 7).toInt()
+    val day: Int get() = value.substring(8, 10).toInt()
+
+    companion object {
+        private val ISO_DATE_REGEX = "^\\d{4}-\\d{2}-\\d{2}$".toRegex()
+    }
+}
+
+/**
+ * Путь к файлу или директории.
+ * Kotlin stdlib не содержит KMP-совместимого типа Path.
+ * Используется в domain вместо java.nio.file.Path.
+ */
+@JvmInline
+value class FilePath(val value: String) {
+    init {
+        require(value.isNotBlank()) { "FilePath cannot be blank" }
+    }
+    
+    val fileName: String get() = value.substringAfterLast('/')
+    val parent: String get() = value.substringBeforeLast('/', "")
+    val extension: String get() = fileName.substringAfterLast('.', "")
+}
 ```
 
 ### 2.2 Category
@@ -121,25 +189,25 @@ sealed interface DomainError {
     
     // === Validation ===
     data class ValidationError(val field: String, override val message: String) : DomainError
-    data class InvalidUrl(val url: String, override val message: String = "Invalid URL: $url") : DomainError
+    data class InvalidUrl(val url: Url, override val message: String = "Invalid URL: ${url.value}") : DomainError
     
     // === Not Found ===
     data class RuleNotFound(val id: RuleId, override val message: String = "Rule not found: ${id.value}") : DomainError
     data class JobNotFound(val id: JobId, override val message: String = "Job not found: ${id.value}") : DomainError
     
     // === Video ===
-    data class VideoUnavailable(val videoId: String, val reason: String, override val message: String = "Video unavailable: $videoId - $reason") : DomainError
-    data class VideoExtractionFailed(val url: String, val cause: String, override val message: String = "Failed to extract video info: $cause") : DomainError
+    data class VideoUnavailable(val videoId: VideoId, val reason: String, override val message: String = "Video unavailable: ${videoId.value} - $reason") : DomainError
+    data class VideoExtractionFailed(val url: Url, val cause: String, override val message: String = "Failed to extract video info: $cause") : DomainError
     
     // === Job ===
-    data class JobAlreadyExists(val videoId: String, val existingJobId: JobId, override val message: String = "Job already exists for video $videoId") : DomainError
+    data class JobAlreadyExists(val videoId: VideoId, val existingJobId: JobId, override val message: String = "Job already exists for video ${videoId.value}") : DomainError
     data class JobCannotBeCancelled(val id: JobId, val currentStatus: JobStatus, override val message: String = "Cannot cancel job in status $currentStatus") : DomainError
     data class DownloadFailed(val jobId: JobId, val cause: String, override val message: String = "Download failed: $cause") : DomainError
-    data class PostProcessingFailed(val jobId: JobId, val phase: String, val cause: String, override val message: String = "Post-processing failed at $phase: $cause") : DomainError
+    data class PostProcessingFailed(val jobId: JobId, val phase: JobPhase, val cause: String, override val message: String = "Post-processing failed at $phase: $cause") : DomainError
     
     // === Storage ===
-    data class PathTraversalAttempt(val path: String, override val message: String = "Path traversal attempt: $path") : DomainError
-    data class StorageFailed(val path: String, val cause: String, override val message: String = "Storage failed for $path: $cause") : DomainError
+    data class PathTraversalAttempt(val path: FilePath, override val message: String = "Path traversal attempt: ${path.value}") : DomainError
+    data class StorageFailed(val path: FilePath, val cause: String, override val message: String = "Storage failed for ${path.value}: $cause") : DomainError
     
     // === Auth ===
     data class Unauthorized(override val message: String = "Unauthorized") : DomainError
@@ -150,7 +218,9 @@ sealed interface DomainError {
 }
 ```
 
-> `DomainError` — в `common/`, т.к. используется во всех пакетах. `JobStatus` импортируется из `job/` для `JobCannotBeCancelled` — это единственная обратная ссылка, допустимая т.к. это sealed subclass, а не бизнес-зависимость.
+> `DomainError` — в `common/`, т.к. используется во всех пакетах. 
+> `JobStatus` импортируется из `job/` для `JobCannotBeCancelled` 
+> — это единственная обратная ссылка, допустимая т.к. это sealed subclass, а не бизнес-зависимость.
 
 ---
 
@@ -169,15 +239,10 @@ domain/video/
 
 ```kotlin
 data class VideoSource(
-    val url: String,
+    val url: Url,
     val videoId: VideoId,
-    val extractor: String,  // "youtube", "rutube", "vk", "generic", ...
-) {
-    init {
-        require(url.isNotBlank()) { "URL cannot be blank" }
-        require(extractor.isNotBlank()) { "Extractor cannot be blank" }
-    }
-}
+    val extractor: Extractor,
+)
 ```
 
 > `extractor` определяется автоматически yt-dlp. Поддерживается [1000+ сайтов](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
@@ -186,18 +251,19 @@ data class VideoSource(
 
 ```kotlin
 data class VideoInfo(
-    val videoId: String,
+    val videoId: VideoId,
+    val extractor: Extractor,
     val title: String,
-    val channelId: String,
+    val channelId: ChannelId,
     val channelName: String,
-    val uploadDate: String?,       // ISO format: "2024-02-25"
-    val durationSeconds: Int,
-    val webpageUrl: String,
+    val uploadDate: LocalDate?,
+    val duration: Duration,          // kotlin.time.Duration (KMP, в stdlib)
+    val webpageUrl: Url,
     val thumbnails: List<Thumbnail> = emptyList(),
     val description: String? = null,
     val viewCount: Long? = null,
 ) {
-    data class Thumbnail(val url: String, val width: Int?, val height: Int?)
+    data class Thumbnail(val url: Url, val width: Int?, val height: Int?)
 }
 ```
 
@@ -272,10 +338,10 @@ sealed interface RuleMatch {
 fun RuleMatch.matches(video: VideoInfo): Boolean = when (this) {
     is RuleMatch.AllOf -> matches.all { it.matches(video) }
     is RuleMatch.AnyOf -> matches.any { it.matches(video) }
-    is RuleMatch.ChannelId -> video.channelId == value
+    is RuleMatch.ChannelId -> video.channelId.value == value
     is RuleMatch.ChannelName -> video.channelName.equals(value, ignoreCase = ignoreCase)
     is RuleMatch.TitleRegex -> regex.containsMatchIn(video.title)
-    is RuleMatch.UrlRegex -> regex.containsMatchIn(video.webpageUrl)
+    is RuleMatch.UrlRegex -> regex.containsMatchIn(video.webpageUrl.value)
 }
 
 fun RuleMatch.specificity(): Int = when (this) {
@@ -306,7 +372,9 @@ data class Rule(
 )
 ```
 
-> `Rule` ссылается на `MetadataTemplate` (из `metadata/`), `StoragePolicy` (из `storage/`), `DownloadPolicy` и `PostProcessPolicy` (из `storage/`). Это допустимо: `rule` зависит от `metadata` и `storage`, но не наоборот.
+> `Rule` ссылается на `MetadataTemplate` (из `metadata/`), 
+> `StoragePolicy` (из `storage/`), `DownloadPolicy` и `PostProcessPolicy` (из `storage/`). 
+> Это допустимо: `rule` зависит от `metadata` и `storage`, но не наоборот.
 
 ### 4.3 RuleMatchingService
 
@@ -441,7 +509,7 @@ class MetadataResolver {
         return ResolvedMetadata.MusicVideo(
             artist = artist,
             title = title,
-            year = video.uploadDate?.take(4)?.toIntOrNull(),
+            year = video.uploadDate?.year,
             tags = template?.defaultTags.orEmpty(),
         )
     }
@@ -511,7 +579,7 @@ data class StoragePlan(
 }
 
 data class OutputTarget(
-    val path: String,
+    val path: FilePath,
     val container: String,
     val kind: OutputKind,
 )
@@ -586,18 +654,18 @@ data class PostProcessPolicy(
 
 ```kotlin
 class PathTemplateEngine(
-    private val baseDirectories: List<String>,
+    private val baseDirectories: List<FilePath>,
 ) {
-    fun render(template: String, context: TemplateContext): Either<DomainError, String> {
+    fun render(template: String, context: TemplateContext): Either<DomainError, FilePath> {
         val rendered = PLACEHOLDER_REGEX.replace(template) { match ->
             val variable = match.groupValues[1]
             context.get(variable)?.sanitizeForPath() ?: ""
         }
         val isWithinBase = baseDirectories.any { base ->
-            rendered.startsWith(base) && !rendered.contains("..")
+            rendered.startsWith(base.value) && !rendered.contains("..")
         }
-        return if (isWithinBase) rendered.right()
-        else DomainError.PathTraversalAttempt(rendered).left()
+        return if (isWithinBase) FilePath(rendered).right()
+        else DomainError.PathTraversalAttempt(FilePath(rendered)).left()
     }
     
     private fun String.sanitizeForPath(): String =
@@ -612,8 +680,8 @@ class PathTemplateEngine(
                     "title" to metadata.title,
                     "year" to (metadata.year?.toString() ?: ""),
                     "channelName" to video.channelName,
-                    "videoId" to video.videoId,
-                    "uploadDate" to (video.uploadDate ?: ""),
+                    "videoId" to video.videoId.value,
+                    "uploadDate" to (video.uploadDate?.value ?: ""),
                 )
                 when (metadata) {
                     is ResolvedMetadata.MusicVideo -> map["artist"] = metadata.artist
@@ -643,12 +711,12 @@ class PathTemplateEngine(
 interface VideoDownloader {
     suspend fun download(
         source: VideoSource,
-        outputPath: String,
+        outputPath: FilePath,
         policy: DownloadPolicy,
         onProgress: (JobProgress) -> Unit,
     ): Either<DomainError, DownloadResult>
     
-    data class DownloadResult(val filePath: String, val format: String, val fileSize: Long)
+    data class DownloadResult(val filePath: FilePath, val format: String, val fileSize: Long)
 }
 ```
 
@@ -730,7 +798,7 @@ class CreateJobUseCase(
         }
         val existing = jobRepository.findByVideoId(request.source.videoId).filter { it.isActive() }
         if (existing.isNotEmpty()) {
-            raise(DomainError.JobAlreadyExists(request.source.videoId.value, existing.first().id))
+            raise(DomainError.JobAlreadyExists(request.source.videoId, existing.first().id))
         }
         val now = clock.now()
         val job = Job(
@@ -813,7 +881,7 @@ class PreviewUseCase(
         val storagePlan = buildStoragePlan(storagePolicy, context, postProcess).bind()
         
         PreviewResult(
-            source = VideoSource(url, VideoId(videoInfo.videoId), videoInfo.extractor ?: "generic"),
+            source = VideoSource(Url(url), videoInfo.videoId, videoInfo.extractor),
             videoInfo = videoInfo,
             matchedRule = matchedRule,
             metadataSource = metadataSource,
