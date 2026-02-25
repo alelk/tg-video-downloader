@@ -1,22 +1,17 @@
 plugins {
-    kotlin("jvm") version "2.3.0"
+    alias(libs.plugins.kotlinJvm) apply false
+    alias(libs.plugins.kotlinMultiplatform) apply false
+    alias(libs.plugins.kotlinSerialization) apply false
+    alias(libs.plugins.composeMultiplatform) apply false
+    alias(libs.plugins.composeCompiler) apply false
+    alias(libs.plugins.ktor) apply false
+    alias(libs.plugins.shadow) apply false
 }
 
-group = "io.github.aelk"
-version = "1.0-SNAPSHOT"
+group = "io.github.alelk.tgvd"
+version = "0.1.0-SNAPSHOT"
 
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    testImplementation(kotlin("test"))
-}
-
-kotlin {
-    jvmToolchain(21)
-}
-
-tasks.test {
-    useJUnitPlatform()
+subprojects {
+    group = rootProject.group
+    version = rootProject.version
 }
