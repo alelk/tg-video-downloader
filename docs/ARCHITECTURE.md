@@ -115,7 +115,7 @@
 - Доменные ошибки (`sealed interface DomainError`)
 - Политики (`DownloadPolicy`, `StoragePolicy`, `PostProcessPolicy`)
 
-**Зависимости**: Kotlin stdlib, Arrow (Either), kotlinx-datetime, kotlinx-coroutines.
+**Зависимости**: Kotlin stdlib (`kotlin.time.Instant`, `kotlin.uuid.Uuid`), Arrow (Either), kotlinx-coroutines.
 
 **Не содержит**: Ktor, kotlinx.serialization, DB, файловая система.
 
@@ -152,9 +152,8 @@ domain/src/
 
 > **KMP-замечания**:
 > - Вместо `java.util.UUID` → `kotlin.uuid.Uuid` (Kotlin 2.0+)
-> - Вместо `java.time.*` → `kotlinx-datetime`
-> - `value class` поддерживается в JS с Kotlin 2.1+
-> - `kotlin.text.Regex` — уже KMP-совместим
+> - Вместо `java.time.Instant` → `kotlin.time.Instant` (Kotlin 2.1.20+, в stdlib)
+> - Даты (upload date и т.д.) — `String` в ISO 8601 формате
 
 ---
 
@@ -295,7 +294,7 @@ features/src/commonMain/kotlin/io/github/alelk/tgvd/features/
 
 | Модуль             | Может зависеть от                                      | НЕ может зависеть от           |
 |--------------------|--------------------------------------------------------|--------------------------------|
-| `domain`           | Kotlin stdlib, Arrow, kotlinx-datetime                 | Всё остальное                  |
+| `domain`           | Kotlin stdlib, Arrow, kotlinx-coroutines               | Всё остальное                  |
 | `api:contract`     | Kotlin stdlib, kotlinx.serialization                   | domain, server:*, features     |
 | `api:mapping`      | domain, api:contract, Arrow                            | server:*, api:client, features |
 | `api:client`       | api:contract, Ktor Client                              | domain, server:*, features     |
@@ -377,7 +376,6 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.datetime)
             implementation(libs.arrow.core)
         }
         commonTest.dependencies {
@@ -443,11 +441,10 @@ dependencies {
 [versions]
 kotlin = "2.3.0"
 ktor = "3.1.0"
-exposed = "0.58.0"
+exposed = "1.0.0"
 koin = "4.1.0"
 serialization = "1.8.0"
 coroutines = "1.10.0"
-datetime = "0.6.0"
 arrow = "2.0.0"
 kotest = "6.0.0"
 logback = "1.5.0"
@@ -468,7 +465,6 @@ koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
 koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
-kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "datetime" }
 arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
 kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }

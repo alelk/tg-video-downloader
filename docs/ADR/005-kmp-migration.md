@@ -42,28 +42,29 @@
 
 ### KMP-совместимость ключевых зависимостей
 
-| Зависимость           | KMP? | Замечания                               |
-|-----------------------|------|-----------------------------------------|
-| Arrow (Either)        | ✅    | Полная KMP-поддержка                    |
-| kotlinx.serialization | ✅    | Полная KMP-поддержка                    |
-| kotlinx-datetime      | ✅    | Замена `java.time.*`                    |
-| kotlinx-coroutines    | ✅    | Полная KMP-поддержка                    |
-| Ktor Client           | ✅    | CIO (JVM), Js (browser)                 |
-| Koin                  | ✅    | koin-core — KMP, koin-compose — KMP     |
-| Compose Multiplatform | ✅    | JVM (Desktop) + JS (Browser)            |
-| `kotlin.uuid.Uuid`    | ✅    | Kotlin 2.0+, замена `java.util.UUID`    |
-| `kotlin.text.Regex`   | ✅    | Уже KMP-совместим                       |
-| Exposed               | ❌    | JVM only — используется только в server |
-| Ktor Server           | ❌    | JVM only — используется только в server |
-| Flyway                | ❌    | JVM only — используется только в server |
+| Зависимость           | KMP? | Замечания                                   |
+|-----------------------|------|---------------------------------------------|
+| Arrow (Either)        | ✅    | Полная KMP-поддержка                        |
+| kotlinx.serialization | ✅    | Полная KMP-поддержка                        |
+| kotlinx-coroutines    | ✅    | Полная KMP-поддержка                        |
+| `kotlin.time.Instant` | ✅    | Kotlin 2.1.20+, в stdlib                    |
+| `kotlin.uuid.Uuid`    | ✅    | Kotlin 2.0+, в stdlib                       |
+| `kotlin.text.Regex`   | ✅    | В stdlib                                    |
+| Ktor Client           | ✅    | CIO (JVM), Js (browser)                     |
+| Koin                  | ✅    | koin-core — KMP, koin-compose — KMP         |
+| Compose Multiplatform | ✅    | JVM (Desktop) + JS (Browser)                |
+| Exposed 1.0+          | ❌    | JVM only, но использует kotlin.time.Instant |
+| Ktor Server           | ❌    | JVM only — используется только в server     |
+| Flyway                | ❌    | JVM only — используется только в server     |
 
 ### Архитектурные решения для KMP
 
-1. **UUID**: `kotlin.uuid.Uuid` вместо `java.util.UUID` в domain и API
-2. **Время**: `kotlinx.datetime.Instant`, `LocalDate` вместо `java.time.*`
-3. **Value classes**: Поддерживаются на JS с Kotlin 2.1+. Используем `value class` в `commonMain`
-4. **Path**: В domain используем `String` для путей. `java.nio.file.Path` — только в `server:infra` (JVM)
-5. **Logging**: `expect/actual` для логирования или KMP logging библиотека
+1. **UUID**: `kotlin.uuid.Uuid` вместо `java.util.UUID` — в stdlib
+2. **Timestamps**: `kotlin.time.Instant` вместо `java.time.Instant` — в stdlib с Kotlin 2.1.20+
+3. **Даты**: `String` в ISO 8601 формате (`"2024-02-25"`) — не требует зависимостей
+4. **Value classes**: Поддерживаются на JS с Kotlin 2.1+. Используем `value class` в `commonMain`
+5. **Path**: В domain используем `String` для путей. `java.nio.file.Path` — только в `server:infra` (JVM)
+6. **Logging**: `expect/actual` для логирования или KMP logging библиотека
 
 ---
 

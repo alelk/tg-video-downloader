@@ -24,7 +24,8 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 
 **KMP-замечания**:
 - `kotlin.uuid.Uuid` вместо `java.util.UUID`
-- `kotlinx.datetime.Instant`, `LocalDate` вместо `java.time.*`
+- `kotlin.time.Instant` для timestamps (в stdlib с Kotlin 2.1.20+)
+- Даты — `String` в формате ISO 8601 (`"2024-02-25"`)
 - `value class` поддерживается на JS с Kotlin 2.1+
 - `kotlin.text.Regex` — уже KMP-совместим
 - `Path` не используется в domain — только `String` для путей

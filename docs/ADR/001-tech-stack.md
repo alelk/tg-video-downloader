@@ -8,7 +8,8 @@
 
 ## Контекст
 
-Нужно выбрать технологический стек для сервиса скачивания видео с различных платформ (YouTube, RuTube, VK Video, 1000+ сайтов через yt-dlp) с управлением через Telegram Mini App.
+Нужно выбрать технологический стек для сервиса скачивания видео с различных платформ 
+(YouTube, RuTube, VK Video, 1000+ сайтов через yt-dlp) с управлением через Telegram Mini App.
 
 Требования:
 - Единый язык для backend, shared-логики и frontend
@@ -43,8 +44,8 @@
 |-------------------|--------------------------|-----------------------|---------------------------------------------------|
 | **Domain**        | Pure Kotlin (KMP)        | —                     | Чистый Kotlin, без фреймворков                    |
 | **Either**        | Arrow                    | kotlin.Result         | KMP, rich API, monad comprehensions               |
-| **DateTime**      | kotlinx-datetime         | java.time             | KMP-совместим                                     |
-| **UUID**          | kotlin.uuid.Uuid         | java.util.UUID        | KMP-совместим (Kotlin 2.0+)                       |
+| **Timestamps**    | kotlin.time.Instant      | java.time.Instant     | В stdlib с Kotlin 2.1.20+, KMP                    |
+| **UUID**          | kotlin.uuid.Uuid         | java.util.UUID        | В stdlib с Kotlin 2.0+, KMP                       |
 | **Coroutines**    | kotlinx-coroutines       | —                     | Стандарт для async в Kotlin                       |
 
 ### Frontend / UI

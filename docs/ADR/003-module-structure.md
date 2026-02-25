@@ -73,7 +73,7 @@ tg-video-downloader/
 
 | Модуль             | Может зависеть от                                      | НЕ может зависеть от           |
 |--------------------|--------------------------------------------------------|--------------------------------|
-| `domain`           | Kotlin stdlib, Arrow, kotlinx-datetime                 | Всё остальное                  |
+| `domain`           | Kotlin stdlib, Arrow, kotlinx-coroutines               | Всё остальное                  |
 | `api:contract`     | Kotlin stdlib, kotlinx.serialization                   | domain, server:*, features     |
 | `api:mapping`      | domain, api:contract, Arrow                            | server:*, api:client, features |
 | `api:client`       | api:contract, Ktor Client                              | domain, server:*, features     |

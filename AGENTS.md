@@ -7,7 +7,9 @@
 
 ## 🎯 Краткое описание проекта
 
-**TG Video Downloader** — сервис для скачивания видео с различных платформ (YouTube, RuTube, VK Video и [1000+ других](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)) с управлением через Telegram Mini App. Поддерживает LLM (Gemini/OpenAI) для определения метаданных и HTTP/SOCKS5 прокси.
+**TG Video Downloader** — сервис для скачивания видео с различных платформ 
+(YouTube, RuTube, VK Video и [1000+ других](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)) 
+с управлением через Telegram Mini App. Поддерживает LLM (Gemini/OpenAI) для определения метаданных и HTTP/SOCKS5 прокси.
 
 **Стек**: Kotlin 2.3+ (Multiplatform), Ktor 3, Compose Multiplatform, PostgreSQL, yt-dlp.
 
@@ -61,7 +63,7 @@ tg-video-downloader/
 - Весь переиспользуемый код — в `commonMain` source set
 - Platform-specific код — через `expect/actual`
 - `java.util.UUID` → `kotlin.uuid.Uuid` (Kotlin 2.0+)
-- `java.time.*` → `kotlinx-datetime`
+- `java.time.*` → `kotlin.time.Instant` (в stdlib с Kotlin 2.1.20+)
 - НЕ использовать JVM-only классы в `commonMain`
 
 ### 2. Kotlin-идиоматичность
