@@ -8,7 +8,7 @@
 
 ## 📋 О проекте
 
-**TG Video Downloader** — сервис для скачивания YouTube-видео с управлением через Telegram Mini App.
+**TG Video Downloader** — сервис для скачивания YouTube-видео с управлением через Telegram Mini App. Поддерживает умное определение метаданных через LLM (Gemini/OpenAI) и HTTP/SOCKS5 прокси.
 
 ### Ключевые возможности
 
@@ -21,6 +21,7 @@
 - 🔄 Очередь задач с прогрессом и повторами
 - 🌐 Поддержка HTTP/SOCKS5 прокси
 - 🔐 Авторизация через Telegram initData
+- 📱 Kotlin Multiplatform — единая кодовая база для сервера и клиентов
 
 ---
 
@@ -28,13 +29,13 @@
 
 | Документ                                  | Описание                                                  |
 |-------------------------------------------|-----------------------------------------------------------|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md)   | Модульная архитектура, зависимости, принципы              |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md)   | Модульная архитектура, KMP-стратегия, зависимости         |
 | [DOMAIN.md](docs/DOMAIN.md)               | Доменная модель: sealed-классы, value objects, инварианты |
 | [API_CONTRACT.md](docs/API_CONTRACT.md)   | HTTP API: эндпоинты, DTO, сериализация, ошибки            |
 | [DATABASE.md](docs/DATABASE.md)           | Схема PostgreSQL, миграции, индексы                       |
 | [CONFIGURATION.md](docs/CONFIGURATION.md) | Параметры конфигурации                                    |
 | [SECURITY.md](docs/SECURITY.md)           | Авторизация, Telegram initData, безопасность              |
-| [TESTING.md](docs/TESTING.md)             | Стратегия тестирования, примеры                           |
+| [TESTING.md](docs/TESTING.md)             | Стратегия тестирования, KMP-тесты, примеры                |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md)       | Docker, docker-compose, CI/CD                             |
 | [MAINTENANCE.md](docs/MAINTENANCE.md)     | Обслуживание, обновление yt-dlp                           |
 | [ADR/](docs/ADR/)                         | Architecture Decision Records                             |
@@ -45,7 +46,7 @@
 
 | Область                | Технология                    |
 |------------------------|-------------------------------|
-| Язык                   | Kotlin 2.3+                   |
+| Язык                   | Kotlin 2.3+ (Multiplatform)   |
 | JVM                    | 21 LTS                        |
 | Backend framework      | Ktor 3.x                      |
 | DI                     | Koin 4.x                      |
@@ -53,12 +54,12 @@
 | База данных            | PostgreSQL 16+                |
 | ORM / SQL              | Exposed                       |
 | Миграции               | Flyway                        |
-| UI (Telegram Mini App) | Compose Multiplatform for Web |
+| UI                     | Compose Multiplatform         |
 | HTTP Client            | Ktor Client (KMP)             |
 | Внешние процессы       | yt-dlp, ffmpeg                |
 | Конфигурация           | Hoplite                       |
 | Логирование            | kotlin-logging + Logback      |
-| Тесты                  | Kotest, MockK, Testcontainers |
+| Тесты                  | kotlin-test, Kotest, MockK, Testcontainers |
 
 ---
 
@@ -66,17 +67,19 @@
 
 ```
 tg-video-downloader/
-├── domain/              # Доменные модели, use-cases (чистый Kotlin)
+├── domain/              # Доменные модели, use-cases (KMP: jvm, js)
 ├── api/
-│   ├── contract/        # DTO, API-контракт (kotlinx.serialization, KMP)
-│   ├── mapping/         # Маппинг domain <-> DTO
-│   └── client/          # Ktor KMP HTTP-клиент
+│   ├── contract/        # DTO, API-контракт (KMP: jvm, js)
+│   ├── mapping/         # Маппинг domain <-> DTO (KMP: jvm, js)
+│   ├── client/          # Ktor HTTP-клиент (KMP: jvm, js)
+│   └── client/di/       # Koin-модули для API-клиента (KMP: jvm, js)
+├── features/            # UI-компоненты, Compose Multiplatform (KMP: jvm, js)
+├── tgminiapp/           # Telegram Mini App shell (JS only)
 ├── server/
-│   ├── infra/           # Репозитории, DB, внешние процессы, LLM
-│   ├── transport/       # Ktor routing, auth middleware
-│   ├── di/              # Koin модули
-│   └── app/             # Entrypoint, Application.kt
-├── tgminiapp/           # Compose Multiplatform Web UI
+│   ├── infra/           # Репозитории, DB, yt-dlp, LLM (JVM only)
+│   ├── transport/       # Ktor routing, auth (JVM only)
+│   ├── di/              # Koin модули сервера (JVM only)
+│   └── app/             # Entrypoint (JVM only)
 └── docs/                # Эта документация
 ```
 
@@ -99,10 +102,10 @@ tg-video-downloader/
 # 1. Запустить PostgreSQL
 docker compose up -d postgres
 
-# 2. Применить миграции и запустить сервер
+# 2. Запустить сервер
 ./gradlew :server:app:run
 
-# 3. Запустить Mini App (dev server)
+# 3. Запустить Telegram Mini App (dev server)
 ./gradlew :tgminiapp:jsBrowserDevelopmentRun
 ```
 
@@ -148,27 +151,14 @@ storage:
 7. Пользователь видит статус DONE
 ```
 
-### Сценарий 2: Скачивание эпизода сериала
+### Сценарий 2: Умное определение (LLM)
 
 ```
-1. Ссылка на видео канала "Kurzgesagt"
-2. Правило: channel="Kurzgesagt" → category=SERIES
-3. Метаданные: seriesName="Kurzgesagt", season="2024", episode="01", title="..."
-4. Файл: /media/TV/Kurzgesagt/Season 2024/01 - Title.mp4
-```
-
-### Сценарий 3: Умное определение (LLM)
-
-```
-1. Ссылка на видео неизвестного канала "Cooking with Chef"
+1. Ссылка на видео неизвестного канала
 2. Правил нет. Включена интеграция с Gemini.
-3. Сервис отправляет заголовок и описание в LLM.
-4. LLM определяет:
-   - Category: EDUCATIONAL
-   - Series: "Cooking Basics"
-   - Title: "How to chop onions"
-5. Пользователь видит предложенные данные.
-6. Может поставить галочку "Сохранить как правило" для этого канала.
+3. LLM определяет категорию, исполнителя/название.
+4. Пользователь видит предложенные данные.
+5. Может поставить галочку "Сохранить как правило" для этого канала.
 ```
 
 ---
@@ -187,13 +177,7 @@ storage:
 
 ## 📚 Дополнительно
 
-- [Glossary](#глоссарий)
-- [FAQ](#faq)
-- [Contributing](#contributing)
-
----
-
-## Глоссарий
+### Глоссарий
 
 | Термин               | Описание                                                         |
 |----------------------|------------------------------------------------------------------|
@@ -204,19 +188,21 @@ storage:
 | **Job**              | Задача скачивания с прогрессом и статусом                        |
 | **StoragePlan**      | Итоговые пути файлов после подстановки шаблонов                  |
 | **initData**         | Строка авторизации Telegram Mini App                             |
+| **KMP**              | Kotlin Multiplatform — единая кодовая база для разных платформ   |
 
----
+### FAQ
 
-## FAQ
+**Q: Почему Kotlin Multiplatform?**  
+A: Единый стек Kotlin везде. Domain и UI-компоненты шарятся между сервером (JVM) и клиентами (JS, будущие нативные).
 
-**Q: Почему Compose Multiplatform для Web, а не React?**  
-A: Единый стек Kotlin, переиспользование кода между платформами, type-safe API client.
+**Q: Почему Compose Multiplatform, а не React?**  
+A: Type-safe UI на том же языке, переиспользование компонентов между платформами.
+
+**Q: Как добавить новый UI (desktop, Android)?**  
+A: Создать shell-модуль, подключить `features` + `api:client:di`. Все экраны уже готовы.
 
 **Q: Почему yt-dlp как внешний процесс?**  
 A: Наиболее актуальная поддержка форматов и сайтов, простота обновления.
-
-**Q: Можно ли добавить другие источники (не YouTube)?**  
-A: Да, yt-dlp поддерживает множество сайтов. Поле `extractor` в `VideoSource` это предусматривает.
 
 ---
 
@@ -226,4 +212,3 @@ A: Да, yt-dlp поддерживает множество сайтов. Пол
 2. Следуй принципам из [ARCHITECTURE.md](docs/ARCHITECTURE.md)
 3. Пиши тесты согласно [TESTING.md](docs/TESTING.md)
 4. При изменении поведения — обновляй документацию
-

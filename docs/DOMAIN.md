@@ -8,8 +8,12 @@
 
 Домен — ядро приложения. Он **не зависит** от фреймворков, БД, сериализации.
 
+**Модуль**: `domain` — **Kotlin Multiplatform** (targets: `jvm`, `js`).
+
+Весь код размещается в `commonMain` source set. Platform-specific код не допускается.
+
 ```
-domain/
+domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 ├── model/          # Сущности и value objects
 ├── service/        # Доменные сервисы
 ├── usecase/        # Use cases (application layer)
@@ -17,6 +21,13 @@ domain/
 ├── policy/         # Политики (download, storage, postprocess)
 └── port/           # Интерфейсы репозиториев (для infra)
 ```
+
+**KMP-замечания**:
+- `kotlin.uuid.Uuid` вместо `java.util.UUID`
+- `kotlinx.datetime.Instant`, `LocalDate` вместо `java.time.*`
+- `value class` поддерживается на JS с Kotlin 2.1+
+- `kotlin.text.Regex` — уже KMP-совместим
+- `Path` не используется в domain — только `String` для путей
 
 ---
 
@@ -51,10 +62,10 @@ value class ChannelId(val value: String) {
 
 ```kotlin
 @JvmInline
-value class RuleId(val value: UUID)
+value class RuleId(val value: Uuid)  // kotlin.uuid.Uuid
 
 @JvmInline
-value class JobId(val value: UUID)
+value class JobId(val value: Uuid)
 ```
 
 ### 2.4 TelegramUserId
@@ -654,13 +665,13 @@ interface VideoInfoExtractor {
 interface VideoDownloader {
     suspend fun download(
         source: VideoSource,
-        outputPath: Path,
+        outputPath: String,
         policy: DownloadPolicy,
         onProgress: (JobProgress) -> Unit,
     ): Either<DomainError, DownloadResult>
     
     data class DownloadResult(
-        val filePath: Path,
+        val filePath: String,
         val format: String,
         val fileSize: Long,
     )
@@ -736,24 +747,22 @@ class MetadataResolver {
 
 ```kotlin
 class PathTemplateEngine(
-    private val baseDirectories: List<Path>,
+    private val baseDirectories: List<String>,
 ) {
     
-    fun render(template: String, context: TemplateContext): Either<DomainError, Path> {
+    fun render(template: String, context: TemplateContext): Either<DomainError, String> {
         val rendered = PLACEHOLDER_REGEX.replace(template) { match ->
             val variable = match.groupValues[1]
             context.get(variable)?.sanitizeForPath() ?: ""
         }
         
-        val path = Path.of(rendered)
-        
-        // Проверка path traversal
+        // Проверка path traversal (нет ".." в результирующем пути)
         val isWithinBase = baseDirectories.any { base ->
-            path.normalize().startsWith(base.normalize())
+            rendered.startsWith(base) && !rendered.contains("..")
         }
         
         return if (isWithinBase) {
-            path.right()
+            rendered.right()
         } else {
             DomainError.PathTraversalAttempt(rendered).left()
         }
@@ -852,14 +861,14 @@ class PreviewUseCase(
         StoragePlan(
             original = policy.originalTemplate?.let { template ->
                 OutputTarget(
-                    path = pathTemplateEngine.render(template, context).bind().toString(),
+                    path = pathTemplateEngine.render(template, context).bind(),
                     container = "mp4",
                     kind = OutputKind.ORIGINAL,
                 )
             },
             converted = policy.convertedTemplate?.let { template ->
                 OutputTarget(
-                    path = pathTemplateEngine.render(template, context).bind().toString(),
+                    path = pathTemplateEngine.render(template, context).bind(),
                     container = "mp4",
                     kind = OutputKind.CONVERTED,
                 )
@@ -907,7 +916,7 @@ class CreateJobUseCase(
         
         val now = clock.instant()
         val job = Job(
-            id = JobId(UUID.randomUUID()),
+            id = JobId(Uuid.random()),
             status = JobStatus.QUEUED,
             source = request.source,
             ruleId = request.ruleId,
@@ -946,14 +955,14 @@ class CreateJobUseCase(
 
 ### 10.1 Общие правила
 
-| Поле | Правило |
-|------|---------|
-| `title`, `artist`, `seriesName` | Не пустые после trim |
-| `year` | 1800-2100 или null |
-| `tags` | Нормализуются: trim, dedupe, remove empty |
-| `priority` | Int, может быть отрицательным |
-| `percent` (progress) | 0-100 |
-| Path templates | Минимум `{title}` или `{videoId}` |
+| Поле                            | Правило                                   |
+|---------------------------------|-------------------------------------------|
+| `title`, `artist`, `seriesName` | Не пустые после trim                      |
+| `year`                          | 1800-2100 или null                        |
+| `tags`                          | Нормализуются: trim, dedupe, remove empty |
+| `priority`                      | Int, может быть отрицательным             |
+| `percent` (progress)            | 0-100                                     |
+| Path templates                  | Минимум `{title}` или `{videoId}`         |
 
 ### 10.2 Валидация при создании
 

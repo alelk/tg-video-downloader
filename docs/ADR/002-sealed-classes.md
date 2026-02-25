@@ -136,6 +136,7 @@ fun RuleMatchDto.toDomain(): Either<ValidationError, RuleMatch> = when (this) {
 - Невозможно забыть case в when
 - Единый формат JSON для API и DB
 - Легко добавлять новые типы
+- **Полная KMP-совместимость**: sealed classes работают одинаково в `commonMain` на JVM и JS
 
 ### Отрицательные
 

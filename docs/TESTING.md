@@ -1,49 +1,81 @@
 # Тестирование
 
-> **Цель документа**: Стратегия тестирования, примеры тестов.
+> **Цель документа**: Стратегия тестирования, KMP-тесты, примеры.
 
 ---
 
 ## 1. Стек тестирования
 
-| Библиотека | Назначение |
-|------------|------------|
-| **Kotest** | Test framework (BDD-стиль, property-based) |
-| **MockK** | Mocking |
-| **Testcontainers** | PostgreSQL, Redis в тестах |
-| **Ktor Test** | HTTP-тесты без реального сервера |
+### По source set
+
+| Source set    | Библиотеки                     | Назначение                                         |
+|--------------|--------------------------------|----------------------------------------------------|
+| `commonTest` | kotlin-test, Kotest assertions | Domain, маппинг, use-cases (KMP-совместимые)       |
+| `jvmTest`    | Kotest runner, MockK           | Интеграционные тесты, мокирование                  |
+| `jvmTest`    | Testcontainers                 | PostgreSQL в тестах                                |
+| `jvmTest`    | Ktor Test                      | HTTP-тесты без реального сервера                   |
+| `jsTest`     | kotlin-test                    | JS-специфичные edge cases (при необходимости)      |
+
+> **Важно**: MockK не поддерживает JS. В `commonTest` для мокирования используются **fake-реализации** интерфейсов.
+
+### Зависимости
+
+```kotlin
+// KMP-модули (domain, api:mapping, и т.д.)
+commonTest.dependencies {
+    implementation(kotlin("test"))
+    implementation(libs.kotest.assertions)
+}
+
+// JVM-модули (server:*)
+testImplementation(libs.kotest.runner)
+testImplementation(libs.mockk)
+testImplementation(libs.testcontainers.postgresql)
+testImplementation(libs.ktor.server.test.host)
+```
 
 ---
 
 ## 2. Структура тестов
 
+### KMP-модули (domain, api:mapping, api:client)
+
 ```
-src/test/kotlin/
-├── unit/
-│   ├── domain/
-│   │   ├── RuleMatchTest.kt
-│   │   ├── ResolvedMetadataTest.kt
-│   │   ├── RuleMatchingServiceTest.kt
-│   │   └── PathTemplateEngineTest.kt
-│   ├── mapping/
-│   │   ├── RuleMatchMappingTest.kt
-│   │   └── MetadataMappingTest.kt
-│   └── security/
-│       └── TelegramAuthValidatorTest.kt
-├── integration/
-│   ├── repository/
-│   │   ├── RuleRepositoryTest.kt
-│   │   └── JobRepositoryTest.kt
-│   └── routes/
-│       ├── PreviewRoutesTest.kt
-│       └── JobRoutesTest.kt
-└── e2e/
-    └── DownloadFlowTest.kt
+module/src/
+├── commonTest/kotlin/        # ← основные тесты (работают на JVM и JS)
+│   ├── RuleMatchTest.kt
+│   ├── ResolvedMetadataTest.kt
+│   ├── RuleMatchingServiceTest.kt
+│   ├── PathTemplateEngineTest.kt
+│   └── RuleMatchMappingTest.kt
+├── jvmTest/kotlin/           # ← JVM-специфичные тесты (если нужны)
+└── jsTest/kotlin/            # ← JS-специфичные тесты (если нужны)
+```
+
+### JVM-модули (server:*)
+
+```
+server/infra/src/test/kotlin/
+├── repository/
+│   ├── RuleRepositoryTest.kt
+│   └── JobRepositoryTest.kt
+└── process/
+    └── YtDlpVideoInfoExtractorTest.kt
+
+server/transport/src/test/kotlin/
+├── routes/
+│   ├── PreviewRoutesTest.kt
+│   └── JobRoutesTest.kt
+└── security/
+    └── TelegramAuthValidatorTest.kt
 ```
 
 ---
 
 ## 3. Unit Tests
+
+> Размещаются в `commonTest` для KMP-модулей. Используют `kotlin.test` + Kotest assertions.
+> Для мокирования в `commonTest` — **fake-реализации** (не MockK!).
 
 ### 3.1 RuleMatch Tests
 
@@ -303,7 +335,7 @@ private fun buildValidInitData(
 ```kotlin
 class PathTemplateEngineTest : FunSpec({
 
-    val baseDirectories = listOf(Path.of("/media"))
+    val baseDirectories = listOf("/media")
     val engine = PathTemplateEngine(baseDirectories)
     
     context("template rendering") {
@@ -317,7 +349,7 @@ class PathTemplateEngineTest : FunSpec({
             val result = engine.render(template, context)
             
             result.shouldBeRight()
-            result.getOrNull().toString() shouldBe 
+            result.getOrNull() shouldBe 
                 "/media/Music/Rick Astley/Never Gonna Give You Up.mp4"
         }
         
@@ -329,7 +361,7 @@ class PathTemplateEngineTest : FunSpec({
             val result = engine.render("/media/{title}.mp4", context)
             
             result.shouldBeRight()
-            result.getOrNull().toString() shouldBe "/media/Video_ Part 1_2 _HD_.mp4"
+            result.getOrNull() shouldBe "/media/Video_ Part 1_2 _HD_.mp4"
         }
         
         test("handles missing variable") {

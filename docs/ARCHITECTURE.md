@@ -1,6 +1,6 @@
 # Архитектура
 
-> **Цель документа**: описать модульную структуру, зависимости и принципы проектирования.
+> **Цель документа**: описать модульную структуру, зависимости, KMP-стратегию и принципы проектирования.
 
 ---
 
@@ -10,30 +10,50 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    UI (tgminiapp)                       │
+│           UI Shells (tgminiapp, web, macOS…)            │
 ├─────────────────────────────────────────────────────────┤
-│               Transport (server-transport)              │
+│            Features (Compose Multiplatform)              │
 ├─────────────────────────────────────────────────────────┤
-│          Application (domain use-cases)                 │
+│                API Client / Transport                    │
 ├─────────────────────────────────────────────────────────┤
-│                  Domain (domain)                        │
+│          Application (domain use-cases)                  │
 ├─────────────────────────────────────────────────────────┤
-│           Infrastructure (server-infra)                 │
+│                  Domain (domain)                         │
+├─────────────────────────────────────────────────────────┤
+│           Infrastructure (server:infra)                  │
 └─────────────────────────────────────────────────────────┘
 ```
 
 **Правило зависимостей**: внутренние слои не знают о внешних.
 
-### 1.2 Kotlin-идиоматичность
+### 1.2 Kotlin Multiplatform
+
+Проект использует **Kotlin Multiplatform (KMP)** для переиспользования кода между сервером (JVM), Telegram Mini App (JS) и будущими нативными клиентами.
+
+| Модуль             | Kotlin Plugin   | Targets     | Обоснование                                        |
+|--------------------|-----------------|-------------|----------------------------------------------------|
+| `domain`           | `multiplatform` | `jvm`, `js` | Доменные модели шарятся между сервером и клиентами |
+| `api:contract`     | `multiplatform` | `jvm`, `js` | DTO шарятся через kotlinx.serialization            |
+| `api:mapping`      | `multiplatform` | `jvm`, `js` | Маппинг нужен и на сервере, и в features           |
+| `api:client`       | `multiplatform` | `jvm`, `js` | HTTP-клиент работает на обеих платформах           |
+| `api:client:di`    | `multiplatform` | `jvm`, `js` | Koin-модули для wiring клиента на каждой платформе |
+| `features`         | `multiplatform` | `jvm`, `js` | Compose UI шарится между shell-приложениями        |
+| `tgminiapp`        | `multiplatform` | `js`        | Telegram-специфичная shell, только браузер         |
+| `server:infra`     | `jvm`           | `jvm`       | DB, процессы — JVM-only                            |
+| `server:transport` | `jvm`           | `jvm`       | Ktor Server — JVM-only                             |
+| `server:di`        | `jvm`           | `jvm`       | Серверный DI wiring                                |
+| `server:app`       | `jvm`           | `jvm`       | Entrypoint, JVM-only                               |
+
+### 1.3 Kotlin-идиоматичность
 
 - **Sealed classes/interfaces** для полиморфных типов (RuleMatch, ResolvedMetadata, DomainError)
 - **Data classes** для DTO и value objects
-- **Value classes** для typesafe идентификаторов
+- **Value classes** для typesafe идентификаторов (KMP-совместимые с Kotlin 2.1+)
 - **Extension functions** для утилит
 - **Coroutines** для асинхронности
-- **Result/Either** для обработки ошибок без исключений
+- **Either** (Arrow) для обработки ошибок без исключений
 
-### 1.3 Contract-first
+### 1.4 Contract-first
 
 - API-контракт (`api:contract`) определяется до реализации
 - DTO стабильны и версионируются
@@ -46,45 +66,45 @@
 ### 2.1 Диаграмма зависимостей
 
 ```
-                         ┌─────────────┐
-                         │  tgminiapp  │
-                         │  (JS/Wasm)  │
-                         └──────┬──────┘
-                                │
-                         ┌──────▼──────┐
-                         │ api:client  │
-                         └──────┬──────┘
-                                │
-         ┌──────────────────────┼──────────────────────┐
-         │                      │                      │
-         ▼                      ▼                      │
-┌─────────────────┐    ┌─────────────────┐            │
-│  api:contract   │    │   api:mapping   │            │
-└────────┬────────┘    └────────┬────────┘            │
-         │                      │                      │
-         │              ┌───────▼───────┐              │
-         │              │    domain     │◄─────────────┘
-         │              └───────┬───────┘
-         │                      │
-         │     ┌────────────────┼────────────────┐
-         │     │                │                │
-         ▼     ▼                ▼                ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│server:transport │    │  server:infra   │    │    server:di    │
-└────────┬────────┘    └────────┬────────┘    └────────┬────────┘
-         │                      │                      │
-         └──────────────────────┼──────────────────────┘
-                                │
-                         ┌──────▼──────┐
-                         │  server:app │
-                         └─────────────┘
+                     ┌──────────────────┐
+                     │    tgminiapp     │  (JS only — Telegram shell)
+                     │                  │
+                     └────────┬─────────┘
+                              │
+                     ┌────────▼─────────┐
+                     │    features      │  (KMP — Compose Multiplatform UI)
+                     └────────┬─────────┘
+                              │
+              ┌───────────────┼────────────────┐
+              │               │                │
+              ▼               ▼                ▼
+      ┌──────────────┐ ┌──────────┐  ┌──────────────┐
+      │  api:client  │ │  domain  │  │ api:mapping  │
+      └──────┬───────┘ └────┬─────┘  └──────┬───────┘
+             │              │               │
+      ┌──────▼───────┐     │        ┌──────▼───────┐
+      │api:client:di │     │        │ api:contract │
+      └──────────────┘     │        └──────────────┘
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+          ▼                ▼                ▼
+  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+  │server:transp.│ │ server:infra │ │  server:di   │
+  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
+         │                │                │
+         └────────────────┼────────────────┘
+                          │
+                   ┌──────▼──────┐
+                   │ server:app  │
+                   └─────────────┘
 ```
 
 ### 2.2 Описание модулей
 
-#### `domain`
+#### `domain` — KMP (jvm, js)
 
-**Назначение**: Бизнес-логика, чистый Kotlin.
+**Назначение**: Бизнес-логика, чистый Kotlin. Ядро приложения.
 
 **Содержит**:
 - Доменные модели (sealed classes, data classes)
@@ -95,286 +115,197 @@
 - Доменные ошибки (`sealed interface DomainError`)
 - Политики (`DownloadPolicy`, `StoragePolicy`, `PostProcessPolicy`)
 
-**Зависимости**: Только Kotlin stdlib + Arrow (Either).
+**Зависимости**: Kotlin stdlib, Arrow (Either), kotlinx-datetime, kotlinx-coroutines.
 
 **Не содержит**: Ktor, kotlinx.serialization, DB, файловая система.
 
 ```
-// Пример структуры пакетов
-domain/
-├── model/
-│   ├── Rule.kt
-│   ├── RuleMatch.kt          // sealed interface
-│   ├── Category.kt           // enum
-│   ├── MetadataSource.kt     // enum (RULE, LLM, FALLBACK)
-│   ├── ResolvedMetadata.kt   // sealed interface
-│   ├── Job.kt
-│   └── VideoInfo.kt
-├── service/
-│   ├── RuleMatchingService.kt
-│   └── MetadataResolver.kt
-├── usecase/
-│   ├── PreviewUseCase.kt
-│   └── CreateJobUseCase.kt
-├── error/
-│   └── DomainError.kt        // sealed interface
-├── policy/
-│   ├── DownloadPolicy.kt
-│   ├── StoragePolicy.kt
-│   └── PostProcessPolicy.kt
-└── port/
-    ├── RuleRepository.kt     // interface
-    ├── JobRepository.kt      // interface
-    ├── VideoInfoExtractor.kt // interface
-    └── LlmPort.kt            // interface (optional LLM integration)
+domain/src/
+├── commonMain/kotlin/io/github/alelk/tgvd/domain/
+│   ├── model/
+│   │   ├── Rule.kt
+│   │   ├── RuleMatch.kt          // sealed interface
+│   │   ├── Category.kt           // enum
+│   │   ├── MetadataSource.kt     // enum (RULE, LLM, FALLBACK)
+│   │   ├── ResolvedMetadata.kt   // sealed interface
+│   │   ├── Job.kt
+│   │   └── VideoInfo.kt
+│   ├── service/
+│   │   ├── RuleMatchingService.kt
+│   │   └── MetadataResolver.kt
+│   ├── usecase/
+│   │   ├── PreviewUseCase.kt
+│   │   └── CreateJobUseCase.kt
+│   ├── error/
+│   │   └── DomainError.kt
+│   ├── policy/
+│   │   ├── DownloadPolicy.kt
+│   │   ├── StoragePolicy.kt
+│   │   └── PostProcessPolicy.kt
+│   └── port/
+│       ├── RuleRepository.kt
+│       ├── JobRepository.kt
+│       ├── VideoInfoExtractor.kt
+│       └── LlmPort.kt
+└── commonTest/kotlin/
 ```
+
+> **KMP-замечания**:
+> - Вместо `java.util.UUID` → `kotlin.uuid.Uuid` (Kotlin 2.0+)
+> - Вместо `java.time.*` → `kotlinx-datetime`
+> - `value class` поддерживается в JS с Kotlin 2.1+
+> - `kotlin.text.Regex` — уже KMP-совместим
 
 ---
 
-#### `api:contract`
+#### `api:contract` — KMP (jvm, js)
 
 **Назначение**: DTO для HTTP API (request/response).
 
-**Содержит**:
-- Request/Response DTO
-- Sealed DTO с discriminator `type`
-- `ApiErrorDto`
-- Константы версий API
+**Содержит**: Request/Response DTO, Sealed DTO с discriminator `type`, `ApiErrorDto`.
 
 **Зависимости**: Kotlin stdlib, kotlinx.serialization.
 
-```
-// Пример
-api/contract/
-├── v1/
-│   ├── PreviewRequestDto.kt
-│   ├── PreviewResponseDto.kt
-│   ├── CreateJobRequestDto.kt
-│   ├── JobDto.kt
-│   ├── RuleDto.kt
-│   ├── RuleMatchDto.kt       // sealed with @SerialName
-│   ├── ResolvedMetadataDto.kt // sealed with @SerialName
-│   └── ApiErrorDto.kt
-└── common/
-    └── PaginationDto.kt
-```
-
 ---
 
-#### `api:mapping`
+#### `api:mapping` — KMP (jvm, js)
 
 **Назначение**: Конвертация domain ↔ DTO.
 
-**Содержит**:
-- Extension functions: `RuleMatch.toDto()`, `RuleMatchDto.toDomain()`
-- Валидация DTO перед конвертацией
-- Адаптация `DomainError` → `ApiErrorDto`
+**Зависимости**: `domain`, `api:contract`, Arrow.
 
-**Зависимости**: `domain`, `api:contract`.
+> Маппинг размещён в KMP-модуле, т.к. используется и на сервере (`server:transport`), и на клиенте (`features`).
+
+---
+
+#### `api:client` — KMP (jvm, js)
+
+**Назначение**: Typed HTTP-клиент для UI и тестов.
+
+**Зависимости**: `api:contract`, Ktor Client.
+
+---
+
+#### `api:client:di` — KMP (jvm, js)
+
+**Назначение**: Koin-модули для wiring `api:client`.
+
+**Содержит**: Koin module с фабрикой `TgVideoDownloaderClient`, platform-specific Ktor engine (expect/actual).
+
+**Зависимости**: `api:client`, Koin core, Ktor Client engine.
 
 ```kotlin
-// Пример
-fun RuleMatch.toDto(): RuleMatchDto = when (this) {
-    is RuleMatch.ChannelId -> RuleMatchDto.ChannelId(value)
-    is RuleMatch.AllOf -> RuleMatchDto.AllOf(matches.map { it.toDto() })
-    // ...
+// commonMain
+val apiClientModule = module {
+    single<HttpClient> { createPlatformHttpClient(get()) }
+    single<TgVideoDownloaderClient> { TgVideoDownloaderClientImpl(get()) }
 }
 
-fun RuleMatchDto.toDomain(): Either<ValidationError, RuleMatch> = when (this) {
-    is RuleMatchDto.ChannelId -> 
-        if (value.isBlank()) ValidationError("value is blank").left()
-        else RuleMatch.ChannelId(value).right()
-    // ...
-}
+// jvmMain
+actual fun createPlatformHttpClient(config: ClientConfig): HttpClient =
+    HttpClient(CIO) { /* ... */ }
+
+// jsMain
+actual fun createPlatformHttpClient(config: ClientConfig): HttpClient =
+    HttpClient(Js) { /* ... */ }
 ```
 
 ---
 
-#### `api:client`
+#### `features` — KMP (jvm, js) + Compose Multiplatform
 
-**Назначение**: Typed HTTP-клиент для UI.
+**Назначение**: Переиспользуемые UI-компоненты (Compose Multiplatform).
 
-**Содержит**:
-- `TgVideoDownloaderClient` interface + Ktor implementation
-- Автоматическая передача `initData`
-- Retry на уровне HTTP
-- (De)сериализация
+**Содержит**: Экраны, компоненты, state holders / ViewModels, навигация.
 
-**Зависимости**: `api:contract`, Ktor Client (KMP).
+**Зависимости**: `domain`, `api:client`, `api:mapping`, Compose Multiplatform, Koin.
 
-**Платформы**: JVM, JS, (Wasm).
+**Не содержит**: Platform-specific код (Telegram interop, Android Activity и т.д.)
 
-```kotlin
-interface TgVideoDownloaderClient {
-    suspend fun preview(request: PreviewRequestDto): ApiResult<PreviewResponseDto>
-    suspend fun createJob(request: CreateJobRequestDto): ApiResult<JobDto>
-    suspend fun getJob(id: String): ApiResult<JobDto>
-    suspend fun listJobs(status: String? = null, limit: Int = 20, offset: Int = 0): ApiResult<List<JobDto>>
-    // ...
-}
 ```
+features/src/commonMain/kotlin/io/github/alelk/tgvd/features/
+├── screen/
+│   ├── UrlInputScreen.kt
+│   ├── PreviewScreen.kt
+│   ├── JobListScreen.kt
+│   └── RuleEditorScreen.kt
+├── component/
+│   ├── MetadataEditor.kt
+│   ├── ProgressBar.kt
+│   └── SaveAsRuleCheckbox.kt
+├── state/
+│   ├── PreviewState.kt
+│   └── JobListState.kt
+└── viewmodel/
+    ├── PreviewViewModel.kt
+    └── JobListViewModel.kt
+```
+
+> Это ключевой модуль для мультиплатформенности. Новый UI-shell (web, macOS, Android) подключает `features` и добавляет только platform-specific glue.
 
 ---
 
-#### `server:infra`
+#### `tgminiapp` — JS only (browser)
 
-**Назначение**: Реализация портов (DB, внешние процессы, FS, LLM).
+**Назначение**: Telegram Mini App shell (тонкая обёртка).
 
-**Содержит**:
-- `RuleRepositoryImpl` (Exposed)
-- `JobRepositoryImpl` (Exposed)
-- `YtDlpVideoInfoExtractor` (поддержка Proxy)
-- `YtDlpDownloader` (поддержка Proxy)
-- `LlmServiceImpl` (Gemini/OpenAI client + Proxy)
-- `FfmpegConverter`
-- `FileStorageService`
-- DB схема (Exposed tables)
-- Flyway миграции
+**Содержит**: Main.kt, App.kt, TelegramWebApp.kt (JS interop), DI wiring.
 
-**Зависимости**: `domain`, `api:contract`, Exposed, Flyway, kotlinx.serialization, Ktor Client.
+**Зависимости**: `features`, `api:client:di`, Compose HTML/Web runtime.
 
-```
-server/infra/
-├── db/
-│   ├── tables/
-│   │   ├── RulesTable.kt
-│   │   └── JobsTable.kt
-│   ├── repository/
-│   │   ├── RuleRepositoryImpl.kt
-│   │   └── JobRepositoryImpl.kt
-│   └── migration/
-│       └── V1__initial.sql
-├── process/
-│   ├── YtDlpVideoInfoExtractor.kt
-│   ├── YtDlpDownloader.kt
-│   └── FfmpegConverter.kt
-├── llm/
-│   ├── GeminiLlmAdapter.kt       // LlmPort implementation for Gemini
-│   ├── OpenAiLlmAdapter.kt       // LlmPort implementation for OpenAI
-│   └── NoopLlmAdapter.kt         // Fallback when LLM is disabled
-├── storage/
-│   └── FileStorageService.kt
-└── json/
-    └── JsonColumnType.kt  // Exposed JSONB support
-```
+**Не содержит**: Бизнес-логику, экраны, компоненты — всё в `features`.
+
+> В будущем рядом появятся: `webapp` (JS), `desktopapp` (JVM), `androidapp` — все зависят от `features`.
 
 ---
 
-#### `server:transport`
+#### `server:infra` — JVM only
 
-**Назначение**: HTTP слой (Ktor routing).
+**Назначение**: Реализация доменных портов (DB, процессы, FS, LLM).
 
-**Содержит**:
-- Ktor routes (`/api/v1/...`)
-- `TelegramAuthPlugin` (проверка initData)
-- Request validation
-- Error handling (exception → ApiErrorDto)
-- CORS, logging plugins
+**Зависимости**: `domain`, `api:contract`, Exposed, Flyway, Ktor Client (JVM).
+
+---
+
+#### `server:transport` — JVM only
+
+**Назначение**: HTTP слой (Ktor Server routing).
 
 **Зависимости**: `domain`, `api:contract`, `api:mapping`, Ktor Server.
 
-```
-server/transport/
-├── plugin/
-│   ├── TelegramAuthPlugin.kt
-│   ├── ErrorHandlingPlugin.kt
-│   └── CorrelationIdPlugin.kt
-├── route/
-│   ├── PreviewRoutes.kt
-│   ├── JobRoutes.kt
-│   └── RuleRoutes.kt
-└── validation/
-    └── RequestValidation.kt
-```
-
 ---
 
-#### `server:di`
+#### `server:di` — JVM only
 
-**Назначение**: Dependency injection wiring.
-
-**Содержит**:
-- Koin modules
-- Factory functions
+**Назначение**: Dependency injection wiring для серверных модулей.
 
 **Зависимости**: `domain`, `server:infra`, `server:transport`, Koin.
 
-```kotlin
-val domainModule = module {
-    single { RuleMatchingService() }
-    single { MetadataResolver(get()) }
-    factory { PreviewUseCase(get(), get(), get()) }
-    factory { CreateJobUseCase(get(), get()) }
-}
-
-val infraModule = module {
-    single<RuleRepository> { RuleRepositoryImpl(get()) }
-    single<JobRepository> { JobRepositoryImpl(get()) }
-    single<VideoInfoExtractor> { YtDlpVideoInfoExtractor(get()) }
-}
-```
-
 ---
 
-#### `server:app`
+#### `server:app` — JVM only
 
-**Назначение**: Entrypoint, сборка приложения.
-
-**Содержит**:
-- `Application.kt` (Ktor entrypoint)
-- Configuration loading (Hoplite)
-- Server startup
+**Назначение**: Entrypoint, сборка серверного приложения.
 
 **Зависимости**: Все серверные модули.
 
-```kotlin
-fun main() {
-    embeddedServer(Netty, port = config.server.port) {
-        configureDI()
-        configureSerialization()
-        configureRouting()
-        configureAuth()
-    }.start(wait = true)
-}
-```
-
 ---
 
-#### `tgminiapp`
+### 2.3 Правила зависимостей
 
-**Назначение**: Telegram Mini App UI.
-
-**Содержит**:
-- Compose Multiplatform Web UI
-- Screens: UrlInput, Preview, JobList, RuleEditor
-- ViewModels / State holders
-- Telegram WebApp JS interop
-
-**Зависимости**: `domain` (models), `api:client`, Compose Multiplatform.
-
-**Target**: JS (Browser), возможно Wasm в будущем.
-
-```
-tgminiapp/
-├── src/jsMain/kotlin/
-│   ├── Main.kt
-│   ├── App.kt
-│   ├── screen/
-│   │   ├── UrlInputScreen.kt
-│   │   ├── PreviewScreen.kt
-│   │   ├── JobListScreen.kt
-│   │   └── RuleEditorScreen.kt
-│   ├── component/
-│   │   ├── MetadataEditor.kt
-│   │   └── ProgressBar.kt
-│   ├── state/
-│   │   ├── AppState.kt
-│   │   └── JobState.kt
-│   └── telegram/
-│       └── TelegramWebApp.kt  // JS interop
-└── src/jsMain/resources/
-    └── index.html
-```
+| Модуль             | Может зависеть от                                      | НЕ может зависеть от           |
+|--------------------|--------------------------------------------------------|--------------------------------|
+| `domain`           | Kotlin stdlib, Arrow, kotlinx-datetime                 | Всё остальное                  |
+| `api:contract`     | Kotlin stdlib, kotlinx.serialization                   | domain, server:*, features     |
+| `api:mapping`      | domain, api:contract, Arrow                            | server:*, api:client, features |
+| `api:client`       | api:contract, Ktor Client                              | domain, server:*, features     |
+| `api:client:di`    | api:client, Koin, Ktor engine                          | domain, server:*, features     |
+| `features`         | domain, api:client, api:mapping, Compose, Koin         | server:*, tgminiapp            |
+| `tgminiapp`        | features, api:client:di                                | server:*, domain напрямую      |
+| `server:infra`     | domain, api:contract                                   | transport, di, app, features   |
+| `server:transport` | domain, api:contract, api:mapping, Ktor Server         | di, app, features              |
+| `server:di`        | domain, server:infra, server:transport, Koin           | app, features                  |
+| `server:app`       | Все серверные модули                                   | features, tgminiapp            |
 
 ---
 
@@ -382,64 +313,24 @@ tgminiapp/
 
 ### 3.1 Error handling
 
-**В domain**: `Either<DomainError, T>` или `Result<T>` (без исключений).
+**В domain** (`commonMain`): `Either<DomainError, T>` (без исключений).
 
-```kotlin
-sealed interface DomainError {
-    data class ValidationError(val field: String, val message: String) : DomainError
-    data class VideoUnavailable(val videoId: String, val reason: String) : DomainError
-    data class RuleNotFound(val id: UUID) : DomainError
-    // ...
-}
-
-suspend fun PreviewUseCase.execute(url: String): Either<DomainError, PreviewResult>
-```
-
-**В transport**: Ловим `DomainError`, мапим в HTTP-статус + `ApiErrorDto`.
+**В transport** (JVM): Ловим `DomainError`, мапим в HTTP-статус + `ApiErrorDto`.
 
 ### 3.2 Async
 
 - Все I/O операции — `suspend fun`
-- Для параллельных задач — `coroutineScope { async { ... } }`
+- `kotlinx-coroutines` используется во всех KMP-модулях
 - Job execution — `CoroutineDispatcher` из DI
 
 ### 3.3 Конфигурация
 
-- Hoplite для загрузки YAML/env
+- Hoplite для загрузки YAML/env (только `server:app`, JVM)
 - Data classes для config
-- Defaults через `@DefaultValue`
 
-```kotlin
-data class AppConfig(
-    val server: ServerConfig,
-    val telegram: TelegramConfig,
-    val db: DbConfig,
-    val storage: StorageConfig,
-    val ytDlp: YtDlpConfig,
-)
+### 3.4 KMP source set conventions
 
-data class TelegramConfig(
-    val botToken: String,
-    val allowedUserIds: List<String>,
-    @DefaultValue("false")
-    val devMode: Boolean,
-)
-```
-
-### 3.4 Логирование
-
-- `kotlin-logging` (обёртка над SLF4J)
-- Structured logging (JSON в production)
-- `correlationId` через MDC
-
-```kotlin
-private val logger = KotlinLogging.logger {}
-
-logger.info { "Job started" }
-logger.withLoggingContext("jobId" to job.id.toString()) {
-    logger.info { "Downloading..." }
-}
-```
+Весь переиспользуемый код — в `commonMain`. Platform-specific — через `expect/actual`.
 
 ---
 
@@ -450,25 +341,100 @@ logger.withLoggingContext("jobId" to job.id.toString()) {
 ```kotlin
 rootProject.name = "tg-video-downloader"
 
-// === Domain ===
+// === Domain (KMP) ===
 include(":domain")
 
-// === API ===
+// === API (KMP) ===
 include(":api:contract")
 include(":api:mapping")
 include(":api:client")
+include(":api:client:di")
 
-// === Server ===
+// === Server (JVM only) ===
 include(":server:infra")
 include(":server:transport")
 include(":server:di")
 include(":server:app")
 
-// === UI ===
+// === UI (KMP) ===
+include(":features")
 include(":tgminiapp")
 ```
 
-### 4.2 Версии (libs.versions.toml)
+### 4.2 Примеры build.gradle.kts
+
+#### domain/build.gradle.kts
+
+```kotlin
+plugins {
+    alias(libs.plugins.kotlin.multiplatform)
+}
+
+kotlin {
+    jvm()
+    js(IR) { browser() }
+
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.datetime)
+            implementation(libs.arrow.core)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotest.assertions)
+        }
+    }
+}
+```
+
+#### features/build.gradle.kts
+
+```kotlin
+plugins {
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.compose)
+    alias(libs.plugins.compose.compiler)
+}
+
+kotlin {
+    jvm()
+    js(IR) { browser() }
+
+    sourceSets {
+        commonMain.dependencies {
+            implementation(compose.runtime)
+            implementation(compose.foundation)
+            implementation(compose.material3)
+            implementation(projects.domain)
+            implementation(projects.api.client)
+            implementation(projects.api.mapping)
+            implementation(libs.koin.core)
+            implementation(libs.koin.compose)
+        }
+    }
+}
+```
+
+#### server:infra/build.gradle.kts
+
+```kotlin
+plugins {
+    alias(libs.plugins.kotlin.jvm)
+}
+
+dependencies {
+    implementation(projects.domain)
+    implementation(projects.api.contract)
+    implementation(libs.exposed.core)
+    implementation(libs.exposed.jdbc)
+    implementation(libs.exposed.json)
+    implementation(libs.flyway.core)
+    implementation(libs.ktor.client.cio)
+}
+```
+
+### 4.3 Версии (libs.versions.toml)
 
 ```toml
 [versions]
@@ -478,6 +444,7 @@ exposed = "0.58.0"
 koin = "4.1.0"
 serialization = "1.8.0"
 coroutines = "1.10.0"
+datetime = "0.6.0"
 arrow = "2.0.0"
 kotest = "5.9.0"
 logback = "1.5.0"
@@ -487,34 +454,29 @@ compose = "1.7.0"
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
-ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
-ktor-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
-ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
-
 exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
-exposed-dao = { module = "org.jetbrains.exposed:exposed-dao", version.ref = "exposed" }
 exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
 exposed-json = { module = "org.jetbrains.exposed:exposed-json", version.ref = "exposed" }
-exposed-java-time = { module = "org.jetbrains.exposed:exposed-java-time", version.ref = "exposed" }
-
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
-
+koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
-
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "datetime" }
 arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
-
 kotest-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 compose = { id = "org.jetbrains.compose", version.ref = "compose" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ```
 
 ---
@@ -525,7 +487,7 @@ compose = { id = "org.jetbrains.compose", version.ref = "compose" }
 
 ```
 ┌─────────┐    POST /api/v1/preview    ┌─────────────────┐
-│  Mini   │ ─────────────────────────▶ │ server-transport│
+│  Mini   │ ─────────────────────────▶ │ server:transport│
 │   App   │                            │  (Ktor route)   │
 └─────────┘                            └────────┬────────┘
                                                 │
@@ -535,48 +497,29 @@ compose = { id = "org.jetbrains.compose", version.ref = "compose" }
                                        │    (domain)    │
                                        └────────┬───────┘
                                                 │
-                    ┌───────────────────────────┼───────────────────────────┐
-                    │                           │                           │
-                    ▼                           ▼                           ▼
-           ┌────────────────┐          ┌────────────────┐          ┌────────────────┐
-           │VideoInfoExtrac │          │RuleRepository  │          │RuleMatching    │
-           │    tor.extract │          │    .findAll    │          │   Service      │
-           └────────────────┘          └────────────────┘          └────────────────┘
-                    │                           │                           │
-                    │                           │                           │
-                    ▼                           ▼                           ▼
-           ┌────────────────┐          ┌────────────────┐          ┌────────────────┐
-           │   yt-dlp       │          │   PostgreSQL   │          │ MetadataResolver│
-           │  subprocess    │          │                │          │                │
-           └────────────────┘          └────────────────┘          └────────────────┘
+                    ┌───────────────────────────┼──────────────────────┐
+                    │                           │                      │
+                    ▼                           ▼                      ▼
+           ┌────────────────┐          ┌────────────────┐     ┌──────────────┐
+           │VideoInfoExtract│          │ RuleRepository │     │RuleMatching  │
+           │  tor.extract   │          │   .findAll     │     │  Service     │
+           └────────┬───────┘          └────────┬───────┘     └──────┬───────┘
+                    ▼                           ▼                    ▼
+              yt-dlp (+ proxy)           PostgreSQL          MetadataResolver
+                                                              (+ LlmPort)
 ```
 
 ### 5.2 Job execution flow
 
 ```
-┌──────────────┐
-│ JobScheduler │  (polls QUEUED jobs)
-└──────┬───────┘
+JobScheduler (polls QUEUED)
        │
        ▼
-┌──────────────┐
-│ JobExecutor  │
-└──────┬───────┘
-       │
-       ├──▶ YtDlpDownloader.download()
-       │         │
-       │         ▼
-       │    (temp file)
-       │
-       ├──▶ FfmpegConverter.convert()  (if needed)
-       │         │
-       │         ▼
-       │    (converted file)
-       │
+JobExecutor
+       ├──▶ YtDlpDownloader.download()  (+ proxy)  →  temp file
+       ├──▶ FfmpegConverter.convert()  (if needed)  →  converted file
        ├──▶ MetadataTagger.tag()  (if needed)
-       │
        ├──▶ FileStorageService.moveToFinal()
-       │
        └──▶ JobRepository.updateStatus(DONE)
 ```
 
@@ -584,25 +527,25 @@ compose = { id = "org.jetbrains.compose", version.ref = "compose" }
 
 ## 6. Расширяемость
 
-### 6.1 Добавление нового источника видео
+### 6.1 Добавление новой UI-платформы
 
-1. Реализовать `VideoInfoExtractor` для нового источника
-2. Добавить `extractor` в `VideoSource`
-3. Зарегистрировать в DI
+1. Создать новый shell-модуль (`:desktopapp`, `:androidapp`, `:webapp`)
+2. Зависимость: `features`, `api:client:di`
+3. Реализовать platform-specific glue (entry point, DI setup)
+4. Все экраны и компоненты уже готовы в `features`
 
 ### 6.2 Добавление новой категории
 
-1. Добавить в `enum Category`
-2. Добавить sealed subclass в `ResolvedMetadata`
-3. Добавить sealed subclass в `ResolvedMetadataDto`
-4. Добавить маппинг
-5. Обновить UI для новых полей
+1. Добавить в `enum Category` (domain, commonMain)
+2. Добавить sealed subclass в `ResolvedMetadata` (domain)
+3. Добавить sealed subclass в `ResolvedMetadataDto` (api:contract)
+4. Добавить маппинг (api:mapping)
+5. Обновить UI (features)
 
 ### 6.3 Добавление нового типа матчинга
 
-1. Добавить sealed subclass в `RuleMatch`
-2. Добавить sealed subclass в `RuleMatchDto`
-3. Добавить маппинг
-4. Реализовать логику в `RuleMatchingService`
-5. Обновить UI rule editor
-
+1. Добавить sealed subclass в `RuleMatch` (domain)
+2. Добавить sealed subclass в `RuleMatchDto` (api:contract)
+3. Добавить маппинг (api:mapping)
+4. Реализовать логику в `RuleMatchingService` (domain)
+5. Обновить UI rule editor (features)

@@ -228,6 +228,7 @@ suspend fun complexOperation(): Either<DomainError, Result> = either {
 - Явный flow ошибок
 - Единый формат для клиента
 - Удобная отладка через correlationId
+- **Arrow Either — полная KMP-совместимость**: стратегия работает одинаково в `commonMain` на JVM и JS
 
 ### Отрицательные
 

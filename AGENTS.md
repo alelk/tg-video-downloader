@@ -7,26 +7,26 @@
 
 ## 🎯 Краткое описание проекта
 
-**TG Video Downloader** — сервис для скачивания YouTube-видео с управлением через Telegram Mini App. Поддерживает умное определение метаданных через LLM (Gemini/OpenAI) и HTTP/SOCKS5 прокси.
+**TG Video Downloader** — сервис для скачивания YouTube-видео с управлением через Telegram Mini App. Поддерживает LLM (Gemini/OpenAI) для определения метаданных и HTTP/SOCKS5 прокси.
 
-**Стек**: Kotlin 2.3+, Ktor 3, Compose Multiplatform, PostgreSQL, yt-dlp.
+**Стек**: Kotlin 2.3+ (Multiplatform), Ktor 3, Compose Multiplatform, PostgreSQL, yt-dlp.
 
 ---
 
 ## 📚 Где искать информацию
 
-| Что нужно                        | Где смотреть                                       |
-|----------------------------------|----------------------------------------------------|
-| Обзор проекта                    | [`README.md`](./README.md)               |
-| Архитектура и модули             | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)   |
-| Доменные модели (sealed classes) | [`docs/DOMAIN.md`](./docs/DOMAIN.md)               |
-| HTTP API и DTO                   | [`docs/API_CONTRACT.md`](./docs/API_CONTRACT.md)   |
-| База данных                      | [`docs/DATABASE.md`](./docs/DATABASE.md)           |
-| Конфигурация                     | [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md) |
-| Безопасность и авторизация       | [`docs/SECURITY.md`](./docs/SECURITY.md)           |
-| Тестирование                     | [`docs/TESTING.md`](./docs/TESTING.md)             |
-| Деплой                           | [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)       |
-| Архитектурные решения            | [`docs/ADR/`](./docs/ADR/)                         |
+| Что нужно                        | Где смотреть                                         |
+|----------------------------------|------------------------------------------------------|
+| Обзор проекта                    | [`README.md`](./README.md)                           |
+| Архитектура, KMP и модули        | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)     |
+| Доменные модели (sealed classes) | [`docs/DOMAIN.md`](./docs/DOMAIN.md)                 |
+| HTTP API и DTO                   | [`docs/API_CONTRACT.md`](./docs/API_CONTRACT.md)     |
+| База данных                      | [`docs/DATABASE.md`](./docs/DATABASE.md)             |
+| Конфигурация                     | [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md)   |
+| Безопасность и авторизация       | [`docs/SECURITY.md`](./docs/SECURITY.md)             |
+| Тестирование                     | [`docs/TESTING.md`](./docs/TESTING.md)               |
+| Деплой                           | [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)         |
+| Архитектурные решения            | [`docs/ADR/`](./docs/ADR/)                           |
 
 ---
 
@@ -34,27 +34,37 @@
 
 ```
 tg-video-downloader/
-├── domain/              # Доменные модели, use-cases (чистый Kotlin, без фреймворков)
+├── domain/              # Доменные модели, use-cases (KMP: jvm, js)
 ├── api/
-│   ├── contract/        # DTO для HTTP API (kotlinx.serialization, KMP)
-│   ├── mapping/         # Маппинг domain <-> DTO
-│   └── client/          # Ktor KMP HTTP-клиент
+│   ├── contract/        # DTO для HTTP API (KMP: jvm, js)
+│   ├── mapping/         # Маппинг domain <-> DTO (KMP: jvm, js)
+│   ├── client/          # Ktor HTTP-клиент (KMP: jvm, js)
+│   └── client/di/       # Koin-модули для API-клиента (KMP: jvm, js)
+├── features/            # UI-компоненты, Compose Multiplatform (KMP: jvm, js)
+├── tgminiapp/           # Telegram Mini App shell (JS only)
 ├── server/
-│   ├── infra/           # Репозитории, DB (Exposed), внешние процессы (yt-dlp, ffmpeg), LLM
-│   ├── transport/       # Ktor routing, auth middleware
-│   ├── di/              # Koin модули
-│   └── app/             # Entrypoint, Application.kt
-├── tgminiapp/           # Compose Multiplatform Web UI
+│   ├── infra/           # Репозитории, DB, yt-dlp, ffmpeg, LLM (JVM only)
+│   ├── transport/       # Ktor routing, auth middleware (JVM only)
+│   ├── di/              # Koin модули сервера (JVM only)
+│   └── app/             # Entrypoint, Application.kt (JVM only)
 └── docs/                # Документация
 ```
 
-**Правило зависимостей**: `domain` → ни от чего; `api:contract` → только kotlinx.serialization; все остальные модули могут зависеть от domain.
+**KMP-правило**: `domain`, `api:*`, `features` — Kotlin Multiplatform (jvm + js). `server:*` — JVM only. `tgminiapp` — JS only.
 
 ---
 
 ## ⚡ Ключевые принципы
 
-### 1. Kotlin-идиоматичность
+### 1. Kotlin Multiplatform
+
+- Весь переиспользуемый код — в `commonMain` source set
+- Platform-specific код — через `expect/actual`
+- `java.util.UUID` → `kotlin.uuid.Uuid` (Kotlin 2.0+)
+- `java.time.*` → `kotlinx-datetime`
+- НЕ использовать JVM-only классы в `commonMain`
+
+### 2. Kotlin-идиоматичность
 
 - **Sealed classes** для полиморфных типов (`RuleMatch`, `ResolvedMetadata`, `DomainError`)
 - **Value classes** для typesafe ID (`VideoId`, `RuleId`, `JobId`)
@@ -62,17 +72,19 @@ tg-video-downloader/
 - **Either<Error, T>** для обработки ошибок (Arrow)
 - **Coroutines** для асинхронности
 
-### 2. Разделение слоёв
+### 3. Разделение слоёв
 
 ```
-UI (tgminiapp) → api:client → api:contract
-                                    ↓
-            server:transport → api:mapping → domain
-                    ↓
-            server:infra (DB, yt-dlp, LLM, Proxy)
+UI Shell (tgminiapp) → features (Compose)
+                            ↓
+              api:client → api:contract
+                            ↓
+              api:mapping → domain
+                            ↓
+              server:transport → server:infra (DB, yt-dlp, LLM, Proxy)
 ```
 
-### 3. Contract-first
+### 4. Contract-first
 
 - Сначала DTO в `api:contract`, потом реализация
 - Discriminator `type` для sealed DTO в JSON
@@ -82,26 +94,27 @@ UI (tgminiapp) → api:client → api:contract
 
 ## 📝 Инструкции для реализации
 
-### При создании нового модуля
+### При создании нового KMP-модуля
 
 1. Добавь в `settings.gradle.kts`
-2. Создай `build.gradle.kts` с правильными зависимостями
-3. Следуй структуре пакетов из [ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+2. Используй `kotlin("multiplatform")` plugin
+3. Объяви таргеты: `jvm()`, `js(IR) { browser() }`
+4. Весь код — в `commonMain`, platform-specific — через `expect/actual`
 
 ### При добавлении нового типа в sealed hierarchy
 
-1. Добавь в domain (`domain/model/`)
-2. Добавь в DTO (`api/contract/`) с `@SerialName`
-3. Добавь маппинг в обе стороны (`api/mapping/`)
-4. Добавь тесты
-5. Обнови документацию при необходимости
+1. Добавь в domain (`commonMain`)
+2. Добавь в DTO (`api:contract`, `commonMain`) с `@SerialName`
+3. Добавь маппинг (`api:mapping`, `commonMain`)
+4. Добавь тесты (`commonTest`)
+5. Обнови UI (`features`)
 
 ### При создании нового endpoint
 
 1. Опиши DTO в `api:contract`
 2. Добавь route в `server:transport`
 3. Реализуй use-case в `domain` (если нужна бизнес-логика)
-4. Добавь тесты (unit + integration)
+4. Добавь тесты
 5. Обнови [API_CONTRACT.md](./docs/API_CONTRACT.md)
 
 ### При работе с ошибками
@@ -115,82 +128,43 @@ UI (tgminiapp) → api:client → api:contract
 
 ## 🔑 Важные детали реализации
 
-### Telegram initData
-
-- Проверка в `TelegramAuthPlugin` (server-transport)
-- Алгоритм: HMAC-SHA256 с ключом = HMAC("WebAppData", botToken)
-- Проверяй `auth_date` на свежесть
-- Allowlist пользователей в конфигурации
-
-### RuleMatch sealed hierarchy
-
-```kotlin
-sealed interface RuleMatch {
-    data class AllOf(val matches: List<RuleMatch>) : RuleMatch  // AND
-    data class AnyOf(val matches: List<RuleMatch>) : RuleMatch  // OR
-    data class ChannelId(val value: String) : RuleMatch
-    data class ChannelName(val value: String) : RuleMatch
-    data class TitleRegex(val pattern: String) : RuleMatch
-    data class UrlRegex(val pattern: String) : RuleMatch
-}
-```
-
-### ResolvedMetadata sealed hierarchy
-
-```kotlin
-sealed interface ResolvedMetadata {
-    data class MusicVideo(val artist: String, val title: String, ...) : ResolvedMetadata
-    data class SeriesEpisode(val seriesName: String, val season: String?, ...) : ResolvedMetadata
-    data class Other(val title: String, ...) : ResolvedMetadata
-}
-```
-
-### MetadataSource enum
-
-```kotlin
-enum class MetadataSource { RULE, LLM, FALLBACK }
-```
-
-Указывает, откуда пришли метаданные: из правила, LLM или базового fallback.
-
 ### LlmPort (Optional)
 
 ```kotlin
+// domain/port/ (commonMain)
 interface LlmPort {
     suspend fun suggestMetadata(video: VideoInfo): Either<DomainError.LlmError, LlmSuggestion>
 }
 ```
 
-`LlmPort` — порт в `domain/port/`. Реализации (`GeminiLlmAdapter`, `OpenAiLlmAdapter`) — в `server:infra/llm/`.
-Инжектится как nullable (`getOrNull()`). Если LLM не настроен (`provider=NONE`) — `null`, fallback на базовый `MetadataResolver`.
-
-### Save as Rule
-
-При создании job (`POST /api/v1/jobs`) можно передать `saveAsRule` с настройками, чтобы автоматически создать правило для этого канала из текущих метаданных.
+Реализации (`GeminiLlmAdapter`, `OpenAiLlmAdapter`) — в `server:infra/llm/`.
+Инжектится как nullable (`getOrNull()`). Если LLM не настроен — `null`, fallback на `MetadataResolver`.
 
 ### Proxy
 
-Конфигурация прокси (`ProxyConfig`) используется в двух местах:
-- `yt-dlp` — через аргумент `--proxy`
-- LLM HTTP-клиент — через `Ktor Client` engine proxy config
+`ProxyConfig` используется в:
+- `yt-dlp` → аргумент `--proxy`
+- LLM HTTP-клиент → `Ktor Client` engine proxy config
 
-### JSON сериализация sealed
+### Save as Rule
 
-Discriminator: `type`
+При создании job (`POST /api/v1/jobs`) можно передать `saveAsRule`, чтобы автоматически создать правило для этого канала из текущих метаданных.
 
-```json
-{ "type": "channelId", "value": "UC123" }
-{ "type": "musicVideo", "artist": "...", "title": "..." }
-```
+### features → tgminiapp
+
+`features` содержит все Compose UI-компоненты. `tgminiapp` — тонкая shell-обёртка, которая:
+- Инициализирует DI (Koin)
+- Подключает `features` экраны
+- Обеспечивает Telegram WebApp JS interop
 
 ---
 
 ## ✅ Чек-лист перед коммитом
 
-- [ ] Код компилируется без warnings
-- [ ] Тесты проходят (`./gradlew test`)
-- [ ] Новый код покрыт тестами
-- [ ] Документация обновлена (если изменено поведение)
+- [ ] Код компилируется на всех таргетах (`./gradlew build`)
+- [ ] Тесты проходят (`./gradlew allTests`)
+- [ ] Новый код в `commonMain` не использует JVM-only классы
+- [ ] Документация обновлена
 - [ ] Нет hardcoded secrets
 - [ ] Следует принципам из ADR
 
@@ -198,19 +172,21 @@ Discriminator: `type`
 
 ## 🚫 Чего НЕ делать
 
-- ❌ Не добавлять зависимости на Ktor/DB в `domain`
+- ❌ Не добавлять JVM-only зависимости в `commonMain` KMP-модулей
+- ❌ Не добавлять Ktor/DB зависимости в `domain`
 - ❌ Не использовать exceptions для бизнес-ошибок
 - ❌ Не хардкодить пути и конфигурацию
-- ❌ Не логировать sensitive данные (botToken, initData полностью)
+- ❌ Не логировать sensitive данные (botToken, initData)
 - ❌ Не создавать циклических зависимостей между модулями
-- ❌ Не использовать `!!` без крайней необходимости
+- ❌ Не размещать UI-компоненты в `tgminiapp` — только в `features`
 
 ---
 
 ## 📎 Быстрые ссылки
 
 - **Gradle команды**:
-  - `./gradlew test` — все тесты
+  - `./gradlew build` — полная сборка всех модулей
+  - `./gradlew allTests` — все тесты (commonTest + jvmTest + jsTest)
   - `./gradlew :server:app:run` — запуск сервера
   - `./gradlew :tgminiapp:jsBrowserDevelopmentRun` — запуск UI
 

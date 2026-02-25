@@ -21,7 +21,7 @@ RUN gradle dependencies --no-daemon
 
 # Build
 COPY . .
-RUN gradle :server:app:shadowJar --no-daemon
+RUN gradle :server:app:shadowJar :tgminiapp:jsBrowserProductionWebpack --no-daemon
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine
@@ -38,6 +38,9 @@ WORKDIR /app
 
 # Copy jar
 COPY --from=build /app/server/app/build/libs/server-app-all.jar app.jar
+
+# Copy tgminiapp JS bundle (served by Ktor static files)
+COPY --from=build /app/tgminiapp/build/dist/js/productionExecutable/ /app/static/
 
 # Create non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
