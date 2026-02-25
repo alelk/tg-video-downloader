@@ -221,8 +221,9 @@ interface TgVideoDownloaderClient {
 **Содержит**:
 - `RuleRepositoryImpl` (Exposed)
 - `JobRepositoryImpl` (Exposed)
-- `YtDlpVideoInfoExtractor`
-- `YtDlpDownloader`
+- `YtDlpVideoInfoExtractor` (поддержка Proxy)
+- `YtDlpDownloader` (поддержка Proxy)
+- `LlmServiceImpl` (Gemini/OpenAI client + Proxy)
 - `FfmpegConverter`
 - `FileStorageService`
 - DB схема (Exposed tables)
