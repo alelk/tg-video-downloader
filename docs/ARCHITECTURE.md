@@ -106,54 +106,33 @@
 
 **Назначение**: Бизнес-логика, чистый Kotlin. Ядро приложения.
 
+**Организация**: Package-by-feature (не по техническим слоям).
+
 **Содержит**:
-- Доменные модели (sealed classes, data classes)
-- Value objects (`VideoId`, `ChannelId`)
-- Доменные сервисы (`RuleMatchingService`, `MetadataResolver`)
-- Порты для внешних сервисов (`LlmPort`, `RuleRepository`, `VideoInfoExtractor`)
-- Use-cases (`CreateJobUseCase`, `PreviewUseCase`)
-- Доменные ошибки (`sealed interface DomainError`)
-- Политики (`DownloadPolicy`, `StoragePolicy`, `PostProcessPolicy`)
+- `common/` — Value objects (`VideoId`, `RuleId`, `JobId`), `Category`, `DomainError`
+- `video/` — `VideoSource`, `VideoInfo`, `VideoInfoExtractor` port
+- `rule/` — `Rule`, `RuleMatch` (sealed), `RuleMatchingService`, `RuleRepository` port
+- `metadata/` — `ResolvedMetadata` (sealed), `MetadataResolver`, `LlmPort`, `LlmSuggestion`
+- `storage/` — `StoragePlan`, `StoragePolicy`, `PathTemplateEngine`, `VideoDownloader` port
+- `job/` — `Job`, `JobStatus`, `CreateJobUseCase`, `JobRepository` port
+- `preview/` — `PreviewUseCase` (оркестратор)
 
 **Зависимости**: Kotlin stdlib (`kotlin.time.Instant`, `kotlin.uuid.Uuid`), Arrow (Either), kotlinx-coroutines.
 
 **Не содержит**: Ktor, kotlinx.serialization, DB, файловая система.
 
 ```
-domain/src/
-├── commonMain/kotlin/io/github/alelk/tgvd/domain/
-│   ├── model/
-│   │   ├── Rule.kt
-│   │   ├── RuleMatch.kt          // sealed interface
-│   │   ├── Category.kt           // enum
-│   │   ├── MetadataSource.kt     // enum (RULE, LLM, FALLBACK)
-│   │   ├── ResolvedMetadata.kt   // sealed interface
-│   │   ├── Job.kt
-│   │   └── VideoInfo.kt
-│   ├── service/
-│   │   ├── RuleMatchingService.kt
-│   │   └── MetadataResolver.kt
-│   ├── usecase/
-│   │   ├── PreviewUseCase.kt
-│   │   └── CreateJobUseCase.kt
-│   ├── error/
-│   │   └── DomainError.kt
-│   ├── policy/
-│   │   ├── DownloadPolicy.kt
-│   │   ├── StoragePolicy.kt
-│   │   └── PostProcessPolicy.kt
-│   └── port/
-│       ├── RuleRepository.kt
-│       ├── JobRepository.kt
-│       ├── VideoInfoExtractor.kt
-│       └── LlmPort.kt
-└── commonTest/kotlin/
+domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
+├── common/         # Value objects, Category, DomainError
+├── video/          # VideoSource, VideoInfo, VideoInfoExtractor port
+├── rule/           # Rule, RuleMatch, RuleMatchingService, RuleRepository port
+├── metadata/       # ResolvedMetadata, MetadataResolver, LlmPort
+├── storage/        # StoragePlan, StoragePolicy, PathTemplateEngine
+├── job/            # Job, CreateJobUseCase, JobRepository port
+└── preview/        # PreviewUseCase
 ```
 
-> **KMP-замечания**:
-> - Вместо `java.util.UUID` → `kotlin.uuid.Uuid` (Kotlin 2.0+)
-> - Вместо `java.time.Instant` → `kotlin.time.Instant` (Kotlin 2.1.20+, в stdlib)
-> - Даты (upload date и т.д.) — `String` в ISO 8601 формате
+> Пакеты организованы без циклических зависимостей. Каждый пакет при росте проекта может быть извлечён в отдельный Gradle-модуль.
 
 ---
 

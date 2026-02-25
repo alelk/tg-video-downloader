@@ -59,16 +59,27 @@ dependencies {
 ### KMP-модули (domain, api:mapping, api:client)
 
 ```
-module/src/
-├── commonTest/kotlin/        # ← основные тесты (работают на JVM и JS)
+domain/src/commonTest/kotlin/io/github/alelk/tgvd/domain/
+├── rule/
 │   ├── RuleMatchTest.kt
+│   └── RuleMatchingServiceTest.kt
+├── metadata/
 │   ├── ResolvedMetadataTest.kt
-│   ├── RuleMatchingServiceTest.kt
-│   ├── PathTemplateEngineTest.kt
-│   └── RuleMatchMappingTest.kt
-├── jvmTest/kotlin/           # ← JVM-специфичные тесты (если нужны)
-└── jsTest/kotlin/            # ← JS-специфичные тесты (если нужны)
+│   └── MetadataResolverTest.kt
+├── storage/
+│   └── PathTemplateEngineTest.kt
+├── job/
+│   └── CreateJobUseCaseTest.kt
+└── preview/
+    └── PreviewUseCaseTest.kt
+
+api/mapping/src/commonTest/kotlin/
+├── RuleMatchMappingTest.kt
+└── MetadataMappingTest.kt
 ```
+
+> Тесты повторяют package-by-feature структуру domain.
+> `jvmTest/` и `jsTest/` — только для платформ-специфичных edge cases.
 
 ### JVM-модули (server:*)
 

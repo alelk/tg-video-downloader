@@ -133,7 +133,7 @@ UI Shell (tgminiapp) → features (Compose)
 ### LlmPort (Optional)
 
 ```kotlin
-// domain/port/ (commonMain)
+// domain/metadata/LlmPort.kt (commonMain)
 interface LlmPort {
     suspend fun suggestMetadata(video: VideoInfo): Either<DomainError.LlmError, LlmSuggestion>
 }
@@ -150,7 +150,8 @@ interface LlmPort {
 
 ### Save as Rule
 
-При создании job (`POST /api/v1/jobs`) можно передать `saveAsRule`, чтобы автоматически создать правило для этого канала из текущих метаданных.
+При создании job (`POST /api/v1/jobs`) можно передать `saveAsRule`, 
+чтобы автоматически создать правило для этого канала из текущих метаданных.
 
 ### features → tgminiapp
 
@@ -188,7 +189,7 @@ interface LlmPort {
 
 - **Gradle команды**:
   - `./gradlew build` — полная сборка всех модулей
-  - `./gradlew allTests` — все тесты (commonTest + jvmTest + jsTest)
+  - `./gradlew check` — все тесты (commonTest + jvmTest + jsTest)
   - `./gradlew :server:app:run` — запуск сервера
   - `./gradlew :tgminiapp:jsBrowserDevelopmentRun` — запуск UI
 

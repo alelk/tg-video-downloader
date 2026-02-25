@@ -12,29 +12,57 @@
 
 Весь код размещается в `commonMain` source set. Platform-specific код не допускается.
 
+### Структура: Package-by-Feature
+
+Домен организован **по фичам**, а не по техническим слоям. Каждый пакет автономен, 
+содержит свои модели, сервисы и порты. 
+Такая структура:
+- Повышает cohesion (связанные классы рядом)
+- Упрощает навигацию (всё про правила — в `rule/`)
+- Каждый пакет потенциально может стать отдельным модулем
+- Нет циклических зависимостей между пакетами
+
 ```
 domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
-├── model/          # Сущности и value objects
-├── service/        # Доменные сервисы
-├── usecase/        # Use cases (application layer)
-├── error/          # Доменные ошибки (sealed)
-├── policy/         # Политики (download, storage, postprocess)
-└── port/           # Интерфейсы репозиториев (для infra)
+├── common/             # Общие типы: Category, DomainError, value objects
+├── video/              # VideoSource, VideoInfo, VideoInfoExtractor port
+├── rule/               # Rule, RuleMatch, RuleMatchingService, RuleRepository port
+├── metadata/           # ResolvedMetadata, MetadataResolver, MetadataTemplate, LlmPort
+├── storage/            # StoragePlan, StoragePolicy, PathTemplateEngine
+├── job/                # Job, JobStatus, CreateJobUseCase, JobRepository port
+└── preview/            # PreviewUseCase (оркестрация video + rule + metadata + storage)
 ```
+
+### Граф зависимостей между пакетами
+
+```
+                    preview
+                   ╱   │   ╲
+                  ╱    │    ╲
+              rule  metadata  storage
+                ╲      │      ╱
+                 ╲     │     ╱
+                   video
+                     │
+                   common
+
+              job ──▶ video, storage, common
+```
+
+> Стрелки = зависит от. Циклов нет. Каждый пакет при необходимости может быть извлечён в Gradle-модуль.
 
 **KMP-замечания**:
 - `kotlin.uuid.Uuid` вместо `java.util.UUID`
 - `kotlin.time.Instant` для timestamps (в stdlib с Kotlin 2.1.20+)
 - Даты — `String` в формате ISO 8601 (`"2024-02-25"`)
 - `value class` поддерживается на JS с Kotlin 2.1+
-- `kotlin.text.Regex` — уже KMP-совместим
 - `Path` не используется в domain — только `String` для путей
 
 ---
 
-## 2. Value Objects
+## 2. `common` — Общие типы
 
-### 2.1 VideoId
+### 2.1 Value Objects
 
 ```kotlin
 /**
@@ -48,34 +76,20 @@ value class VideoId(val value: String) {
         require(value.length <= 64) { "VideoId too long" }
     }
 }
-```
 
-### 2.2 ChannelId
-
-```kotlin
 @JvmInline
 value class ChannelId(val value: String) {
     init {
-        require(value.startsWith("UC") || value.startsWith("@")) { 
-            "Invalid ChannelId format" 
-        }
+        require(value.isNotBlank()) { "ChannelId cannot be blank" }
     }
 }
-```
 
-### 2.3 RuleId, JobId
-
-```kotlin
 @JvmInline
 value class RuleId(val value: Uuid)  // kotlin.uuid.Uuid
 
 @JvmInline
 value class JobId(val value: Uuid)
-```
 
-### 2.4 TelegramUserId
-
-```kotlin
 @JvmInline
 value class TelegramUserId(val value: Long) {
     init {
@@ -84,11 +98,7 @@ value class TelegramUserId(val value: Long) {
 }
 ```
 
----
-
-## 3. Enums
-
-### 3.1 Category
+### 2.2 Category
 
 ```kotlin
 enum class Category {
@@ -103,101 +113,149 @@ enum class Category {
 }
 ```
 
-### 3.2 JobStatus
+### 2.3 DomainError
 
 ```kotlin
-enum class JobStatus {
-    QUEUED,
-    RUNNING,
-    POST_PROCESSING,
-    DONE,
-    FAILED,
-    CANCELLED;
+sealed interface DomainError {
+    val message: String
     
-    fun isTerminal(): Boolean = this in listOf(DONE, FAILED, CANCELLED)
-    fun isActive(): Boolean = this in listOf(QUEUED, RUNNING, POST_PROCESSING)
+    // === Validation ===
+    data class ValidationError(val field: String, override val message: String) : DomainError
+    data class InvalidUrl(val url: String, override val message: String = "Invalid URL: $url") : DomainError
+    
+    // === Not Found ===
+    data class RuleNotFound(val id: RuleId, override val message: String = "Rule not found: ${id.value}") : DomainError
+    data class JobNotFound(val id: JobId, override val message: String = "Job not found: ${id.value}") : DomainError
+    
+    // === Video ===
+    data class VideoUnavailable(val videoId: String, val reason: String, override val message: String = "Video unavailable: $videoId - $reason") : DomainError
+    data class VideoExtractionFailed(val url: String, val cause: String, override val message: String = "Failed to extract video info: $cause") : DomainError
+    
+    // === Job ===
+    data class JobAlreadyExists(val videoId: String, val existingJobId: JobId, override val message: String = "Job already exists for video $videoId") : DomainError
+    data class JobCannotBeCancelled(val id: JobId, val currentStatus: JobStatus, override val message: String = "Cannot cancel job in status $currentStatus") : DomainError
+    data class DownloadFailed(val jobId: JobId, val cause: String, override val message: String = "Download failed: $cause") : DomainError
+    data class PostProcessingFailed(val jobId: JobId, val phase: String, val cause: String, override val message: String = "Post-processing failed at $phase: $cause") : DomainError
+    
+    // === Storage ===
+    data class PathTraversalAttempt(val path: String, override val message: String = "Path traversal attempt: $path") : DomainError
+    data class StorageFailed(val path: String, val cause: String, override val message: String = "Storage failed for $path: $cause") : DomainError
+    
+    // === Auth ===
+    data class Unauthorized(override val message: String = "Unauthorized") : DomainError
+    data class Forbidden(val userId: TelegramUserId, override val message: String = "User ${userId.value} not allowed") : DomainError
+    
+    // === LLM ===
+    data class LlmError(val provider: String, override val message: String, val statusCode: Int? = null) : DomainError
 }
 ```
 
-### 3.3 JobPhase
+> `DomainError` — в `common/`, т.к. используется во всех пакетах. `JobStatus` импортируется из `job/` для `JobCannotBeCancelled` — это единственная обратная ссылка, допустимая т.к. это sealed subclass, а не бизнес-зависимость.
+
+---
+
+## 3. `video` — Видео
+
+Зависимости: `common`
+
+```
+domain/video/
+├── VideoSource.kt
+├── VideoInfo.kt
+└── VideoInfoExtractor.kt    # port
+```
+
+### 3.1 VideoSource
 
 ```kotlin
-enum class JobPhase {
-    DOWNLOAD,
-    MERGE,
-    CONVERT,
-    TAG,
-    MOVE;
+data class VideoSource(
+    val url: String,
+    val videoId: VideoId,
+    val extractor: String,  // "youtube", "rutube", "vk", "generic", ...
+) {
+    init {
+        require(url.isNotBlank()) { "URL cannot be blank" }
+        require(extractor.isNotBlank()) { "Extractor cannot be blank" }
+    }
 }
 ```
 
-### 3.4 OutputKind
+> `extractor` определяется автоматически yt-dlp. Поддерживается [1000+ сайтов](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
+
+### 3.2 VideoInfo
 
 ```kotlin
-enum class OutputKind {
-    ORIGINAL,
-    CONVERTED,
-    AUDIO_ONLY,
-    THUMBNAIL;
+data class VideoInfo(
+    val videoId: String,
+    val title: String,
+    val channelId: String,
+    val channelName: String,
+    val uploadDate: String?,       // ISO format: "2024-02-25"
+    val durationSeconds: Int,
+    val webpageUrl: String,
+    val thumbnails: List<Thumbnail> = emptyList(),
+    val description: String? = null,
+    val viewCount: Long? = null,
+) {
+    data class Thumbnail(val url: String, val width: Int?, val height: Int?)
+}
+```
+
+### 3.3 VideoInfoExtractor (port)
+
+```kotlin
+interface VideoInfoExtractor {
+    suspend fun extract(url: String): Either<DomainError, VideoInfo>
 }
 ```
 
 ---
 
-## 4. Sealed Classes
+## 4. `rule` — Правила
 
-### 4.1 RuleMatch
+Зависимости: `common`, `video`
 
-**Назначение**: Описание критерия для матчинга правила к видео.
+```
+domain/rule/
+├── Rule.kt
+├── RuleMatch.kt               # sealed interface
+├── RuleMatchingService.kt
+└── RuleRepository.kt          # port
+```
+
+### 4.1 RuleMatch (sealed)
 
 ```kotlin
 sealed interface RuleMatch {
     
-    /** Все условия должны выполниться (AND) */
     data class AllOf(val matches: List<RuleMatch>) : RuleMatch {
-        init {
-            require(matches.isNotEmpty()) { "AllOf cannot be empty" }
-        }
+        init { require(matches.isNotEmpty()) { "AllOf cannot be empty" } }
     }
     
-    /** Хотя бы одно условие должно выполниться (OR) */
     data class AnyOf(val matches: List<RuleMatch>) : RuleMatch {
-        init {
-            require(matches.isNotEmpty()) { "AnyOf cannot be empty" }
-        }
+        init { require(matches.isNotEmpty()) { "AnyOf cannot be empty" } }
     }
     
-    /** Точное совпадение Channel ID */
     data class ChannelId(val value: String) : RuleMatch {
-        init {
-            require(value.isNotBlank()) { "ChannelId value cannot be blank" }
-        }
+        init { require(value.isNotBlank()) { "ChannelId value cannot be blank" } }
     }
     
-    /** Точное совпадение имени канала (case-insensitive) */
     data class ChannelName(val value: String, val ignoreCase: Boolean = true) : RuleMatch {
-        init {
-            require(value.isNotBlank()) { "ChannelName value cannot be blank" }
-        }
+        init { require(value.isNotBlank()) { "ChannelName value cannot be blank" } }
     }
     
-    /** Regex по заголовку видео */
     data class TitleRegex(val pattern: String) : RuleMatch {
         val regex: Regex by lazy { pattern.toRegex() }
-        
         init {
             require(pattern.isNotBlank()) { "TitleRegex pattern cannot be blank" }
-            // Валидация regex при создании
             runCatching { pattern.toRegex() }.getOrElse { 
                 throw IllegalArgumentException("Invalid regex: $pattern", it) 
             }
         }
     }
     
-    /** Regex по URL видео */
     data class UrlRegex(val pattern: String) : RuleMatch {
         val regex: Regex by lazy { pattern.toRegex() }
-        
         init {
             require(pattern.isNotBlank()) { "UrlRegex pattern cannot be blank" }
             runCatching { pattern.toRegex() }.getOrElse { 
@@ -208,7 +266,7 @@ sealed interface RuleMatch {
 }
 ```
 
-**Алгоритм матчинга**:
+**Матчинг и специфичность**:
 
 ```kotlin
 fun RuleMatch.matches(video: VideoInfo): Boolean = when (this) {
@@ -219,11 +277,7 @@ fun RuleMatch.matches(video: VideoInfo): Boolean = when (this) {
     is RuleMatch.TitleRegex -> regex.containsMatchIn(video.title)
     is RuleMatch.UrlRegex -> regex.containsMatchIn(video.webpageUrl)
 }
-```
 
-**Специфичность** (для выбора между правилами с равным приоритетом):
-
-```kotlin
 fun RuleMatch.specificity(): Int = when (this) {
     is RuleMatch.ChannelId -> 100
     is RuleMatch.ChannelName -> 80
@@ -234,242 +288,7 @@ fun RuleMatch.specificity(): Int = when (this) {
 }
 ```
 
----
-
-### 4.2 ResolvedMetadata
-
-**Назначение**: Метаданные видео для редактирования пользователем.
-
-```kotlin
-sealed interface ResolvedMetadata {
-    val title: String
-    val year: Int?
-    val tags: List<String>
-    val comment: String?
-    
-    /** Музыкальное видео */
-    data class MusicVideo(
-        val artist: String,
-        override val title: String,
-        override val year: Int? = null,
-        override val tags: List<String> = emptyList(),
-        override val comment: String? = null,
-    ) : ResolvedMetadata {
-        init {
-            require(artist.isNotBlank()) { "Artist cannot be blank" }
-            require(title.isNotBlank()) { "Title cannot be blank" }
-            year?.let { require(it in 1800..2100) { "Year out of range" } }
-        }
-    }
-    
-    /** Эпизод сериала / шоу */
-    data class SeriesEpisode(
-        val seriesName: String,
-        val season: String? = null,
-        val episode: String? = null,
-        override val title: String,
-        override val year: Int? = null,
-        override val tags: List<String> = emptyList(),
-        override val comment: String? = null,
-    ) : ResolvedMetadata {
-        init {
-            require(seriesName.isNotBlank()) { "SeriesName cannot be blank" }
-            require(title.isNotBlank()) { "Title cannot be blank" }
-            year?.let { require(it in 1800..2100) { "Year out of range" } }
-        }
-    }
-    
-    /** Прочее */
-    data class Other(
-        override val title: String,
-        override val year: Int? = null,
-        override val tags: List<String> = emptyList(),
-        override val comment: String? = null,
-    ) : ResolvedMetadata {
-        init {
-            require(title.isNotBlank()) { "Title cannot be blank" }
-            year?.let { require(it in 1800..2100) { "Year out of range" } }
-        }
-    }
-}
-```
-
-**Связь с Category**:
-
-```kotlin
-fun ResolvedMetadata.category(): Category = when (this) {
-    is ResolvedMetadata.MusicVideo -> Category.MUSIC_VIDEO
-    is ResolvedMetadata.SeriesEpisode -> Category.SERIES
-    is ResolvedMetadata.Other -> Category.OTHER
-}
-
-fun Category.matches(metadata: ResolvedMetadata): Boolean = 
-    metadata.category() == this
-```
-
-**Нормализация tags**:
-
-```kotlin
-fun List<String>.normalizeTags(): List<String> = 
-    this.map { it.trim() }
-        .filter { it.isNotBlank() }
-        .distinctBy { it.lowercase() }
-```
-
----
-
-### 4.3 DomainError
-
-**Назначение**: Все возможные доменные ошибки.
-
-```kotlin
-sealed interface DomainError {
-    val message: String
-    
-    // === Validation ===
-    
-    data class ValidationError(
-        val field: String,
-        override val message: String,
-    ) : DomainError
-    
-    data class InvalidUrl(
-        val url: String,
-        override val message: String = "Invalid URL: $url",
-    ) : DomainError
-    
-    // === Not Found ===
-    
-    data class RuleNotFound(
-        val id: RuleId,
-        override val message: String = "Rule not found: ${id.value}",
-    ) : DomainError
-    
-    data class JobNotFound(
-        val id: JobId,
-        override val message: String = "Job not found: ${id.value}",
-    ) : DomainError
-    
-    // === Video ===
-    
-    data class VideoUnavailable(
-        val videoId: String,
-        val reason: String,
-        override val message: String = "Video unavailable: $videoId - $reason",
-    ) : DomainError
-    
-    data class VideoExtractionFailed(
-        val url: String,
-        val cause: String,
-        override val message: String = "Failed to extract video info: $cause",
-    ) : DomainError
-    
-    // === Job ===
-    
-    data class JobAlreadyExists(
-        val videoId: String,
-        val existingJobId: JobId,
-        override val message: String = "Job already exists for video $videoId",
-    ) : DomainError
-    
-    data class JobCannotBeCancelled(
-        val id: JobId,
-        val currentStatus: JobStatus,
-        override val message: String = "Cannot cancel job in status $currentStatus",
-    ) : DomainError
-    
-    data class DownloadFailed(
-        val jobId: JobId,
-        val cause: String,
-        override val message: String = "Download failed: $cause",
-    ) : DomainError
-    
-    data class PostProcessingFailed(
-        val jobId: JobId,
-        val phase: String,
-        val cause: String,
-        override val message: String = "Post-processing failed at $phase: $cause",
-    ) : DomainError
-    
-    // === Storage ===
-    
-    data class PathTraversalAttempt(
-        val path: String,
-        override val message: String = "Path traversal attempt: $path",
-    ) : DomainError
-    
-    data class StorageFailed(
-        val path: String,
-        val cause: String,
-        override val message: String = "Storage failed for $path: $cause",
-    ) : DomainError
-    
-    // === Auth ===
-    
-    data class Unauthorized(
-        override val message: String = "Unauthorized",
-    ) : DomainError
-    
-    data class Forbidden(
-        val userId: TelegramUserId,
-        override val message: String = "User ${userId.value} not allowed",
-    ) : DomainError
-    
-    // === LLM ===
-    
-    data class LlmError(
-        val provider: String,
-        val message: String,
-        val statusCode: Int? = null,
-    ) : DomainError
-}
-```
-
----
-
-## 5. Data Classes
-
-### 5.1 VideoSource
-
-```kotlin
-data class VideoSource(
-    val url: String,
-    val videoId: VideoId,
-    val extractor: String,  // e.g. "youtube", "rutube", "vk", "generic"
-) {
-    init {
-        require(url.isNotBlank()) { "URL cannot be blank" }
-        require(extractor.isNotBlank()) { "Extractor cannot be blank" }
-    }
-}
-```
-
-> `extractor` определяется автоматически yt-dlp при извлечении метаданных. Поддерживается [1000+ сайтов](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
-
-### 5.2 VideoInfo
-
-```kotlin
-data class VideoInfo(
-    val videoId: String,
-    val title: String,
-    val channelId: String,
-    val channelName: String,
-    val uploadDate: LocalDate?,
-    val durationSeconds: Int,
-    val webpageUrl: String,
-    val thumbnails: List<Thumbnail> = emptyList(),
-    val description: String? = null,
-    val viewCount: Long? = null,
-) {
-    data class Thumbnail(
-        val url: String,
-        val width: Int?,
-        val height: Int?,
-    )
-}
-```
-
-### 5.3 Rule
+### 4.2 Rule
 
 ```kotlin
 data class Rule(
@@ -487,7 +306,392 @@ data class Rule(
 )
 ```
 
-### 5.4 Job
+> `Rule` ссылается на `MetadataTemplate` (из `metadata/`), `StoragePolicy` (из `storage/`), `DownloadPolicy` и `PostProcessPolicy` (из `storage/`). Это допустимо: `rule` зависит от `metadata` и `storage`, но не наоборот.
+
+### 4.3 RuleMatchingService
+
+```kotlin
+class RuleMatchingService {
+    
+    fun findMatchingRule(video: VideoInfo, rules: List<Rule>): Rule? =
+        rules
+            .filter { it.enabled }
+            .filter { it.match.matches(video) }
+            .maxWithOrNull(compareBy(
+                { it.priority },
+                { it.match.specificity() },
+                { -it.createdAt.epochSecond }
+            ))
+}
+```
+
+### 4.4 RuleRepository (port)
+
+```kotlin
+interface RuleRepository {
+    suspend fun findById(id: RuleId): Rule?
+    suspend fun findAll(enabled: Boolean? = null): List<Rule>
+    suspend fun save(rule: Rule): Rule
+    suspend fun delete(id: RuleId)
+}
+```
+
+---
+
+## 5. `metadata` — Метаданные
+
+Зависимости: `common`, `video`
+
+```
+domain/metadata/
+├── ResolvedMetadata.kt        # sealed interface
+├── MetadataSource.kt          # enum
+├── MetadataTemplate.kt
+├── MetadataResolver.kt
+├── LlmSuggestion.kt
+└── LlmPort.kt                # port
+```
+
+### 5.1 MetadataSource
+
+```kotlin
+enum class MetadataSource { RULE, LLM, FALLBACK }
+```
+
+### 5.2 ResolvedMetadata (sealed)
+
+```kotlin
+sealed interface ResolvedMetadata {
+    val title: String
+    val year: Int?
+    val tags: List<String>
+    val comment: String?
+    
+    data class MusicVideo(
+        val artist: String,
+        override val title: String,
+        override val year: Int? = null,
+        override val tags: List<String> = emptyList(),
+        override val comment: String? = null,
+    ) : ResolvedMetadata {
+        init {
+            require(artist.isNotBlank()) { "Artist cannot be blank" }
+            require(title.isNotBlank()) { "Title cannot be blank" }
+            year?.let { require(it in 1800..2100) { "Year out of range" } }
+        }
+    }
+    
+    data class SeriesEpisode(
+        val seriesName: String,
+        val season: String? = null,
+        val episode: String? = null,
+        override val title: String,
+        override val year: Int? = null,
+        override val tags: List<String> = emptyList(),
+        override val comment: String? = null,
+    ) : ResolvedMetadata {
+        init {
+            require(seriesName.isNotBlank()) { "SeriesName cannot be blank" }
+            require(title.isNotBlank()) { "Title cannot be blank" }
+        }
+    }
+    
+    data class Other(
+        override val title: String,
+        override val year: Int? = null,
+        override val tags: List<String> = emptyList(),
+        override val comment: String? = null,
+    ) : ResolvedMetadata {
+        init { require(title.isNotBlank()) { "Title cannot be blank" } }
+    }
+}
+
+fun ResolvedMetadata.category(): Category = when (this) {
+    is ResolvedMetadata.MusicVideo -> Category.MUSIC_VIDEO
+    is ResolvedMetadata.SeriesEpisode -> Category.SERIES
+    is ResolvedMetadata.Other -> Category.OTHER
+}
+```
+
+### 5.3 MetadataTemplate
+
+```kotlin
+data class MetadataTemplate(
+    val artistPattern: String? = null,
+    val titlePattern: String? = null,
+    val seriesNameOverride: String? = null,
+    val defaultTags: List<String> = emptyList(),
+)
+```
+
+### 5.4 MetadataResolver
+
+```kotlin
+class MetadataResolver {
+    
+    fun resolve(video: VideoInfo, category: Category, template: MetadataTemplate?): ResolvedMetadata =
+        when (category) {
+            Category.MUSIC_VIDEO -> resolveMusicVideo(video, template)
+            Category.SERIES -> resolveSeriesEpisode(video, template)
+            Category.OTHER -> resolveOther(video, template)
+        }
+    
+    private fun resolveMusicVideo(video: VideoInfo, template: MetadataTemplate?): ResolvedMetadata.MusicVideo {
+        val (artist, title) = parseArtistTitle(video.title, template?.artistPattern)
+        return ResolvedMetadata.MusicVideo(
+            artist = artist,
+            title = title,
+            year = video.uploadDate?.take(4)?.toIntOrNull(),
+            tags = template?.defaultTags.orEmpty(),
+        )
+    }
+    
+    private fun parseArtistTitle(title: String, pattern: String?): Pair<String, String> {
+        val separators = listOf(" - ", " – ", " — ", ": ")
+        for (sep in separators) {
+            if (sep in title) {
+                val parts = title.split(sep, limit = 2)
+                return parts[0].trim() to parts[1].trim()
+            }
+        }
+        return "Unknown Artist" to title
+    }
+    
+    // ... resolveSeriesEpisode, resolveOther
+}
+```
+
+### 5.5 LlmPort (port) & LlmSuggestion
+
+```kotlin
+interface LlmPort {
+    suspend fun suggestMetadata(video: VideoInfo): Either<DomainError.LlmError, LlmSuggestion>
+}
+
+data class LlmSuggestion(
+    val category: Category,
+    val metadata: ResolvedMetadata,
+    val confidence: Double,
+)
+```
+
+---
+
+## 6. `storage` — Хранение и пост-обработка
+
+Зависимости: `common`, `video`, `metadata`
+
+```
+domain/storage/
+├── StoragePlan.kt
+├── OutputTarget.kt
+├── OutputKind.kt
+├── StoragePolicy.kt
+├── DownloadPolicy.kt
+├── PostProcessPolicy.kt
+├── PathTemplateEngine.kt
+└── VideoDownloader.kt         # port
+```
+
+### 6.1 OutputKind
+
+```kotlin
+enum class OutputKind { ORIGINAL, CONVERTED, AUDIO_ONLY, THUMBNAIL }
+```
+
+### 6.2 StoragePlan & OutputTarget
+
+```kotlin
+data class StoragePlan(
+    val original: OutputTarget?,
+    val converted: OutputTarget?,
+    val additional: List<OutputTarget> = emptyList(),
+) {
+    fun allTargets(): List<OutputTarget> = listOfNotNull(original, converted) + additional
+}
+
+data class OutputTarget(
+    val path: String,
+    val container: String,
+    val kind: OutputKind,
+)
+```
+
+### 6.3 DownloadPolicy
+
+```kotlin
+data class DownloadPolicy(
+    val maxQuality: VideoQuality = VideoQuality.BEST,
+    val preferredFormat: String? = null,
+    val downloadSubtitles: Boolean = false,
+    val subtitleLanguages: List<String> = emptyList(),
+) {
+    enum class VideoQuality { BEST, HD_1080, HD_720, SD_480 }
+}
+```
+
+### 6.4 StoragePolicy
+
+```kotlin
+data class StoragePolicy(
+    val originalTemplate: String?,
+    val convertedTemplate: String?,
+    val audioOnlyTemplate: String? = null,
+) {
+    init {
+        require(originalTemplate != null || convertedTemplate != null) {
+            "At least one template must be specified"
+        }
+    }
+    
+    companion object {
+        val MUSIC_VIDEO_DEFAULT = StoragePolicy(
+            originalTemplate = "/media/Music Videos/original/{artist}/{title} [{videoId}].{ext}",
+            convertedTemplate = "/media/Music Videos/converted/{artist}/{title}.mp4",
+        )
+        val SERIES_DEFAULT = StoragePolicy(
+            originalTemplate = null,
+            convertedTemplate = "/media/TV/{seriesName}/Season {season}/{episode} - {title}.mp4",
+        )
+        val OTHER_DEFAULT = StoragePolicy(
+            originalTemplate = "/media/Videos/{channelName}/{title} [{videoId}].{ext}",
+            convertedTemplate = null,
+        )
+        fun defaultFor(category: Category): StoragePolicy = when (category) {
+            Category.MUSIC_VIDEO -> MUSIC_VIDEO_DEFAULT
+            Category.SERIES -> SERIES_DEFAULT
+            Category.OTHER -> OTHER_DEFAULT
+        }
+    }
+}
+```
+
+### 6.5 PostProcessPolicy
+
+```kotlin
+data class PostProcessPolicy(
+    val convert: Boolean = true,
+    val targetContainer: String = "mp4",
+    val embedThumbnail: Boolean = true,
+    val embedMetadata: Boolean = true,
+    val normalizeAudio: Boolean = false,
+    val extractAudio: Boolean = false,
+    val audioFormat: String = "m4a",
+)
+```
+
+> Для `MUSIC_VIDEO`: оригинал (webm/mkv, макс. качество) → `original/`, конвертация в `targetContainer` → `converted/`. Оба файла получают вшитые метаданные и обложку.
+
+### 6.6 PathTemplateEngine
+
+```kotlin
+class PathTemplateEngine(
+    private val baseDirectories: List<String>,
+) {
+    fun render(template: String, context: TemplateContext): Either<DomainError, String> {
+        val rendered = PLACEHOLDER_REGEX.replace(template) { match ->
+            val variable = match.groupValues[1]
+            context.get(variable)?.sanitizeForPath() ?: ""
+        }
+        val isWithinBase = baseDirectories.any { base ->
+            rendered.startsWith(base) && !rendered.contains("..")
+        }
+        return if (isWithinBase) rendered.right()
+        else DomainError.PathTraversalAttempt(rendered).left()
+    }
+    
+    private fun String.sanitizeForPath(): String =
+        replace(FORBIDDEN_CHARS_REGEX, "_").replace("\\s+".toRegex(), " ").trim().take(MAX_FILENAME_LENGTH)
+    
+    data class TemplateContext(val values: Map<String, String>) {
+        fun get(key: String): String? = values[key]
+        
+        companion object {
+            fun from(metadata: ResolvedMetadata, video: VideoInfo): TemplateContext {
+                val map = mutableMapOf(
+                    "title" to metadata.title,
+                    "year" to (metadata.year?.toString() ?: ""),
+                    "channelName" to video.channelName,
+                    "videoId" to video.videoId,
+                    "uploadDate" to (video.uploadDate ?: ""),
+                )
+                when (metadata) {
+                    is ResolvedMetadata.MusicVideo -> map["artist"] = metadata.artist
+                    is ResolvedMetadata.SeriesEpisode -> {
+                        map["seriesName"] = metadata.seriesName
+                        map["season"] = metadata.season ?: ""
+                        map["episode"] = metadata.episode ?: ""
+                    }
+                    is ResolvedMetadata.Other -> {}
+                }
+                return TemplateContext(map)
+            }
+        }
+    }
+    
+    companion object {
+        private val PLACEHOLDER_REGEX = "\\{(\\w+)}".toRegex()
+        private val FORBIDDEN_CHARS_REGEX = "[/\\\\:*?\"<>|]".toRegex()
+        private const val MAX_FILENAME_LENGTH = 180
+    }
+}
+```
+
+### 6.7 VideoDownloader (port)
+
+```kotlin
+interface VideoDownloader {
+    suspend fun download(
+        source: VideoSource,
+        outputPath: String,
+        policy: DownloadPolicy,
+        onProgress: (JobProgress) -> Unit,
+    ): Either<DomainError, DownloadResult>
+    
+    data class DownloadResult(val filePath: String, val format: String, val fileSize: Long)
+}
+```
+
+---
+
+## 7. `job` — Задачи скачивания
+
+Зависимости: `common`, `video`, `metadata`, `storage`
+
+```
+domain/job/
+├── Job.kt
+├── JobStatus.kt
+├── JobPhase.kt
+├── JobProgress.kt
+├── JobError.kt
+├── CreateJobUseCase.kt
+└── JobRepository.kt           # port
+```
+
+### 7.1 JobStatus & JobPhase
+
+```kotlin
+enum class JobStatus {
+    QUEUED, RUNNING, POST_PROCESSING, DONE, FAILED, CANCELLED;
+    fun isTerminal(): Boolean = this in listOf(DONE, FAILED, CANCELLED)
+    fun isActive(): Boolean = this in listOf(QUEUED, RUNNING, POST_PROCESSING)
+}
+
+enum class JobPhase { DOWNLOAD, MERGE, CONVERT, TAG, MOVE }
+```
+
+### 7.2 JobProgress & JobError
+
+```kotlin
+data class JobProgress(val phase: JobPhase, val percent: Int, val message: String? = null) {
+    init { require(percent in 0..100) { "Percent must be 0-100" } }
+}
+
+data class JobError(val code: String, val message: String, val details: String? = null, val retryable: Boolean = false)
+```
+
+### 7.3 Job
 
 ```kotlin
 data class Job(
@@ -513,152 +717,54 @@ data class Job(
 }
 ```
 
-### 5.5 JobProgress
+### 7.4 CreateJobUseCase
 
 ```kotlin
-data class JobProgress(
-    val phase: JobPhase,
-    val percent: Int,
-    val message: String? = null,
+class CreateJobUseCase(
+    private val jobRepository: JobRepository,
+    private val clock: Clock,
 ) {
-    init {
-        require(percent in 0..100) { "Percent must be 0-100" }
-    }
-}
-```
-
-### 5.6 JobError
-
-```kotlin
-data class JobError(
-    val code: String,
-    val message: String,
-    val details: String? = null,
-    val retryable: Boolean = false,
-)
-```
-
-### 5.7 StoragePlan
-
-```kotlin
-data class StoragePlan(
-    val original: OutputTarget?,
-    val converted: OutputTarget?,
-    val additional: List<OutputTarget> = emptyList(),
-) {
-    fun allTargets(): List<OutputTarget> = 
-        listOfNotNull(original, converted) + additional
-}
-
-data class OutputTarget(
-    val path: String,
-    val container: String,
-    val kind: OutputKind,
-)
-```
-
----
-
-## 6. Policies
-
-### 6.1 MetadataTemplate
-
-**Назначение**: Подсказки для автоматического распознавания метаданных.
-
-```kotlin
-data class MetadataTemplate(
-    val artistPattern: String? = null,      // regex с группами
-    val titlePattern: String? = null,
-    val seriesNameOverride: String? = null,
-    val defaultTags: List<String> = emptyList(),
-)
-```
-
-### 6.2 DownloadPolicy
-
-```kotlin
-data class DownloadPolicy(
-    val maxQuality: VideoQuality = VideoQuality.BEST,
-    val preferredFormat: String? = null,  // "mp4", "webm"
-    val downloadSubtitles: Boolean = false,
-    val subtitleLanguages: List<String> = emptyList(),
-) {
-    enum class VideoQuality {
-        BEST,
-        HD_1080,
-        HD_720,
-        SD_480,
-    }
-}
-```
-
-### 6.3 StoragePolicy
-
-```kotlin
-data class StoragePolicy(
-    val originalTemplate: String?,
-    val convertedTemplate: String?,
-    val audioOnlyTemplate: String? = null,
-) {
-    init {
-        require(originalTemplate != null || convertedTemplate != null) {
-            "At least one template must be specified"
+    suspend fun execute(request: CreateJobRequest): Either<DomainError, Job> = either {
+        ensure(request.category.matches(request.metadata)) {
+            DomainError.ValidationError("category", "Category doesn't match metadata type")
         }
+        val existing = jobRepository.findByVideoId(request.source.videoId).filter { it.isActive() }
+        if (existing.isNotEmpty()) {
+            raise(DomainError.JobAlreadyExists(request.source.videoId.value, existing.first().id))
+        }
+        val now = clock.now()
+        val job = Job(
+            id = JobId(Uuid.random()),
+            status = JobStatus.QUEUED,
+            source = request.source,
+            ruleId = request.ruleId,
+            category = request.category,
+            rawInfo = request.videoInfo,
+            metadata = request.metadata,
+            storagePlan = request.storagePlan,
+            progress = null, error = null, attempt = 0,
+            createdBy = request.createdBy,
+            createdAt = now, updatedAt = now,
+            startedAt = null, finishedAt = null,
+        )
+        jobRepository.save(job)
     }
     
-    companion object {
-        val MUSIC_VIDEO_DEFAULT = StoragePolicy(
-            originalTemplate = "/media/Music Videos/original/{artist}/{title} [{videoId}].{ext}",
-            convertedTemplate = "/media/Music Videos/converted/{artist}/{title}.mp4",
-        )
-        
-        val SERIES_DEFAULT = StoragePolicy(
-            originalTemplate = null,
-            convertedTemplate = "/media/TV/{seriesName}/Season {season}/{episode} - {title}.mp4",
-        )
-        
-        val OTHER_DEFAULT = StoragePolicy(
-            originalTemplate = "/media/Videos/{channelName}/{title} [{videoId}].{ext}",
-            convertedTemplate = null,
-        )
-        
-        fun defaultFor(category: Category): StoragePolicy = when (category) {
-            Category.MUSIC_VIDEO -> MUSIC_VIDEO_DEFAULT
-            Category.SERIES -> SERIES_DEFAULT
-            Category.OTHER -> OTHER_DEFAULT
-        }
-    }
+    data class CreateJobRequest(
+        val source: VideoSource,
+        val ruleId: RuleId?,
+        val category: Category,
+        val videoInfo: VideoInfo,
+        val metadata: ResolvedMetadata,
+        val storagePlan: StoragePlan,
+        val createdBy: TelegramUserId,
+    )
 }
 ```
 
-### 6.4 PostProcessPolicy
+### 7.5 JobRepository (port)
 
 ```kotlin
-data class PostProcessPolicy(
-    val convert: Boolean = true,           // конвертировать ли оригинал
-    val targetContainer: String = "mp4",   // формат конвертации (mp4, mkv, avi)
-    val embedThumbnail: Boolean = true,    // вшить обложку
-    val embedMetadata: Boolean = true,     // вшить метаданные (artist, title и т.д.)
-    val normalizeAudio: Boolean = false,   // нормализация громкости
-    val extractAudio: Boolean = false,     // извлечь только аудио
-    val audioFormat: String = "m4a",       // формат аудио (m4a, mp3, opus)
-)
-```
-
-> Для `MUSIC_VIDEO`: скачивается оригинал (webm/mkv, макс. качество), затем конвертируется в `targetContainer` (по умолчанию mp4) и сохраняется в `converted/`. Оба файла получают вшитые метаданные и обложку.
-
----
-
-## 7. Ports (Repository Interfaces)
-
-```kotlin
-interface RuleRepository {
-    suspend fun findById(id: RuleId): Rule?
-    suspend fun findAll(enabled: Boolean? = null): List<Rule>
-    suspend fun save(rule: Rule): Rule
-    suspend fun delete(id: RuleId)
-}
-
 interface JobRepository {
     suspend fun findById(id: JobId): Job?
     suspend fun findByVideoId(videoId: VideoId): List<Job>
@@ -668,167 +774,22 @@ interface JobRepository {
     suspend fun updateStatus(id: JobId, status: JobStatus, progress: JobProgress? = null)
     suspend fun updateError(id: JobId, error: JobError)
 }
-
-interface VideoInfoExtractor {
-    suspend fun extract(url: String): Either<DomainError, VideoInfo>
-}
-
-interface VideoDownloader {
-    suspend fun download(
-        source: VideoSource,
-        outputPath: String,
-        policy: DownloadPolicy,
-        onProgress: (JobProgress) -> Unit,
-    ): Either<DomainError, DownloadResult>
-    
-    data class DownloadResult(
-        val filePath: String,
-        val format: String,
-        val fileSize: Long,
-    )
-}
 ```
 
 ---
 
-## 8. Доменные сервисы
+## 8. `preview` — Предпросмотр
 
-### 8.1 RuleMatchingService
+Зависимости: `common`, `video`, `rule`, `metadata`, `storage`
 
-```kotlin
-class RuleMatchingService {
-    
-    fun findMatchingRule(video: VideoInfo, rules: List<Rule>): Rule? {
-        return rules
-            .filter { it.enabled }
-            .filter { it.match.matches(video) }
-            .maxWithOrNull(compareBy(
-                { it.priority },
-                { it.match.specificity() },
-                { -it.createdAt.epochSecond }  // старые первее
-            ))
-    }
-}
+```
+domain/preview/
+└── PreviewUseCase.kt
 ```
 
-### 8.2 MetadataResolver
+### 8.1 PreviewUseCase
 
-```kotlin
-class MetadataResolver {
-    
-    fun resolve(
-        video: VideoInfo,
-        category: Category,
-        template: MetadataTemplate?,
-    ): ResolvedMetadata {
-        return when (category) {
-            Category.MUSIC_VIDEO -> resolveMusicVideo(video, template)
-            Category.SERIES -> resolveSeriesEpisode(video, template)
-            Category.OTHER -> resolveOther(video, template)
-        }
-    }
-    
-    private fun resolveMusicVideo(video: VideoInfo, template: MetadataTemplate?): ResolvedMetadata.MusicVideo {
-        val (artist, title) = parseArtistTitle(video.title, template?.artistPattern)
-        return ResolvedMetadata.MusicVideo(
-            artist = artist,
-            title = title,
-            year = video.uploadDate?.year,
-            tags = template?.defaultTags.orEmpty(),
-        )
-    }
-    
-    private fun parseArtistTitle(title: String, pattern: String?): Pair<String, String> {
-        // Попытка распарсить "Artist - Title" или использовать pattern
-        val separators = listOf(" - ", " – ", " — ", ": ")
-        for (sep in separators) {
-            if (sep in title) {
-                val parts = title.split(sep, limit = 2)
-                return parts[0].trim() to parts[1].trim()
-            }
-        }
-        return "Unknown Artist" to title
-    }
-    
-    // ... остальные методы
-}
-```
-
-### 8.3 PathTemplateEngine
-
-```kotlin
-class PathTemplateEngine(
-    private val baseDirectories: List<String>,
-) {
-    
-    fun render(template: String, context: TemplateContext): Either<DomainError, String> {
-        val rendered = PLACEHOLDER_REGEX.replace(template) { match ->
-            val variable = match.groupValues[1]
-            context.get(variable)?.sanitizeForPath() ?: ""
-        }
-        
-        // Проверка path traversal (нет ".." в результирующем пути)
-        val isWithinBase = baseDirectories.any { base ->
-            rendered.startsWith(base) && !rendered.contains("..")
-        }
-        
-        return if (isWithinBase) {
-            rendered.right()
-        } else {
-            DomainError.PathTraversalAttempt(rendered).left()
-        }
-    }
-    
-    private fun String.sanitizeForPath(): String =
-        this.replace(FORBIDDEN_CHARS_REGEX, "_")
-            .replace("\\s+".toRegex(), " ")
-            .trim()
-            .take(MAX_FILENAME_LENGTH)
-    
-    data class TemplateContext(
-        val values: Map<String, String>,
-    ) {
-        fun get(key: String): String? = values[key]
-        
-        companion object {
-            fun from(metadata: ResolvedMetadata, video: VideoInfo): TemplateContext {
-                val map = mutableMapOf<String, String>()
-                map["title"] = metadata.title
-                map["year"] = metadata.year?.toString() ?: ""
-                map["channelName"] = video.channelName
-                map["videoId"] = video.videoId
-                map["uploadDate"] = video.uploadDate?.toString() ?: ""
-                
-                when (metadata) {
-                    is ResolvedMetadata.MusicVideo -> {
-                        map["artist"] = metadata.artist
-                    }
-                    is ResolvedMetadata.SeriesEpisode -> {
-                        map["seriesName"] = metadata.seriesName
-                        map["season"] = metadata.season ?: ""
-                        map["episode"] = metadata.episode ?: ""
-                    }
-                    is ResolvedMetadata.Other -> {}
-                }
-                
-                return TemplateContext(map)
-            }
-        }
-    }
-    
-    companion object {
-        private val PLACEHOLDER_REGEX = "\\{(\\w+)}".toRegex()
-        private val FORBIDDEN_CHARS_REGEX = "[/\\\\:*?\"<>|]".toRegex()
-        private const val MAX_FILENAME_LENGTH = 180
-    }
-}
-```
-
----
-
-## 9. Use Cases
-
-### 9.1 PreviewUseCase
+`PreviewUseCase` — оркестратор, который связывает все фичи:
 
 ```kotlin
 class PreviewUseCase(
@@ -837,24 +798,22 @@ class PreviewUseCase(
     private val ruleMatchingService: RuleMatchingService,
     private val metadataResolver: MetadataResolver,
     private val pathTemplateEngine: PathTemplateEngine,
+    private val llmPort: LlmPort?,  // nullable: если LLM не настроен
 ) {
-    
     suspend fun execute(url: String): Either<DomainError, PreviewResult> = either {
         val videoInfo = videoInfoExtractor.extract(url).bind()
         val rules = ruleRepository.findAll(enabled = true)
         val matchedRule = ruleMatchingService.findMatchingRule(videoInfo, rules)
         
-        val category = matchedRule?.category ?: Category.OTHER
-        val template = matchedRule?.metadataTemplate
-        val storagePolicy = matchedRule?.storagePolicy ?: StoragePolicy.OTHER_DEFAULT
+        val (category, metadata, metadataSource) = resolveMetadata(videoInfo, matchedRule).bind()
         
-        val metadata = metadataResolver.resolve(videoInfo, category, template)
+        val storagePolicy = matchedRule?.storagePolicy ?: StoragePolicy.defaultFor(category)
+        val postProcess = matchedRule?.postProcessPolicy ?: PostProcessPolicy()
         val context = PathTemplateEngine.TemplateContext.from(metadata, videoInfo)
-        
-        val storagePlan = buildStoragePlan(storagePolicy, context).bind()
+        val storagePlan = buildStoragePlan(storagePolicy, context, postProcess).bind()
         
         PreviewResult(
-            source = VideoSource(url, VideoId(videoInfo.videoId)),
+            source = VideoSource(url, VideoId(videoInfo.videoId), videoInfo.extractor ?: "generic"),
             videoInfo = videoInfo,
             matchedRule = matchedRule,
             metadataSource = metadataSource,
@@ -865,23 +824,51 @@ class PreviewUseCase(
         )
     }
     
+    /**
+     * Три пути определения метаданных:
+     * 1. Rule → MetadataResolver (если правило найдено)
+     * 2. LLM → LlmPort (если правила нет, но LLM настроен)
+     * 3. Fallback → MetadataResolver с Category.OTHER
+     */
+    private suspend fun resolveMetadata(
+        video: VideoInfo, rule: Rule?,
+    ): Either<DomainError, Triple<Category, ResolvedMetadata, MetadataSource>> = either {
+        when {
+            rule != null -> {
+                val metadata = metadataResolver.resolve(video, rule.category, rule.metadataTemplate)
+                Triple(rule.category, metadata, MetadataSource.RULE)
+            }
+            llmPort != null -> {
+                val suggestion = llmPort.suggestMetadata(video).getOrNull()
+                if (suggestion != null) {
+                    Triple(suggestion.category, suggestion.metadata, MetadataSource.LLM)
+                } else {
+                    val metadata = metadataResolver.resolve(video, Category.OTHER, null)
+                    Triple(Category.OTHER, metadata, MetadataSource.FALLBACK)
+                }
+            }
+            else -> {
+                val metadata = metadataResolver.resolve(video, Category.OTHER, null)
+                Triple(Category.OTHER, metadata, MetadataSource.FALLBACK)
+            }
+        }
+    }
+    
     private fun buildStoragePlan(
-        policy: StoragePolicy, 
-        context: PathTemplateEngine.TemplateContext,
-        postProcess: PostProcessPolicy,
+        policy: StoragePolicy, context: PathTemplateEngine.TemplateContext, postProcess: PostProcessPolicy,
     ): Either<DomainError, StoragePlan> = either {
         StoragePlan(
             original = policy.originalTemplate?.let { template ->
                 OutputTarget(
                     path = pathTemplateEngine.render(template, context).bind(),
-                    container = context.get("ext") ?: "webm",  // формат оригинала от yt-dlp
+                    container = context.get("ext") ?: "webm",
                     kind = OutputKind.ORIGINAL,
                 )
             },
             converted = policy.convertedTemplate?.let { template ->
                 OutputTarget(
                     path = pathTemplateEngine.render(template, context).bind(),
-                    container = postProcess.targetContainer,  // формат из конфигурации
+                    container = postProcess.targetContainer,
                     kind = OutputKind.CONVERTED,
                 )
             },
@@ -901,71 +888,11 @@ class PreviewUseCase(
 }
 ```
 
-### 9.2 CreateJobUseCase
-
-```kotlin
-class CreateJobUseCase(
-    private val jobRepository: JobRepository,
-    private val clock: Clock,
-) {
-    
-    suspend fun execute(request: CreateJobRequest): Either<DomainError, Job> = either {
-        // Проверка совпадения category и metadata.type
-        ensure(request.category.matches(request.metadata)) {
-            DomainError.ValidationError("category", "Category doesn't match metadata type")
-        }
-        
-        // Проверка на дубликат
-        val existing = jobRepository.findByVideoId(request.source.videoId)
-            .filter { it.isActive() }
-        
-        if (existing.isNotEmpty()) {
-            raise(DomainError.JobAlreadyExists(
-                request.source.videoId.value, 
-                existing.first().id
-            ))
-        }
-        
-        val now = clock.instant()
-        val job = Job(
-            id = JobId(Uuid.random()),
-            status = JobStatus.QUEUED,
-            source = request.source,
-            ruleId = request.ruleId,
-            category = request.category,
-            rawInfo = request.videoInfo,
-            metadata = request.metadata,
-            storagePlan = request.storagePlan,
-            progress = null,
-            error = null,
-            attempt = 0,
-            createdBy = request.createdBy,
-            createdAt = now,
-            updatedAt = now,
-            startedAt = null,
-            finishedAt = null,
-        )
-        
-        jobRepository.save(job)
-    }
-    
-    data class CreateJobRequest(
-        val source: VideoSource,
-        val ruleId: RuleId?,
-        val category: Category,
-        val videoInfo: VideoInfo,
-        val metadata: ResolvedMetadata,
-        val storagePlan: StoragePlan,
-        val createdBy: TelegramUserId,
-    )
-}
-```
-
 ---
 
-## 10. Инварианты и валидация
+## 9. Инварианты и валидация
 
-### 10.1 Общие правила
+### 9.1 Общие правила
 
 | Поле                            | Правило                                   |
 |---------------------------------|-------------------------------------------|
@@ -976,12 +903,11 @@ class CreateJobUseCase(
 | `percent` (progress)            | 0-100                                     |
 | Path templates                  | Минимум `{title}` или `{videoId}`         |
 
-### 10.2 Валидация при создании
+### 9.2 Валидация при создании
 
 Все инварианты проверяются в `init {}` блоках data/value классов.
 При нарушении — `IllegalArgumentException`.
 
-### 10.3 Валидация бизнес-правил
+### 9.3 Валидация бизнес-правил
 
 Бизнес-валидация (например, "job с таким videoId уже существует") — через `Either<DomainError, T>` в use cases.
-
