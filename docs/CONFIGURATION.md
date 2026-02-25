@@ -188,6 +188,8 @@ Hoplite автоматически мапит env variables:
 | `DB_URL`                    | `db.url`                                    |
 | `DB_USER`                   | `db.user`                                   |
 | `DB_PASSWORD`               | `db.password`                               |
+| `LLM_API_KEY`               | `llm.apiKey`                                |
+| `PROXY_PASSWORD`            | `proxy.password`                            |
 
 ---
 
@@ -320,4 +322,3 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - APP_PROFILE=production
 ```
-

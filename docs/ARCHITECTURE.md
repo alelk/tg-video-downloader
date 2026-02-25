@@ -90,7 +90,8 @@
 - Доменные модели (sealed classes, data classes)
 - Value objects (`VideoId`, `ChannelId`)
 - Доменные сервисы (`RuleMatchingService`, `MetadataResolver`)
-- Use-cases (`CreateJobUseCase`, `PreviewUseCase`)
+- Порты для внешних сервисов (`LlmProviderPort`, `RuleRepository`)
+- Use-cases (`CreateJobUseCase`, `PreviewUseCase`) -> `PreviewUseCase` вызывает `MetadataResolver`, который при отсутствии правил может дернуть `LlmProviderPort`
 - Доменные ошибки (`sealed interface DomainError`)
 - Политики (`RetryPolicy`, `StoragePolicy`)
 

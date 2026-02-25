@@ -152,6 +152,20 @@ storage:
 4. Файл: /media/TV/Kurzgesagt/Season 2024/01 - Title.mp4
 ```
 
+### Сценарий 3: Умное определение (LLM)
+
+```
+1. Ссылка на видео неизвестного канала "Cooking with Chef"
+2. Правил нет. Включена интеграция с Gemini.
+3. Сервис отправляет заголовок и описание в LLM.
+4. LLM определяет:
+   - Category: EDUCATIONAL
+   - Series: "Cooking Basics"
+   - Title: "How to chop onions"
+5. Пользователь видит предложенные данные.
+6. Может поставить галочку "Сохранить как правило" для этого канала.
+```
+
 ---
 
 ## ✅ Definition of Done (MVP)

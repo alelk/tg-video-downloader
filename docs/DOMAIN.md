@@ -398,6 +398,14 @@ sealed interface DomainError {
         val userId: TelegramUserId,
         override val message: String = "User ${userId.value} not allowed",
     ) : DomainError
+    
+    // === LLM ===
+    
+    data class LlmError(
+        val provider: String,
+        val message: String,
+        val statusCode: Int? = null,
+    ) : DomainError
 }
 ```
 
@@ -823,6 +831,7 @@ class PreviewUseCase(
             source = VideoSource(url, VideoId(videoInfo.videoId)),
             videoInfo = videoInfo,
             matchedRule = matchedRule,
+            metadataSource = metadataSource,
             category = category,
             metadata = metadata,
             storagePlan = storagePlan,
@@ -856,6 +865,7 @@ class PreviewUseCase(
         val source: VideoSource,
         val videoInfo: VideoInfo,
         val matchedRule: Rule?,
+        val metadataSource: MetadataSource,
         val category: Category,
         val metadata: ResolvedMetadata,
         val storagePlan: StoragePlan,

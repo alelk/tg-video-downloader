@@ -307,6 +307,7 @@ data class PreviewResponseDto(
     val source: VideoSourceDto,
     val videoInfo: VideoInfoDto,
     val matchedRule: RuleSummaryDto?,
+    val metadataSource: MetadataSourceDto, // RULE | LLM | FALLBACK
     val category: String,
     val metadata: ResolvedMetadataDto,
     val storagePlan: StoragePlanDto,
@@ -335,6 +336,7 @@ data class PreviewResponseDto(
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "name": "Rick Astley Music Videos"
   },
+  "metadataSource": "RULE",
   "category": "MUSIC_VIDEO",
   "metadata": {
     "type": "musicVideo",
