@@ -62,6 +62,7 @@ ffmpeg:
 # Post-processing
 postProcess:
   taggingTool: "FFMPEG"                 # FFMPEG | ATOMICPARSLEY | MP4BOX
+  targetContainer: "mp4"               # формат конвертации: mp4, mkv, avi
   embedThumbnail: true
   embedMetadata: true
 
@@ -153,6 +154,7 @@ data class FfmpegConfig(
 
 data class PostProcessConfig(
     val taggingTool: TaggingTool = TaggingTool.FFMPEG,
+    val targetContainer: String = "mp4",    // формат конвертации (mp4, mkv, avi)
     val embedThumbnail: Boolean = true,
     val embedMetadata: Boolean = true,
 ) {

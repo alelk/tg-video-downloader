@@ -608,7 +608,7 @@ data class StoragePolicy(
     companion object {
         val MUSIC_VIDEO_DEFAULT = StoragePolicy(
             originalTemplate = "/media/Music Videos/original/{artist}/{title} [{videoId}].{ext}",
-            convertedTemplate = "/media/Music Videos/{artist}/{title}.mp4",
+            convertedTemplate = "/media/Music Videos/converted/{artist}/{title}.mp4",
         )
         
         val SERIES_DEFAULT = StoragePolicy(
@@ -634,14 +634,17 @@ data class StoragePolicy(
 
 ```kotlin
 data class PostProcessPolicy(
-    val convertToMp4: Boolean = true,
-    val embedThumbnail: Boolean = true,
-    val embedMetadata: Boolean = true,
-    val normalizeAudio: Boolean = false,
-    val extractAudio: Boolean = false,
-    val audioFormat: String = "m4a",
+    val convert: Boolean = true,           // конвертировать ли оригинал
+    val targetContainer: String = "mp4",   // формат конвертации (mp4, mkv, avi)
+    val embedThumbnail: Boolean = true,    // вшить обложку
+    val embedMetadata: Boolean = true,     // вшить метаданные (artist, title и т.д.)
+    val normalizeAudio: Boolean = false,   // нормализация громкости
+    val extractAudio: Boolean = false,     // извлечь только аудио
+    val audioFormat: String = "m4a",       // формат аудио (m4a, mp3, opus)
 )
 ```
+
+> Для `MUSIC_VIDEO`: скачивается оригинал (webm/mkv, макс. качество), затем конвертируется в `targetContainer` (по умолчанию mp4) и сохраняется в `converted/`. Оба файла получают вшитые метаданные и обложку.
 
 ---
 
@@ -864,19 +867,20 @@ class PreviewUseCase(
     private fun buildStoragePlan(
         policy: StoragePolicy, 
         context: PathTemplateEngine.TemplateContext,
+        postProcess: PostProcessPolicy,
     ): Either<DomainError, StoragePlan> = either {
         StoragePlan(
             original = policy.originalTemplate?.let { template ->
                 OutputTarget(
                     path = pathTemplateEngine.render(template, context).bind(),
-                    container = "mp4",
+                    container = context.get("ext") ?: "webm",  // формат оригинала от yt-dlp
                     kind = OutputKind.ORIGINAL,
                 )
             },
             converted = policy.convertedTemplate?.let { template ->
                 OutputTarget(
                     path = pathTemplateEngine.render(template, context).bind(),
-                    container = "mp4",
+                    container = postProcess.targetContainer,  // формат из конфигурации
                     kind = OutputKind.CONVERTED,
                 )
             },

@@ -522,12 +522,25 @@ JobScheduler (polls QUEUED)
        │
        ▼
 JobExecutor
-       ├──▶ YtDlpDownloader.download()  (+ proxy)  →  temp file
-       ├──▶ FfmpegConverter.convert()  (if needed)  →  converted file
-       ├──▶ MetadataTagger.tag()  (if needed)
-       ├──▶ FileStorageService.moveToFinal()
+       │
+       ├──▶ YtDlpDownloader.download()  (+ proxy)
+       │         │
+       │         ▼
+       │    temp file (webm/mkv — макс. качество)
+       │
+       ├──▶ if (storagePlan.original != null):
+       │         MetadataTagger.tag(temp)          ← вшить метаданные + обложку
+       │         FileStorageService.copy(→ original/)
+       │
+       ├──▶ if (storagePlan.converted != null):
+       │         FfmpegConverter.convert(→ targetContainer)
+       │         MetadataTagger.tag(converted)     ← вшить метаданные + обложку
+       │         FileStorageService.move(→ converted/)
+       │
        └──▶ JobRepository.updateStatus(DONE)
 ```
+
+> Для `MUSIC_VIDEO`: оригинал (webm) сохраняется в `original/`, затем конвертируется в mp4 и сохраняется в `converted/`. Оба файла получают вшитые метаданные и обложку.
 
 ---
 

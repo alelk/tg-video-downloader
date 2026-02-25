@@ -143,14 +143,17 @@ storage:
 1. Пользователь открывает Mini App в Telegram
 2. Вставляет ссылку: https://youtube.com/watch?v=dQw4w9WgXcQ
 3. Сервис:
-   - Извлекает videoId
-   - Получает метаданные через yt-dlp
+   - Извлекает videoId и получает метаданные через yt-dlp
    - Находит правило по каналу "Rick Astley" → category=MUSIC_VIDEO
    - Распознаёт: artist="Rick Astley", title="Never Gonna Give You Up"
-4. Пользователь видит preview, может отредактировать
-5. Нажимает "Скачать"
-6. Job создаётся, видео скачивается в:
-   /media/Music Videos/Rick Astley/Never Gonna Give You Up.mp4
+4. Пользователь видит preview с планом сохранения:
+   - Оригинал: /media/Music Videos/original/Rick Astley/Never Gonna Give You Up [dQw4w9WgXcQ].webm
+   - Конвертированный: /media/Music Videos/converted/Rick Astley/Never Gonna Give You Up.mp4
+5. Пользователь может отредактировать метаданные и нажимает "Скачать"
+6. Job выполняется:
+   a. Скачивание оригинала в максимальном качестве → original/
+   b. Конвертация в mp4 (формат задаётся в конфигурации) → converted/
+   c. Вшивание метаданных и обложки в оба файла
 7. Пользователь видит статус DONE
 ```
 
