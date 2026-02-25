@@ -70,18 +70,18 @@ data class ApiErrorDto(
 
 ### 2.3 Коды ошибок
 
-| Code | HTTP Status | Описание |
-|------|-------------|----------|
-| `VALIDATION_ERROR` | 400 | Ошибка валидации входных данных |
-| `INVALID_URL` | 400 | Некорректный URL видео |
-| `UNAUTHORIZED` | 401 | Невалидный initData |
-| `FORBIDDEN` | 403 | Пользователь не в allowlist |
-| `NOT_FOUND` | 404 | Ресурс не найден |
-| `CONFLICT` | 409 | Конфликт (например, job уже существует) |
-| `UPDATE_DISABLED` | 403 | Обновление yt-dlp запрещено в конфигурации |
-| `VIDEO_UNAVAILABLE` | 422 | Видео недоступно |
-| `LLM_ERROR` | 502 | Ошибка при обращении к LLM провайдеру |
-| `INTERNAL_ERROR` | 500 | Внутренняя ошибка сервера |
+| Code                | HTTP Status | Описание                                   |
+|---------------------|-------------|--------------------------------------------|
+| `VALIDATION_ERROR`  | 400         | Ошибка валидации входных данных            |
+| `INVALID_URL`       | 400         | Некорректный URL видео                     |
+| `UNAUTHORIZED`      | 401         | Невалидный initData                        |
+| `FORBIDDEN`         | 403         | Пользователь не в allowlist                |
+| `NOT_FOUND`         | 404         | Ресурс не найден                           |
+| `CONFLICT`          | 409         | Конфликт (например, job уже существует)    |
+| `UPDATE_DISABLED`   | 403         | Обновление yt-dlp запрещено в конфигурации |
+| `VIDEO_UNAVAILABLE` | 422         | Видео недоступно                           |
+| `LLM_ERROR`         | 502         | Ошибка при обращении к LLM провайдеру      |
+| `INTERNAL_ERROR`    | 500         | Внутренняя ошибка сервера                  |
 
 ---
 
@@ -586,7 +586,7 @@ data class CreateRuleRequestDto(
 data class VideoSourceDto(
     val url: String,
     val videoId: String,
-    val extractor: String = "youtube",
+    val extractor: String,  // определяется автоматически: "youtube", "rutube", "vk", "generic", ...
 )
 ```
 

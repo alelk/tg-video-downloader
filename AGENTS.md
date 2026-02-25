@@ -7,7 +7,7 @@
 
 ## 🎯 Краткое описание проекта
 
-**TG Video Downloader** — сервис для скачивания YouTube-видео с управлением через Telegram Mini App. Поддерживает LLM (Gemini/OpenAI) для определения метаданных и HTTP/SOCKS5 прокси.
+**TG Video Downloader** — сервис для скачивания видео с различных платформ (YouTube, RuTube, VK Video и [1000+ других](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)) с управлением через Telegram Mini App. Поддерживает LLM (Gemini/OpenAI) для определения метаданных и HTTP/SOCKS5 прокси.
 
 **Стек**: Kotlin 2.3+ (Multiplatform), Ktor 3, Compose Multiplatform, PostgreSQL, yt-dlp.
 

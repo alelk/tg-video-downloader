@@ -36,11 +36,15 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 ### 2.1 VideoId
 
 ```kotlin
+/**
+ * Идентификатор видео на платформе-источнике.
+ * Примеры: "dQw4w9WgXcQ" (YouTube), "12345678" (RuTube), "-12345_67890" (VK).
+ */
 @JvmInline
 value class VideoId(val value: String) {
     init {
         require(value.isNotBlank()) { "VideoId cannot be blank" }
-        require(value.length <= 20) { "VideoId too long" }
+        require(value.length <= 64) { "VideoId too long" }
     }
 }
 ```
@@ -430,13 +434,16 @@ sealed interface DomainError {
 data class VideoSource(
     val url: String,
     val videoId: VideoId,
-    val extractor: String = "youtube",
+    val extractor: String,  // e.g. "youtube", "rutube", "vk", "generic"
 ) {
     init {
         require(url.isNotBlank()) { "URL cannot be blank" }
+        require(extractor.isNotBlank()) { "Extractor cannot be blank" }
     }
 }
 ```
+
+> `extractor` определяется автоматически yt-dlp при извлечении метаданных. Поддерживается [1000+ сайтов](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
 ### 5.2 VideoInfo
 

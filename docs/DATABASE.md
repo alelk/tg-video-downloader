@@ -55,7 +55,7 @@ CREATE TABLE jobs (
     status                     TEXT NOT NULL DEFAULT 'QUEUED',
     video_id                   TEXT NOT NULL,
     source_url                 TEXT NOT NULL,
-    source_extractor           TEXT NOT NULL DEFAULT 'youtube',
+    source_extractor           TEXT NOT NULL,  -- "youtube", "rutube", "vk", ...
     rule_id                    UUID REFERENCES rules(id) ON DELETE SET NULL,
     category                   TEXT NOT NULL,
     raw_info                   JSONB NOT NULL,
@@ -242,7 +242,7 @@ object JobsTable : UUIDTable("jobs") {
     val status = varchar("status", 20).default("QUEUED")
     val videoId = varchar("video_id", 50)
     val sourceUrl = text("source_url")
-    val sourceExtractor = varchar("source_extractor", 50).default("youtube")
+    val sourceExtractor = varchar("source_extractor", 50)  // "youtube", "rutube", "vk", ...
     val ruleId = reference("rule_id", RulesTable).nullable()
     val category = varchar("category", 50)
     val rawInfo = jsonb<VideoInfoDto>("raw_info", json)
@@ -328,7 +328,7 @@ CREATE TABLE jobs (
     status                     TEXT NOT NULL DEFAULT 'QUEUED',
     video_id                   TEXT NOT NULL,
     source_url                 TEXT NOT NULL,
-    source_extractor           TEXT NOT NULL DEFAULT 'youtube',
+    source_extractor           TEXT NOT NULL,  -- "youtube", "rutube", "vk", ...
     rule_id                    UUID REFERENCES rules(id) ON DELETE SET NULL,
     category                   TEXT NOT NULL,
     raw_info                   JSONB NOT NULL,
