@@ -117,13 +117,14 @@
 
 ## Тестирование в KMP
 
-| Source set   | Фреймворк                         | Что тестировать                   |
-|--------------|-----------------------------------|-----------------------------------|
-| `commonTest` | `kotlin-test` + Kotest assertions | Domain логика, маппинг, use-cases |
-| `jvmTest`    | Kotest + MockK + Testcontainers   | Интеграционные тесты, DB          |
-| `jsTest`     | `kotlin-test`                     | JS-специфичные edge cases         |
+| Source set   | Фреймворк                                     | Что тестировать                   |
+|--------------|-----------------------------------------------|-----------------------------------|
+| `commonTest` | Kotest framework-engine + assertions          | Domain логика, маппинг, use-cases |
+| `jvmTest`    | Kotest runner-junit5 + MockK + Testcontainers | Интеграционные тесты, DB          |
+| `jsTest`     | Kotest framework-engine                       | JS-специфичные edge cases         |
 
 > MockK не поддерживает JS. Для мокирования в `commonTest` — создавать fake-реализации интерфейсов.
+> Kotest Gradle plugin + KSP обязательны для JS/Native тестов.
 
 ---
 

@@ -174,8 +174,11 @@ kotlin {
             implementation(libs.arrow.core)
         }
         commonTest.dependencies {
-            implementation(kotlin("test"))
+            implementation(libs.kotest.framework.engine)
             implementation(libs.kotest.assertions)
+        }
+        jvmTest.dependencies {
+            implementation(libs.kotest.runner.junit5)
         }
     }
 }

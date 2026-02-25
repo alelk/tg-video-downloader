@@ -8,30 +8,48 @@
 
 ### По source set
 
-| Source set    | Библиотеки                     | Назначение                                         |
-|--------------|--------------------------------|----------------------------------------------------|
-| `commonTest` | kotlin-test, Kotest assertions | Domain, маппинг, use-cases (KMP-совместимые)       |
-| `jvmTest`    | Kotest runner, MockK           | Интеграционные тесты, мокирование                  |
-| `jvmTest`    | Testcontainers                 | PostgreSQL в тестах                                |
-| `jvmTest`    | Ktor Test                      | HTTP-тесты без реального сервера                   |
-| `jsTest`     | kotlin-test                    | JS-специфичные edge cases (при необходимости)      |
+| Source set    | Библиотеки                              | Назначение                                       |
+|--------------|-----------------------------------------|--------------------------------------------------|
+| `commonTest` | Kotest framework-engine, Kotest assertions | Domain, маппинг, use-cases (KMP-совместимые)  |
+| `jvmTest`    | Kotest runner-junit5, MockK             | Интеграционные тесты, мокирование                |
+| `jvmTest`    | Testcontainers                          | PostgreSQL в тестах                              |
+| `jvmTest`    | Ktor Test                               | HTTP-тесты без реального сервера                 |
+| `jsTest`     | Kotest framework-engine                 | JS-специфичные edge cases (при необходимости)    |
 
-> **Важно**: MockK не поддерживает JS. В `commonTest` для мокирования используются **fake-реализации** интерфейсов.
+> **Kotest 6** полностью поддерживает KMP (jvm, js, native) через `kotest-framework-engine` + Kotest Gradle plugin + KSP.
+> Для JS/Native тестов: annotation-based configuration не работает (ограничение Kotlin runtime).
+> **MockK** не поддерживает JS. В `commonTest` для мокирования используются **fake-реализации** интерфейсов.
 
 ### Зависимости
 
 ```kotlin
+// build.gradle.kts (корневой или convention plugin)
+plugins {
+    id("com.google.devtools.ksp").version("<ksp-version>")
+    id("io.kotest").version("<kotest-version>")
+}
+
 // KMP-модули (domain, api:mapping, и т.д.)
-commonTest.dependencies {
-    implementation(kotlin("test"))
-    implementation(libs.kotest.assertions)
+kotlin {
+    sourceSets {
+        commonTest.dependencies {
+            implementation(libs.kotest.framework.engine)
+            implementation(libs.kotest.assertions)
+        }
+        jvmTest.dependencies {
+            implementation(libs.kotest.runner.junit5)  // JUnit5 runner для IDE
+        }
+    }
 }
 
 // JVM-модули (server:*)
-testImplementation(libs.kotest.runner)
-testImplementation(libs.mockk)
-testImplementation(libs.testcontainers.postgresql)
-testImplementation(libs.ktor.server.test.host)
+dependencies {
+    testImplementation(libs.kotest.runner.junit5)
+    testImplementation(libs.kotest.assertions)
+    testImplementation(libs.mockk)
+    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.ktor.server.test.host)
+}
 ```
 
 ---
@@ -74,7 +92,7 @@ server/transport/src/test/kotlin/
 
 ## 3. Unit Tests
 
-> Размещаются в `commonTest` для KMP-модулей. Используют `kotlin.test` + Kotest assertions.
+> Размещаются в `commonTest` для KMP-модулей. Используют Kotest `FunSpec` + Kotest assertions.
 > Для мокирования в `commonTest` — **fake-реализации** (не MockK!).
 
 ### 3.1 RuleMatch Tests

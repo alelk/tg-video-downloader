@@ -381,8 +381,11 @@ kotlin {
             implementation(libs.arrow.core)
         }
         commonTest.dependencies {
-            implementation(kotlin("test"))
+            implementation(libs.kotest.framework.engine)
             implementation(libs.kotest.assertions)
+        }
+        jvmTest.dependencies {
+            implementation(libs.kotest.runner.junit5)
         }
     }
 }
@@ -446,7 +449,7 @@ serialization = "1.8.0"
 coroutines = "1.10.0"
 datetime = "0.6.0"
 arrow = "2.0.0"
-kotest = "5.9.0"
+kotest = "6.0.0"
 logback = "1.5.0"
 flyway = "10.0.0"
 compose = "1.7.0"
@@ -467,7 +470,8 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "datetime" }
 arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
-kotest-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
+kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 
@@ -477,6 +481,8 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 compose = { id = "org.jetbrains.compose", version.ref = "compose" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotest = { id = "io.kotest", version.ref = "kotest" }
+ksp = { id = "com.google.devtools.ksp", version = "2.3.0-1.0.30" }
 ```
 
 ---

@@ -8,7 +8,8 @@
 
 ## 📋 О проекте
 
-**TG Video Downloader** — сервис для скачивания YouTube-видео с управлением через Telegram Mini App. Поддерживает умное определение метаданных через LLM (Gemini/OpenAI) и HTTP/SOCKS5 прокси.
+**TG Video Downloader** — сервис для скачивания YouTube-видео с управлением через Telegram Mini App. 
+Поддерживает умное определение метаданных через LLM (Gemini/OpenAI) и HTTP/SOCKS5 прокси.
 
 ### Ключевые возможности
 
@@ -44,22 +45,22 @@
 
 ## 🛠️ Технологический стек
 
-| Область                | Технология                    |
-|------------------------|-------------------------------|
-| Язык                   | Kotlin 2.3+ (Multiplatform)   |
-| JVM                    | 21 LTS                        |
-| Backend framework      | Ktor 3.x                      |
-| DI                     | Koin 4.x                      |
-| Сериализация           | kotlinx.serialization         |
-| База данных            | PostgreSQL 16+                |
-| ORM / SQL              | Exposed                       |
-| Миграции               | Flyway                        |
-| UI                     | Compose Multiplatform         |
-| HTTP Client            | Ktor Client (KMP)             |
-| Внешние процессы       | yt-dlp, ffmpeg                |
-| Конфигурация           | Hoplite                       |
-| Логирование            | kotlin-logging + Logback      |
-| Тесты                  | kotlin-test, Kotest, MockK, Testcontainers |
+| Область           | Технология                                 |
+|-------------------|--------------------------------------------|
+| Язык              | Kotlin 2.3+ (Multiplatform)                |
+| JVM               | 21 LTS                                     |
+| Backend framework | Ktor 3.x                                   |
+| DI                | Koin 4.x                                   |
+| Сериализация      | kotlinx.serialization                      |
+| База данных       | PostgreSQL 16+                             |
+| ORM / SQL         | Exposed                                    |
+| Миграции          | Flyway                                     |
+| UI                | Compose Multiplatform                      |
+| HTTP Client       | Ktor Client (KMP)                          |
+| Внешние процессы  | yt-dlp, ffmpeg                             |
+| Конфигурация      | Hoplite                                    |
+| Логирование       | kotlin-logging + Logback                   |
+| Тесты             | Kotest 6, MockK, Testcontainers            |
 
 ---
 

@@ -67,13 +67,13 @@
 
 ### Тестирование
 
-| Компонент          | Выбор                | Где                   | Обоснование                       |
-|--------------------|----------------------|-----------------------|-----------------------------------|
-| **Assertions**     | Kotest assertions    | commonTest            | KMP-совместим, rich matchers      |
-| **Test framework** | kotlin-test          | commonTest            | KMP стандарт                      |
-| **JVM runner**     | Kotest runner        | jvmTest               | BDD-стиль, property-based testing |
-| **Mocking**        | MockK                | jvmTest only          | Kotlin-first, coroutines support  |
-| **Integration**    | Testcontainers       | jvmTest only          | Реальная БД, надёжность           |
+| Компонент       | Выбор                     | Где          | Обоснование                      |
+|-----------------|---------------------------|--------------|----------------------------------|
+| **Framework**   | Kotest 6 framework-engine | commonTest   | KMP-совместим (jvm, js, native)  |
+| **Assertions**  | Kotest assertions         | commonTest   | KMP-совместим, rich matchers     |
+| **JVM runner**  | Kotest runner-junit5      | jvmTest      | IDE integration, BDD-стиль       |
+| **Mocking**     | MockK                     | jvmTest only | Kotlin-first, coroutines support |
+| **Integration** | Testcontainers            | jvmTest only | Реальная БД, надёжность          |
 
 ---
 
@@ -93,6 +93,7 @@
 - Меньше готовых UI-компонентов для web
 - KMP Gradle setup сложнее, чем чистый JVM
 - MockK не работает в commonTest (только jvmTest)
+- Kotest JS/Native engine имеет ограничения (нет annotation-based config)
 
 ### Риски
 
