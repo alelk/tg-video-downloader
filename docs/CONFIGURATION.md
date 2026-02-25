@@ -51,6 +51,8 @@ ytDlp:
   timeout: "30m"
   retries: 3
   fragmentRetries: 10
+  allowUpdate: true                    # разрешить обновление через UI
+  updateChannel: "stable"              # stable | nightly
 
 # ffmpeg
 ffmpeg:
@@ -123,6 +125,8 @@ data class YtDlpConfig(
     val timeout: Duration = 30.minutes,
     val retries: Int = 3,
     val fragmentRetries: Int = 10,
+    val allowUpdate: Boolean = true,
+    val updateChannel: String = "stable",
 )
 
 data class FfmpegConfig(

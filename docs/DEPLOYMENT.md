@@ -29,9 +29,10 @@ FROM eclipse-temurin:21-jre-alpine
 # Install yt-dlp and ffmpeg
 RUN apk add --no-cache \
     python3 \
-    py3-pip \
     ffmpeg \
-    && pip3 install --break-system-packages yt-dlp
+    curl \
+    && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+    && chmod a+rx /usr/local/bin/yt-dlp
 
 WORKDIR /app
 

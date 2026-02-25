@@ -9,6 +9,17 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/api" />
+            <option value="$PROJECT_DIR$/api/client" />
+            <option value="$PROJECT_DIR$/api/contract" />
+            <option value="$PROJECT_DIR$/api/mapping" />
+            <option value="$PROJECT_DIR$/domain" />
+            <option value="$PROJECT_DIR$/server" />
+            <option value="$PROJECT_DIR$/server/app" />
+            <option value="$PROJECT_DIR$/server/di" />
+            <option value="$PROJECT_DIR$/server/infra" />
+            <option value="$PROJECT_DIR$/server/transport" />
+            <option value="$PROJECT_DIR$/tgminiapp" />
           </set>
         </option>
       </GradleProjectSettings>

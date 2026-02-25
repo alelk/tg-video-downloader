@@ -33,6 +33,7 @@
 | [SECURITY.md](./SECURITY.md)           | Авторизация, Telegram initData, безопасность              |
 | [TESTING.md](./TESTING.md)             | Стратегия тестирования, примеры                           |
 | [DEPLOYMENT.md](./DEPLOYMENT.md)       | Docker, docker-compose, CI/CD                             |
+| [MAINTENANCE.md](./MAINTENANCE.md)     | Обслуживание, обновление yt-dlp                           |
 | [ADR/](./ADR/)                         | Architecture Decision Records                             |
 
 ---
@@ -203,7 +204,7 @@ A: Да, yt-dlp поддерживает множество сайтов. Пол
 ## Contributing
 
 1. Читай документацию перед реализацией
-2. Следуй принципам из [ARCHITECTURE.md](./ARCHITECTURE.md)
-3. Пиши тесты согласно [TESTING.md](./TESTING.md)
+2. Следуй принципам из [ARCHITECTURE.md](docs/ARCHITECTURE.md)
+3. Пиши тесты согласно [TESTING.md](docs/TESTING.md)
 4. При изменении поведения — обновляй документацию
 

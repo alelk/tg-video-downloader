@@ -78,6 +78,7 @@ data class ApiErrorDto(
 | `FORBIDDEN` | 403 | Пользователь не в allowlist |
 | `NOT_FOUND` | 404 | Ресурс не найден |
 | `CONFLICT` | 409 | Конфликт (например, job уже существует) |
+| `UPDATE_DISABLED` | 403 | Обновление yt-dlp запрещено в конфигурации |
 | `VIDEO_UNAVAILABLE` | 422 | Видео недоступно |
 | `INTERNAL_ERROR` | 500 | Внутренняя ошибка сервера |
 
@@ -821,3 +822,43 @@ fun DomainError.toApiError(correlationId: String): Pair<HttpStatusCode, ApiError
 2. При неизвестном `type` для `ResolvedMetadataDto` — fallback на `Other`
 3. При неизвестном `type` для `RuleMatchDto` — ошибка (правила критичны)
 
+
+## 10. System
+
+### 10.1 GET /api/v1/system/yt-dlp/status
+
+Получить текущую версию yt-dlp и информацию о доступных обновлениях.
+
+**Response (200 OK):**
+```json
+{
+  "currentVersion": "2024.02.11",
+  "latestVersion": "2024.02.18",
+  "isUpdateAvailable": true,
+  "lastCheckedAt": "2024-02-18T10:00:00Z"
+}
+```
+
+### 10.2 POST /api/v1/system/yt-dlp/update
+
+Запустить процесс обновления yt-dlp.
+
+**Response (202 Accepted):**
+```json
+{
+  "status": "UPDATING",
+  "message": "Update process started"
+}
+```
+
+**Response (403 Forbidden):**
+Если `ytDlp.allowUpdate: false`.
+```json
+{
+  "error": {
+    "code": "UPDATE_DISABLED",
+    "message": "Update is disabled by administrator",
+    "correlationId": "..."
+  }
+}
+```

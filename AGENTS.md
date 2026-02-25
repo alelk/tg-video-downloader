@@ -17,7 +17,7 @@
 
 | Что нужно                        | Где смотреть                                       |
 |----------------------------------|----------------------------------------------------|
-| Обзор проекта                    | [`docs/README.md`](./docs/README.md)               |
+| Обзор проекта                    | [`README.md`](./README.md)               |
 | Архитектура и модули             | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)   |
 | Доменные модели (sealed classes) | [`docs/DOMAIN.md`](./docs/DOMAIN.md)               |
 | HTTP API и DTO                   | [`docs/API_CONTRACT.md`](./docs/API_CONTRACT.md)   |
