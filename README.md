@@ -2,7 +2,7 @@
 
 > **Версия**: 0.1.0-SNAPSHOT  
 > **Статус**: В разработке (MVP)  
-> **Последнее обновление**: 2026-02-11
+> **Последнее обновление**: 2026-02-25
 
 ---
 
@@ -14,27 +14,30 @@
 
 - 🎬 Скачивание видео через `yt-dlp`
 - 🏷️ Автоматическое распознавание метаданных (исполнитель, название, сезон/серия)
+- 🧠 Умное определение метаданных через LLM (Gemini/OpenAI) для новых каналов
 - 📁 Умная раскладка по папкам на основе правил
 - ✏️ Редактирование метаданных перед скачиванием
+- 💾 Сохранение настроек как правило для будущих видео
 - 🔄 Очередь задач с прогрессом и повторами
+- 🌐 Поддержка HTTP/SOCKS5 прокси
 - 🔐 Авторизация через Telegram initData
 
 ---
 
 ## 🗂️ Структура документации
 
-| Документ                               | Описание                                                  |
-|----------------------------------------|-----------------------------------------------------------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md)   | Модульная архитектура, зависимости, принципы              |
-| [DOMAIN.md](./DOMAIN.md)               | Доменная модель: sealed-классы, value objects, инварианты |
-| [API_CONTRACT.md](./API_CONTRACT.md)   | HTTP API: эндпоинты, DTO, сериализация, ошибки            |
-| [DATABASE.md](./DATABASE.md)           | Схема PostgreSQL, миграции, индексы                       |
-| [CONFIGURATION.md](./CONFIGURATION.md) | Параметры конфигурации                                    |
-| [SECURITY.md](./SECURITY.md)           | Авторизация, Telegram initData, безопасность              |
-| [TESTING.md](./TESTING.md)             | Стратегия тестирования, примеры                           |
-| [DEPLOYMENT.md](./DEPLOYMENT.md)       | Docker, docker-compose, CI/CD                             |
-| [MAINTENANCE.md](./MAINTENANCE.md)     | Обслуживание, обновление yt-dlp                           |
-| [ADR/](./ADR/)                         | Architecture Decision Records                             |
+| Документ                                  | Описание                                                  |
+|-------------------------------------------|-----------------------------------------------------------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md)   | Модульная архитектура, зависимости, принципы              |
+| [DOMAIN.md](docs/DOMAIN.md)               | Доменная модель: sealed-классы, value objects, инварианты |
+| [API_CONTRACT.md](docs/API_CONTRACT.md)   | HTTP API: эндпоинты, DTO, сериализация, ошибки            |
+| [DATABASE.md](docs/DATABASE.md)           | Схема PostgreSQL, миграции, индексы                       |
+| [CONFIGURATION.md](docs/CONFIGURATION.md) | Параметры конфигурации                                    |
+| [SECURITY.md](docs/SECURITY.md)           | Авторизация, Telegram initData, безопасность              |
+| [TESTING.md](docs/TESTING.md)             | Стратегия тестирования, примеры                           |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md)       | Docker, docker-compose, CI/CD                             |
+| [MAINTENANCE.md](docs/MAINTENANCE.md)     | Обслуживание, обновление yt-dlp                           |
+| [ADR/](docs/ADR/)                         | Architecture Decision Records                             |
 
 ---
 
@@ -64,18 +67,20 @@
 ```
 tg-video-downloader/
 ├── domain/              # Доменные модели, use-cases (чистый Kotlin)
-├── api-contract/        # DTO, API-контракт (kotlinx.serialization)
-├── api-mapping/         # Маппинг domain <-> DTO
-├── api-client/          # Ktor KMP HTTP-клиент
-├── server-infra/        # Репозитории, DB, внешние процессы
-├── server-transport/    # Ktor routing, auth middleware
-├── server-di/           # Koin модули
-├── server-app/          # Entrypoint, Application.kt
+├── api/
+│   ├── contract/        # DTO, API-контракт (kotlinx.serialization, KMP)
+│   ├── mapping/         # Маппинг domain <-> DTO
+│   └── client/          # Ktor KMP HTTP-клиент
+├── server/
+│   ├── infra/           # Репозитории, DB, внешние процессы, LLM
+│   ├── transport/       # Ktor routing, auth middleware
+│   ├── di/              # Koin модули
+│   └── app/             # Entrypoint, Application.kt
 ├── tgminiapp/           # Compose Multiplatform Web UI
 └── docs/                # Эта документация
 ```
 
-Подробнее: [ARCHITECTURE.md](./ARCHITECTURE.md)
+Подробнее: [ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ---
 
@@ -95,7 +100,7 @@ tg-video-downloader/
 docker compose up -d postgres
 
 # 2. Применить миграции и запустить сервер
-./gradlew :server-app:run
+./gradlew :server:app:run
 
 # 3. Запустить Mini App (dev server)
 ./gradlew :tgminiapp:jsBrowserDevelopmentRun

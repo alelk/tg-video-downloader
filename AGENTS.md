@@ -7,7 +7,7 @@
 
 ## 🎯 Краткое описание проекта
 
-**TG Video Downloader** — сервис для скачивания YouTube-видео с управлением через Telegram Mini App.
+**TG Video Downloader** — сервис для скачивания YouTube-видео с управлением через Telegram Mini App. Поддерживает умное определение метаданных через LLM (Gemini/OpenAI) и HTTP/SOCKS5 прокси.
 
 **Стек**: Kotlin 2.3+, Ktor 3, Compose Multiplatform, PostgreSQL, yt-dlp.
 
@@ -35,18 +35,20 @@
 ```
 tg-video-downloader/
 ├── domain/              # Доменные модели, use-cases (чистый Kotlin, без фреймворков)
-├── api-contract/        # DTO для HTTP API (kotlinx.serialization, KMP)
-├── api-mapping/         # Маппинг domain <-> DTO
-├── api-client/          # Ktor KMP HTTP-клиент
-├── server-infra/        # Репозитории, DB (Exposed), внешние процессы (yt-dlp, ffmpeg)
-├── server-transport/    # Ktor routing, auth middleware
-├── server-di/           # Koin модули
-├── server-app/          # Entrypoint, Application.kt
+├── api/
+│   ├── contract/        # DTO для HTTP API (kotlinx.serialization, KMP)
+│   ├── mapping/         # Маппинг domain <-> DTO
+│   └── client/          # Ktor KMP HTTP-клиент
+├── server/
+│   ├── infra/           # Репозитории, DB (Exposed), внешние процессы (yt-dlp, ffmpeg), LLM
+│   ├── transport/       # Ktor routing, auth middleware
+│   ├── di/              # Koin модули
+│   └── app/             # Entrypoint, Application.kt
 ├── tgminiapp/           # Compose Multiplatform Web UI
 └── docs/                # Документация
 ```
 
-**Правило зависимостей**: `domain` → ни от чего; `api-contract` → только kotlinx.serialization; все остальные модули могут зависеть от domain.
+**Правило зависимостей**: `domain` → ни от чего; `api:contract` → только kotlinx.serialization; все остальные модули могут зависеть от domain.
 
 ---
 
@@ -63,16 +65,16 @@ tg-video-downloader/
 ### 2. Разделение слоёв
 
 ```
-UI (tgminiapp) → api-client → api-contract
+UI (tgminiapp) → api:client → api:contract
                                     ↓
-            server-transport → api-mapping → domain
+            server:transport → api:mapping → domain
                     ↓
-            server-infra (DB, yt-dlp)
+            server:infra (DB, yt-dlp, LLM, Proxy)
 ```
 
 ### 3. Contract-first
 
-- Сначала DTO в `api-contract`, потом реализация
+- Сначала DTO в `api:contract`, потом реализация
 - Discriminator `type` для sealed DTO в JSON
 - Версионирование API через `/api/v1/`, `/api/v2/`
 
@@ -89,15 +91,15 @@ UI (tgminiapp) → api-client → api-contract
 ### При добавлении нового типа в sealed hierarchy
 
 1. Добавь в domain (`domain/model/`)
-2. Добавь в DTO (`api-contract/`) с `@SerialName`
-3. Добавь маппинг в обе стороны (`api-mapping/`)
+2. Добавь в DTO (`api/contract/`) с `@SerialName`
+3. Добавь маппинг в обе стороны (`api/mapping/`)
 4. Добавь тесты
 5. Обнови документацию при необходимости
 
 ### При создании нового endpoint
 
-1. Опиши DTO в `api-contract`
-2. Добавь route в `server-transport`
+1. Опиши DTO в `api:contract`
+2. Добавь route в `server:transport`
 3. Реализуй use-case в `domain` (если нужна бизнес-логика)
 4. Добавь тесты (unit + integration)
 5. Обнови [API_CONTRACT.md](./docs/API_CONTRACT.md)
@@ -143,6 +145,35 @@ sealed interface ResolvedMetadata {
 }
 ```
 
+### MetadataSource enum
+
+```kotlin
+enum class MetadataSource { RULE, LLM, FALLBACK }
+```
+
+Указывает, откуда пришли метаданные: из правила, LLM или базового fallback.
+
+### LlmPort (Optional)
+
+```kotlin
+interface LlmPort {
+    suspend fun suggestMetadata(video: VideoInfo): Either<DomainError.LlmError, LlmSuggestion>
+}
+```
+
+`LlmPort` — порт в `domain/port/`. Реализации (`GeminiLlmAdapter`, `OpenAiLlmAdapter`) — в `server:infra/llm/`.
+Инжектится как nullable (`getOrNull()`). Если LLM не настроен (`provider=NONE`) — `null`, fallback на базовый `MetadataResolver`.
+
+### Save as Rule
+
+При создании job (`POST /api/v1/jobs`) можно передать `saveAsRule` с настройками, чтобы автоматически создать правило для этого канала из текущих метаданных.
+
+### Proxy
+
+Конфигурация прокси (`ProxyConfig`) используется в двух местах:
+- `yt-dlp` — через аргумент `--proxy`
+- LLM HTTP-клиент — через `Ktor Client` engine proxy config
+
 ### JSON сериализация sealed
 
 Discriminator: `type`
@@ -180,7 +211,7 @@ Discriminator: `type`
 
 - **Gradle команды**:
   - `./gradlew test` — все тесты
-  - `./gradlew :server-app:run` — запуск сервера
+  - `./gradlew :server:app:run` — запуск сервера
   - `./gradlew :tgminiapp:jsBrowserDevelopmentRun` — запуск UI
 
 - **Docker**:

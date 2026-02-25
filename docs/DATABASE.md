@@ -295,7 +295,7 @@ class JsonColumnType<T : Any>(
 ### 5.1 Структура
 
 ```
-server-infra/src/main/resources/db/migration/
+server/infra/src/main/resources/db/migration/
 ├── V1__initial_schema.sql
 ├── V2__add_job_outputs.sql
 └── V3__add_rules_name.sql

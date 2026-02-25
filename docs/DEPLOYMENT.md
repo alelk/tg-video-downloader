@@ -21,7 +21,7 @@ RUN gradle dependencies --no-daemon
 
 # Build
 COPY . .
-RUN gradle :server-app:shadowJar --no-daemon
+RUN gradle :server:app:shadowJar --no-daemon
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine
@@ -37,7 +37,7 @@ RUN apk add --no-cache \
 WORKDIR /app
 
 # Copy jar
-COPY --from=build /app/server-app/build/libs/server-app-all.jar app.jar
+COPY --from=build /app/server/app/build/libs/server-app-all.jar app.jar
 
 # Create non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
@@ -181,7 +181,7 @@ APP_PROFILE=production
 docker compose -f docker-compose.dev.yml up -d
 
 # Запустить приложение локально
-./gradlew :server-app:run
+./gradlew :server:app:run
 ```
 
 ### 3.2 Production
@@ -276,13 +276,13 @@ jobs:
           distribution: 'temurin'
       
       - name: Build
-        run: ./gradlew :server-app:shadowJar
+        run: ./gradlew :server:app:shadowJar
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: server-app
-          path: server-app/build/libs/*-all.jar
+          path: server/app/build/libs/*-all.jar
 
   docker:
     runs-on: ubuntu-latest

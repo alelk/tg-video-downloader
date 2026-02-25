@@ -76,6 +76,21 @@ jobs:
 logging:
   level: "INFO"
   format: "JSON"                        # JSON | TEXT
+
+# LLM (Optional) — для умного определения метаданных
+llm:
+  provider: "GEMINI"                    # GEMINI | OPENAI | NONE
+  apiKey: "AIza..."                     # REQUIRED если provider != NONE, через env
+  model: "gemini-2.0-flash"
+
+# Proxy (Optional) — для yt-dlp и LLM
+proxy:
+  enabled: false
+  type: "HTTP"                          # HTTP | SOCKS5
+  host: "127.0.0.1"
+  port: 8080
+  username: null                        # optional, через env
+  password: null                        # optional, через env
 ```
 
 ---
@@ -93,6 +108,8 @@ data class AppConfig(
     val postProcess: PostProcessConfig,
     val jobs: JobsConfig,
     val logging: LoggingConfig,
+    val llm: LlmConfig = LlmConfig(),
+    val proxy: ProxyConfig = ProxyConfig(),
 )
 
 data class ServerConfig(
@@ -153,6 +170,35 @@ data class LoggingConfig(
     val level: String = "INFO",
     val format: String = "JSON",
 )
+
+data class LlmConfig(
+    val provider: LlmProvider = LlmProvider.NONE,
+    val apiKey: String? = null,
+    val model: String? = null,
+) {
+    enum class LlmProvider { GEMINI, OPENAI, NONE }
+}
+
+data class ProxyConfig(
+    val enabled: Boolean = false,
+    val type: ProxyType = ProxyType.HTTP,
+    val host: String = "127.0.0.1",
+    val port: Int = 8080,
+    val username: String? = null,
+    val password: String? = null,
+) {
+    enum class ProxyType { HTTP, SOCKS5 }
+    
+    fun toUrl(): String? {
+        if (!enabled) return null
+        val auth = if (username != null && password != null) "$username:$password@" else ""
+        val scheme = when (type) {
+            ProxyType.HTTP -> "http"
+            ProxyType.SOCKS5 -> "socks5"
+        }
+        return "$scheme://$auth$host:$port"
+    }
+}
 ```
 
 ---
@@ -266,6 +312,17 @@ fun AppConfig.validate() {
             "storage.baseDirectories: $dir does not exist or is not a directory"
         }
     }
+    
+    // LLM: если provider задан, apiKey обязателен
+    if (llm.provider != LlmConfig.LlmProvider.NONE) {
+        require(!llm.apiKey.isNullOrBlank()) { "llm.apiKey is required when provider is ${llm.provider}" }
+    }
+    
+    // Proxy: если включён, host и port обязательны
+    if (proxy.enabled) {
+        require(proxy.host.isNotBlank()) { "proxy.host is required when proxy is enabled" }
+        require(proxy.port in 1..65535) { "proxy.port must be 1-65535" }
+    }
 }
 ```
 
@@ -307,6 +364,7 @@ ENV TELEGRAM_BOT_TOKEN=""
 ENV DB_URL="jdbc:postgresql://postgres:5432/tgvd"
 ENV DB_USER="tgvd"
 ENV DB_PASSWORD=""
+ENV LLM_API_KEY=""
 ENV APP_PROFILE="production"
 ```
 
@@ -320,5 +378,7 @@ services:
       - DB_URL=jdbc:postgresql://postgres:5432/tgvd
       - DB_USER=tgvd
       - DB_PASSWORD=${DB_PASSWORD}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - PROXY_PASSWORD=${PROXY_PASSWORD}
       - APP_PROFILE=production
 ```

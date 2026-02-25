@@ -104,7 +104,7 @@ match JSONB NOT NULL  -- { "type": "channelId", "value": "UC123" }
 
 ### Маппинг Domain <-> DTO
 
-Отдельный слой (`api-mapping`) с extension functions:
+Отдельный слой (`api:mapping`) с extension functions:
 
 ```kotlin
 fun RuleMatch.toDto(): RuleMatchDto = when (this) {

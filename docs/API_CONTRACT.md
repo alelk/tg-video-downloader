@@ -80,6 +80,7 @@ data class ApiErrorDto(
 | `CONFLICT` | 409 | Конфликт (например, job уже существует) |
 | `UPDATE_DISABLED` | 403 | Обновление yt-dlp запрещено в конфигурации |
 | `VIDEO_UNAVAILABLE` | 422 | Видео недоступно |
+| `LLM_ERROR` | 502 | Ошибка при обращении к LLM провайдеру |
 | `INTERNAL_ERROR` | 500 | Внутренняя ошибка сервера |
 
 ---
@@ -278,6 +279,19 @@ sealed interface ResolvedMetadataDto {
 
 ---
 
+### 5.3 MetadataSourceDto
+
+```kotlin
+@Serializable
+enum class MetadataSourceDto {
+    @SerialName("RULE")     RULE,       // Metadata derived from a matched rule
+    @SerialName("LLM")      LLM,       // Metadata inferred by LLM
+    @SerialName("FALLBACK") FALLBACK,   // Metadata from video source (yt-dlp) without specific rules
+}
+```
+
+---
+
 ## 6. Эндпоинты
 
 ### 6.1 POST /api/v1/preview
@@ -385,6 +399,16 @@ data class CreateJobRequestDto(
     val videoInfo: VideoInfoDto,
     val metadata: ResolvedMetadataDto,
     val storagePlan: StoragePlanDto,
+    val saveAsRule: SaveAsRuleDto? = null,  // optional: сохранить настройки как правило
+)
+
+@Serializable
+data class SaveAsRuleDto(
+    val enabled: Boolean = true,
+    val matchBy: String = "channelId",   // channelId | channelName
+    val includeCategory: Boolean = true,
+    val includeMetadataTemplate: Boolean = true,
+    val includeStoragePolicy: Boolean = true,
 )
 ```
 
@@ -703,7 +727,7 @@ data class PostProcessPolicyDto(
 
 ### 8.1 Расположение
 
-Модуль: `api-mapping`
+Модуль: `api:mapping`
 
 ### 8.2 Примеры
 
@@ -791,6 +815,8 @@ fun DomainError.toApiError(correlationId: String): Pair<HttpStatusCode, ApiError
         HttpStatusCode.Conflict to ApiErrorDto(...)
     is DomainError.VideoUnavailable -> 
         HttpStatusCode.UnprocessableEntity to ApiErrorDto(...)
+    is DomainError.LlmError ->
+        HttpStatusCode.BadGateway to ApiErrorDto(...)
     else -> 
         HttpStatusCode.InternalServerError to ApiErrorDto(...)
 }
@@ -824,6 +850,7 @@ fun DomainError.toApiError(correlationId: String): Pair<HttpStatusCode, ApiError
 2. При неизвестном `type` для `ResolvedMetadataDto` — fallback на `Other`
 3. При неизвестном `type` для `RuleMatchDto` — ошибка (правила критичны)
 
+---
 
 ## 10. System
 

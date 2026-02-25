@@ -28,13 +28,15 @@
 ```
 tg-video-downloader/
 ├── domain/              # Чистая бизнес-логика
-├── api-contract/        # DTO для API (shared)
-├── api-mapping/         # Маппинг domain <-> DTO
-├── api-client/          # HTTP клиент (KMP)
-├── server-infra/        # Репозитории, внешние процессы
-├── server-transport/    # Ktor routes, middleware
-├── server-di/           # Koin модули
-├── server-app/          # Entrypoint
+├── api/
+│   ├── contract/        # DTO для API (shared, KMP)
+│   ├── mapping/         # Маппинг domain <-> DTO
+│   └── client/          # HTTP клиент (KMP)
+├── server/
+│   ├── infra/           # Репозитории, внешние процессы, LLM
+│   ├── transport/       # Ktor routes, middleware
+│   ├── di/              # Koin модули
+│   └── app/             # Entrypoint
 └── tgminiapp/           # UI (Compose Multiplatform)
 ```
 
@@ -44,43 +46,43 @@ tg-video-downloader/
                     tgminiapp
                         │
                         ▼
-                   api-client
+                   api:client
                         │
             ┌───────────┴───────────┐
             │                       │
             ▼                       │
-      api-contract                  │
+      api:contract                  │
             │                       │
             │           ┌───────────┘
             ▼           ▼
-      api-mapping ──▶ domain
+      api:mapping ──▶ domain
             │
             ▼
-    server-transport
+    server:transport
             │
             ▼
-     server-infra
+     server:infra
             │
             ▼
-      server-di
+      server:di
             │
             ▼
-      server-app
+      server:app
 ```
 
 ### Правила зависимостей
 
-| Модуль             | Может зависеть от                               | НЕ может зависеть от        |
-|--------------------|-------------------------------------------------|-----------------------------|
-| `domain`           | —                                               | Всё остальное               |
-| `api-contract`     | Kotlin stdlib, kotlinx.serialization            | domain, server-*            |
-| `api-mapping`      | domain, api-contract                            | server-*, api-client        |
-| `api-client`       | api-contract, Ktor Client                       | domain, server-*            |
-| `server-infra`     | domain, api-contract                            | transport, di, app          |
-| `server-transport` | domain, api-contract, api-mapping, server-infra | di, app                     |
-| `server-di`        | Все серверные модули                            | app                         |
-| `server-app`       | Все серверные модули                            | —                           |
-| `tgminiapp`        | api-client, api-contract                        | server-*, domain (напрямую) |
+| Модуль               | Может зависеть от                                     | НЕ может зависеть от          |
+|----------------------|-------------------------------------------------------|-------------------------------|
+| `domain`             | —                                                     | Всё остальное                 |
+| `api:contract`       | Kotlin stdlib, kotlinx.serialization                  | domain, server:*              |
+| `api:mapping`        | domain, api:contract                                  | server:*, api:client          |
+| `api:client`         | api:contract, Ktor Client                             | domain, server:*              |
+| `server:infra`       | domain, api:contract                                  | transport, di, app            |
+| `server:transport`   | domain, api:contract, api:mapping, server:infra       | di, app                       |
+| `server:di`          | Все серверные модули                                  | app                           |
+| `server:app`         | Все серверные модули                                  | —                             |
+| `tgminiapp`          | api:client, api:contract                              | server:*, domain (напрямую)   |
 
 ---
 
@@ -92,32 +94,32 @@ tg-video-downloader/
 - **Чистые типы**: sealed classes, value objects без аннотаций сериализации
 - **Переиспользование**: потенциально между проектами
 
-### Почему `api-contract` отдельно от `domain`?
+### Почему `api:contract` отдельно от `domain`?
 
 - **Стабильность API**: контракт версионируется отдельно
 - **Разные инварианты**: DTO может иметь nullable там, где domain требует non-null
 - **Разные аннотации**: @Serializable, @SerialName
 
-### Почему `api-mapping` отдельно?
+### Почему `api:mapping` отдельно?
 
 - **Изоляция логики маппинга**: не загрязняет domain и DTO
 - **Тестируемость**: легко тестировать преобразования отдельно
 - **Валидация**: DTO → Domain может возвращать Either
 
-### Почему `api-client` KMP?
+### Почему `api:client` KMP?
 
 - **Единый клиент**: используется в tgminiapp (JS) и потенциально в тестах (JVM)
 - **Type-safe**: работает с теми же DTO, что и сервер
 - **Ktor Client**: нативная поддержка всех платформ
 
-### Почему разделение server-*?
+### Почему разделение server:*?
 
 | Модуль | Ответственность |
 |--------|-----------------|
-| `server-infra` | "Грязная" работа: DB, процессы, FS |
-| `server-transport` | HTTP: роуты, middleware, валидация |
-| `server-di` | Wiring зависимостей |
-| `server-app` | Точка входа, конфигурация |
+| `server:infra` | "Грязная" работа: DB, процессы, FS, LLM |
+| `server:transport` | HTTP: роуты, middleware, валидация |
+| `server:di` | Wiring зависимостей |
+| `server:app` | Точка входа, конфигурация |
 
 Это позволяет:
 - Тестировать infra без HTTP
@@ -179,7 +181,7 @@ feature-rules/
 
 При росте проекта можно:
 - Выделить `core/` для общих утилит
-- Разбить `server-infra` на `infra-db`, `infra-process`
+- Разбить `server:infra` на `infra-db`, `infra-process`
 - Добавить feature-модули для крупных фич
 
 ---
@@ -191,17 +193,22 @@ feature-rules/
 ```kotlin
 rootProject.name = "tg-video-downloader"
 
-include(
-    ":domain",
-    ":api-contract",
-    ":api-mapping",
-    ":api-client",
-    ":server-infra",
-    ":server-transport",
-    ":server-di",
-    ":server-app",
-    ":tgminiapp",
-)
+// === Domain ===
+include(":domain")
+
+// === API ===
+include(":api:contract")
+include(":api:mapping")
+include(":api:client")
+
+// === Server ===
+include(":server:infra")
+include(":server:transport")
+include(":server:di")
+include(":server:app")
+
+// === UI ===
+include(":tgminiapp")
 ```
 
 ### Пример domain/build.gradle.kts
@@ -224,7 +231,7 @@ dependencies {
 }
 ```
 
-### Пример api-contract/build.gradle.kts
+### Пример api/contract/build.gradle.kts
 
 ```kotlin
 plugins {

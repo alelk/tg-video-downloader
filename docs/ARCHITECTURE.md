@@ -35,7 +35,7 @@
 
 ### 1.3 Contract-first
 
-- API-контракт (`api-contract`) определяется до реализации
+- API-контракт (`api:contract`) определяется до реализации
 - DTO стабильны и версионируются
 - Изменения через `/api/v2/...` или новые optional поля
 
@@ -52,14 +52,14 @@
                          └──────┬──────┘
                                 │
                          ┌──────▼──────┐
-                         │ api-client  │
+                         │ api:client  │
                          └──────┬──────┘
                                 │
          ┌──────────────────────┼──────────────────────┐
          │                      │                      │
          ▼                      ▼                      │
 ┌─────────────────┐    ┌─────────────────┐            │
-│  api-contract   │    │   api-mapping   │            │
+│  api:contract   │    │   api:mapping   │            │
 └────────┬────────┘    └────────┬────────┘            │
          │                      │                      │
          │              ┌───────▼───────┐              │
@@ -70,13 +70,13 @@
          │     │                │                │
          ▼     ▼                ▼                ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│server-transport │    │  server-infra   │    │    server-di    │
+│server:transport │    │  server:infra   │    │    server:di    │
 └────────┬────────┘    └────────┬────────┘    └────────┬────────┘
          │                      │                      │
          └──────────────────────┼──────────────────────┘
                                 │
                          ┌──────▼──────┐
-                         │ server-app  │
+                         │  server:app │
                          └─────────────┘
 ```
 
@@ -90,22 +90,23 @@
 - Доменные модели (sealed classes, data classes)
 - Value objects (`VideoId`, `ChannelId`)
 - Доменные сервисы (`RuleMatchingService`, `MetadataResolver`)
-- Порты для внешних сервисов (`LlmProviderPort`, `RuleRepository`)
-- Use-cases (`CreateJobUseCase`, `PreviewUseCase`) -> `PreviewUseCase` вызывает `MetadataResolver`, который при отсутствии правил может дернуть `LlmProviderPort`
+- Порты для внешних сервисов (`LlmPort`, `RuleRepository`, `VideoInfoExtractor`)
+- Use-cases (`CreateJobUseCase`, `PreviewUseCase`)
 - Доменные ошибки (`sealed interface DomainError`)
-- Политики (`RetryPolicy`, `StoragePolicy`)
+- Политики (`DownloadPolicy`, `StoragePolicy`, `PostProcessPolicy`)
 
-**Зависимости**: Только Kotlin stdlib.
+**Зависимости**: Только Kotlin stdlib + Arrow (Either).
 
 **Не содержит**: Ktor, kotlinx.serialization, DB, файловая система.
 
-```kotlin
+```
 // Пример структуры пакетов
 domain/
 ├── model/
 │   ├── Rule.kt
 │   ├── RuleMatch.kt          // sealed interface
 │   ├── Category.kt           // enum
+│   ├── MetadataSource.kt     // enum (RULE, LLM, FALLBACK)
 │   ├── ResolvedMetadata.kt   // sealed interface
 │   ├── Job.kt
 │   └── VideoInfo.kt
@@ -124,12 +125,13 @@ domain/
 └── port/
     ├── RuleRepository.kt     // interface
     ├── JobRepository.kt      // interface
-    └── VideoInfoExtractor.kt // interface
+    ├── VideoInfoExtractor.kt // interface
+    └── LlmPort.kt            // interface (optional LLM integration)
 ```
 
 ---
 
-#### `api-contract`
+#### `api:contract`
 
 **Назначение**: DTO для HTTP API (request/response).
 
@@ -141,9 +143,9 @@ domain/
 
 **Зависимости**: Kotlin stdlib, kotlinx.serialization.
 
-```kotlin
+```
 // Пример
-api-contract/
+api/contract/
 ├── v1/
 │   ├── PreviewRequestDto.kt
 │   ├── PreviewResponseDto.kt
@@ -159,7 +161,7 @@ api-contract/
 
 ---
 
-#### `api-mapping`
+#### `api:mapping`
 
 **Назначение**: Конвертация domain ↔ DTO.
 
@@ -168,7 +170,7 @@ api-contract/
 - Валидация DTO перед конвертацией
 - Адаптация `DomainError` → `ApiErrorDto`
 
-**Зависимости**: `domain`, `api-contract`.
+**Зависимости**: `domain`, `api:contract`.
 
 ```kotlin
 // Пример
@@ -188,7 +190,7 @@ fun RuleMatchDto.toDomain(): Either<ValidationError, RuleMatch> = when (this) {
 
 ---
 
-#### `api-client`
+#### `api:client`
 
 **Назначение**: Typed HTTP-клиент для UI.
 
@@ -198,7 +200,7 @@ fun RuleMatchDto.toDomain(): Either<ValidationError, RuleMatch> = when (this) {
 - Retry на уровне HTTP
 - (De)сериализация
 
-**Зависимости**: `api-contract`, Ktor Client (KMP).
+**Зависимости**: `api:contract`, Ktor Client (KMP).
 
 **Платформы**: JVM, JS, (Wasm).
 
@@ -214,9 +216,9 @@ interface TgVideoDownloaderClient {
 
 ---
 
-#### `server-infra`
+#### `server:infra`
 
-**Назначение**: Реализация портов (DB, внешние процессы, FS).
+**Назначение**: Реализация портов (DB, внешние процессы, FS, LLM).
 
 **Содержит**:
 - `RuleRepositoryImpl` (Exposed)
@@ -229,10 +231,10 @@ interface TgVideoDownloaderClient {
 - DB схема (Exposed tables)
 - Flyway миграции
 
-**Зависимости**: `domain`, Exposed, Flyway, kotlinx.serialization.
+**Зависимости**: `domain`, `api:contract`, Exposed, Flyway, kotlinx.serialization, Ktor Client.
 
-```kotlin
-server-infra/
+```
+server/infra/
 ├── db/
 │   ├── tables/
 │   │   ├── RulesTable.kt
@@ -246,6 +248,10 @@ server-infra/
 │   ├── YtDlpVideoInfoExtractor.kt
 │   ├── YtDlpDownloader.kt
 │   └── FfmpegConverter.kt
+├── llm/
+│   ├── GeminiLlmAdapter.kt       // LlmPort implementation for Gemini
+│   ├── OpenAiLlmAdapter.kt       // LlmPort implementation for OpenAI
+│   └── NoopLlmAdapter.kt         // Fallback when LLM is disabled
 ├── storage/
 │   └── FileStorageService.kt
 └── json/
@@ -254,7 +260,7 @@ server-infra/
 
 ---
 
-#### `server-transport`
+#### `server:transport`
 
 **Назначение**: HTTP слой (Ktor routing).
 
@@ -265,10 +271,10 @@ server-infra/
 - Error handling (exception → ApiErrorDto)
 - CORS, logging plugins
 
-**Зависимости**: `domain`, `api-contract`, `api-mapping`, Ktor Server.
+**Зависимости**: `domain`, `api:contract`, `api:mapping`, Ktor Server.
 
-```kotlin
-server-transport/
+```
+server/transport/
 ├── plugin/
 │   ├── TelegramAuthPlugin.kt
 │   ├── ErrorHandlingPlugin.kt
@@ -283,7 +289,7 @@ server-transport/
 
 ---
 
-#### `server-di`
+#### `server:di`
 
 **Назначение**: Dependency injection wiring.
 
@@ -291,7 +297,7 @@ server-transport/
 - Koin modules
 - Factory functions
 
-**Зависимости**: `domain`, `server-infra`, `server-transport`, Koin.
+**Зависимости**: `domain`, `server:infra`, `server:transport`, Koin.
 
 ```kotlin
 val domainModule = module {
@@ -310,7 +316,7 @@ val infraModule = module {
 
 ---
 
-#### `server-app`
+#### `server:app`
 
 **Назначение**: Entrypoint, сборка приложения.
 
@@ -344,11 +350,11 @@ fun main() {
 - ViewModels / State holders
 - Telegram WebApp JS interop
 
-**Зависимости**: `domain` (models), `api-client`, Compose Multiplatform.
+**Зависимости**: `domain` (models), `api:client`, Compose Multiplatform.
 
 **Target**: JS (Browser), возможно Wasm в будущем.
 
-```kotlin
+```
 tgminiapp/
 ├── src/jsMain/kotlin/
 │   ├── Main.kt
@@ -444,17 +450,22 @@ logger.withLoggingContext("jobId" to job.id.toString()) {
 ```kotlin
 rootProject.name = "tg-video-downloader"
 
-include(
-    ":domain",
-    ":api-contract",
-    ":api-mapping",
-    ":api-client",
-    ":server-infra",
-    ":server-transport",
-    ":server-di",
-    ":server-app",
-    ":tgminiapp",
-)
+// === Domain ===
+include(":domain")
+
+// === API ===
+include(":api:contract")
+include(":api:mapping")
+include(":api:client")
+
+// === Server ===
+include(":server:infra")
+include(":server:transport")
+include(":server:di")
+include(":server:app")
+
+// === UI ===
+include(":tgminiapp")
 ```
 
 ### 4.2 Версии (libs.versions.toml)

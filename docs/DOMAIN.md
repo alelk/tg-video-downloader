@@ -602,6 +602,12 @@ data class StoragePolicy(
             originalTemplate = "/media/Videos/{channelName}/{title} [{videoId}].{ext}",
             convertedTemplate = null,
         )
+        
+        fun defaultFor(category: Category): StoragePolicy = when (category) {
+            Category.MUSIC_VIDEO -> MUSIC_VIDEO_DEFAULT
+            Category.SERIES -> SERIES_DEFAULT
+            Category.OTHER -> OTHER_DEFAULT
+        }
     }
 }
 ```
