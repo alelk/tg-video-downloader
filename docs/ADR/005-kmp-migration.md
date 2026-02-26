@@ -61,10 +61,12 @@
 
 1. **UUID**: `kotlin.uuid.Uuid` вместо `java.util.UUID` — в stdlib
 2. **Timestamps**: `kotlin.time.Instant` вместо `java.time.Instant` — в stdlib с Kotlin 2.1.20+
-3. **Даты**: `String` в ISO 8601 формате (`"2024-02-25"`) — не требует зависимостей
-4. **Value classes**: Поддерживаются на JS с Kotlin 2.1+. Используем `value class` в `commonMain`
-5. **Path**: В domain используем `String` для путей. `java.nio.file.Path` — только в `server:infra` (JVM)
-6. **Logging**: `expect/actual` для логирования или KMP logging библиотека
+3. **Duration**: `kotlin.time.Duration` вместо `java.time.Duration` — в stdlib
+4. **Даты**: `value class LocalDate(val value: String)` — собственный value class с ISO 8601 валидацией, KMP stdlib не содержит аналога
+5. **URL**: `value class Url(val value: String)` — собственный value class, KMP stdlib не содержит аналога
+6. **Пути**: `value class FilePath(val value: String)` — собственный value class. `java.nio.file.Path` — только в `server:infra` (JVM) для маппинга
+7. **Value classes**: Поддерживаются на JS с Kotlin 2.1+. Используем `value class` в `commonMain`
+8. **Logging**: `expect/actual` для логирования или KMP logging библиотека
 
 ---
 

@@ -206,13 +206,14 @@ private fun videoInfo(
     channelName: String = "Test Channel",
     webpageUrl: String = "https://youtube.com/watch?v=abc123",
 ) = VideoInfo(
-    videoId = videoId,
+    videoId = VideoId(videoId),
+    extractor = Extractor.YOUTUBE,
     title = title,
-    channelId = channelId,
+    channelId = ChannelId(channelId),
     channelName = channelName,
     uploadDate = null,
-    durationSeconds = 180,
-    webpageUrl = webpageUrl,
+    duration = 180.seconds,
+    webpageUrl = Url(webpageUrl),
 )
 ```
 
@@ -226,12 +227,13 @@ class ResolvedMetadataTest : FunSpec({
             val metadata = ResolvedMetadata.MusicVideo(
                 artist = "Artist",
                 title = "Title",
-                year = 2024,
+                releaseDate = LocalDate("2024-01-15"),
                 tags = listOf("rock", "live"),
             )
             
             metadata.artist shouldBe "Artist"
-            metadata.category() shouldBe Category.MUSIC_VIDEO
+            metadata.category shouldBe Category.MUSIC_VIDEO
+            metadata.year shouldBe 2024
         }
         
         test("throws on blank artist") {
@@ -240,9 +242,9 @@ class ResolvedMetadataTest : FunSpec({
             }
         }
         
-        test("throws on invalid year") {
+        test("throws on invalid releaseDate") {
             shouldThrow<IllegalArgumentException> {
-                ResolvedMetadata.MusicVideo(artist = "Artist", title = "Title", year = 1700)
+                LocalDate("not-a-date")
             }
         }
     }

@@ -98,7 +98,7 @@ COMMENT ON COLUMN jobs.storage_plan IS 'StoragePlanDto JSON';
 CREATE TABLE job_outputs (
     id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id   UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-    kind     TEXT NOT NULL,
+    format   JSONB NOT NULL,   -- OutputFormatDto: {"type": "convertedVideo", "container": "mp4"}
     path     TEXT NOT NULL,
     size     BIGINT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -107,7 +107,7 @@ CREATE TABLE job_outputs (
 CREATE INDEX idx_job_outputs_job_id ON job_outputs(job_id);
 
 COMMENT ON TABLE job_outputs IS 'Выходные файлы job';
-COMMENT ON COLUMN job_outputs.kind IS 'ORIGINAL, CONVERTED, AUDIO_ONLY, THUMBNAIL';
+COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: originalVideo, convertedVideo, audio, thumbnail';
 ```
 
 ---
@@ -139,9 +139,11 @@ COMMENT ON COLUMN job_outputs.kind IS 'ORIGINAL, CONVERTED, AUDIO_ONLY, THUMBNAI
 
 ```json
 {
-  "artistPattern": "^(.+?) - ",
-  "titlePattern": " - (.+)$",
-  "seriesNameOverride": null,
+  "type": "musicVideo",
+  "artistOverride": "Rick Astley",
+  "artistPattern": null,
+  "titleOverride": null,
+  "titlePattern": null,
   "defaultTags": ["music", "official"]
 }
 ```
@@ -151,7 +153,7 @@ COMMENT ON COLUMN job_outputs.kind IS 'ORIGINAL, CONVERTED, AUDIO_ONLY, THUMBNAI
 ```json
 {
   "maxQuality": "BEST",
-  "preferredFormat": "mp4",
+  "preferredContainer": "mp4",
   "downloadSubtitles": false,
   "subtitleLanguages": []
 }
@@ -162,8 +164,12 @@ COMMENT ON COLUMN job_outputs.kind IS 'ORIGINAL, CONVERTED, AUDIO_ONLY, THUMBNAI
 ```json
 {
   "originalTemplate": "/media/Music Videos/original/{artist}/{title} [{videoId}].{ext}",
-  "convertedTemplate": "/media/Music Videos/{artist}/{title}.mp4",
-  "audioOnlyTemplate": null
+  "additionalOutputs": [
+    {
+      "pathTemplate": "/media/Music Videos/converted/{artist}/{title}.mp4",
+      "format": { "type": "convertedVideo", "container": "mp4" }
+    }
+  ]
 }
 ```
 
@@ -171,12 +177,9 @@ COMMENT ON COLUMN job_outputs.kind IS 'ORIGINAL, CONVERTED, AUDIO_ONLY, THUMBNAI
 
 ```json
 {
-  "convertToMp4": true,
   "embedThumbnail": true,
   "embedMetadata": true,
-  "normalizeAudio": false,
-  "extractAudio": false,
-  "audioFormat": "m4a"
+  "normalizeAudio": false
 }
 ```
 
@@ -187,7 +190,7 @@ COMMENT ON COLUMN job_outputs.kind IS 'ORIGINAL, CONVERTED, AUDIO_ONLY, THUMBNAI
   "type": "musicVideo",
   "artist": "Rick Astley",
   "title": "Never Gonna Give You Up",
-  "year": 1987,
+  "releaseDate": "1987-10-01",
   "tags": ["80s", "pop"],
   "comment": null
 }

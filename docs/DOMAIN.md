@@ -638,6 +638,7 @@ domain/storage/
 ├── ImageFormat.kt
 ├── OutputFormat.kt            # sealed interface
 ├── OutputTarget.kt
+├── OutputTemplate.kt
 ├── StoragePlan.kt
 ├── StoragePolicy.kt
 ├── DownloadPolicy.kt
@@ -731,7 +732,7 @@ data class OutputTarget(
  *   original  = .../original/Artist/Title.webm       (OriginalVideo)
  *   additional = [
  *     .../converted/Artist/Title.mp4                  (ConvertedVideo)
- *     .../audio/Artist/Title.m4a                      (Audio)          — если extractAudio
+ *     .../audio/Artist/Title.m4a                      (Audio)
  *   ]
  */
 data class StoragePlan(
@@ -758,37 +759,57 @@ data class DownloadPolicy(
 ### 6.5 StoragePolicy
 
 ```kotlin
+/**
+ * Шаблон пути для одного выходного файла.
+ * Связывает path template с форматом выходного файла.
+ */
+data class OutputTemplate(
+    val pathTemplate: String,         // e.g. "/media/Music Videos/converted/{artist}/{title}.mp4"
+    val format: OutputFormat,         // тип + формат выходного файла
+)
+
+/**
+ * Политика хранения файлов.
+ * 
+ * [originalTemplate] — шаблон для исходного файла (как скачано yt-dlp).
+ * [additionalOutputs] — производные файлы: конвертированное видео, аудио, thumbnail.
+ * Каждый [OutputTemplate] привязывает path template к [OutputFormat].
+ * 
+ * Зеркалит структуру [StoragePlan]: original + additional.
+ */
 data class StoragePolicy(
-    val originalTemplate: String?,
-    val convertedTemplate: String?,
-    val audioOnlyTemplate: String? = null,
+    val originalTemplate: String,
+    val additionalOutputs: List<OutputTemplate> = emptyList(),
 ) {
     init {
-        require(originalTemplate != null || convertedTemplate != null) {
-            "At least one template must be specified"
-        }
+        require(originalTemplate.isNotBlank()) { "Original template must not be blank" }
     }
     
     companion object {
         val MUSIC_VIDEO_DEFAULT = StoragePolicy(
-            originalTemplate = "/media/Music Videos/original/{artist}/{title} [{videoId}].{ext}",
-            convertedTemplate = "/media/Music Videos/converted/{artist}/{title}.mp4",
+            originalTemplate = "~/Downloads/Media/Music Videos/original/{artist}/{title} [{videoId}].{ext}",
+            additionalOutputs = listOf(
+                OutputTemplate(
+                    pathTemplate = "/media/Music Videos/converted/{artist}/{title}.mp4",
+                    format = OutputFormat.ConvertedVideo(MediaContainer.MP4),
+                ),
+            ),
         )
-        // season/episode задаются из метаданных правила
+
         val SERIES_DEFAULT = StoragePolicy(
-            originalTemplate = null,
-            convertedTemplate = "/media/TV/{seriesName}/Season {season}/{episode} - {title}.mp4",
+            originalTemplate = "~/Downloads/Media/TV Series/{seriesName}/Season {season}/{episode} - {title}.{ext}",
         )
+
         // для каналов-серий: сезон = год, файл начинается с даты
-        // пример: /media/Yt Series/Channel 1/2026/2026-01-12 Video Title.mp4
+        // пример: /Yt Series/Channel 1/2026/2026-01-12 Video Title.mp4
         val YT_SERIES_DEFAULT = StoragePolicy(
-            originalTemplate = null,
-            convertedTemplate = "/media/Yt Series/{channelName}/{year}/{date} {title}.mp4",
+            originalTemplate = "~/Downloads/Media/Yt Series/{channelName}/{year}/{date} {title}.{ext}"
         )
+
         val OTHER_DEFAULT = StoragePolicy(
-            originalTemplate = "/media/Videos/{channelName}/{title} [{videoId}].{ext}",
-            convertedTemplate = null,
+            originalTemplate = "~/Downloads/Media/Videos/{channelName}/{title} [{videoId}].{ext}",
         )
+
         fun defaultFor(category: Category): StoragePolicy = when (category) {
             Category.MUSIC_VIDEO -> MUSIC_VIDEO_DEFAULT
             Category.SERIES -> SERIES_DEFAULT
@@ -798,21 +819,37 @@ data class StoragePolicy(
 }
 ```
 
+> **Преимущества**:
+> - Формат привязан к шаблону, а не задаётся отдельно в `PostProcessPolicy`
+> - Расширяемо: добавление audio/thumbnail — просто ещё один `OutputTemplate` в списке
+> - Зеркалит `StoragePlan(original, additional)` — маппинг 1:1
+> 
+> **Пример**: музыкальное видео с аудио-извлечением:
+> ```kotlin
+> StoragePolicy(
+>     originalTemplate = "/media/Music/original/{artist}/{title} [{videoId}].{ext}",
+>     additionalOutputs = listOf(
+>         OutputTemplate("/media/Music/video/{artist}/{title}.mp4", OutputFormat.ConvertedVideo(MediaContainer.MP4)),
+>         OutputTemplate("/media/Music/audio/{artist}/{title}.m4a", OutputFormat.Audio(AudioFormat.M4A)),
+>         OutputTemplate("/media/Music/covers/{artist}/{title}.jpg", OutputFormat.Thumbnail(ImageFormat.JPG)),
+>     ),
+> )
+> ```
+
 ### 6.6 PostProcessPolicy
 
 ```kotlin
+/**
+ * Политика пост-обработки.
+ * Форматы конвертации задаются в [StoragePolicy] / [OutputTemplate].
+ * Здесь — только флаги обработки, применяемые ко всем выходным файлам.
+ */
 data class PostProcessPolicy(
-    val convert: Boolean = true,
-    val targetContainer: MediaContainer = MediaContainer.MP4,
     val embedThumbnail: Boolean = true,
     val embedMetadata: Boolean = true,
     val normalizeAudio: Boolean = false,
-    val extractAudio: Boolean = false,
-    val audioFormat: AudioFormat = AudioFormat.M4A,
 )
 ```
-
-> Для `MUSIC_VIDEO`: оригинал (webm/mkv, макс. качество) → `original/`, конвертация в `targetContainer` → `converted/`. Оба файла получают вшитые метаданные и обложку.
 
 ### 6.7 PathTemplateEngine
 
@@ -1044,9 +1081,8 @@ class PreviewUseCase(
         val (category, metadata, metadataSource) = resolveMetadata(videoInfo, matchedRule).bind()
         
         val storagePolicy = matchedRule?.storagePolicy ?: StoragePolicy.defaultFor(category)
-        val postProcess = matchedRule?.postProcessPolicy ?: PostProcessPolicy()
         val context = PathTemplateEngine.TemplateContext.from(metadata, videoInfo)
-        val storagePlan = buildStoragePlan(storagePolicy, context, postProcess).bind()
+        val storagePlan = buildStoragePlan(storagePolicy, context).bind()
         
         PreviewResult(
             source = VideoSource(Url(url), videoInfo.videoId, videoInfo.extractor),
@@ -1091,34 +1127,22 @@ class PreviewUseCase(
     }
     
     private fun buildStoragePlan(
-        policy: StoragePolicy, context: PathTemplateEngine.TemplateContext, postProcess: PostProcessPolicy,
+        policy: StoragePolicy, context: PathTemplateEngine.TemplateContext,
     ): Either<DomainError, StoragePlan> = either {
         val originalContainer = context.get("ext")
             ?.let { MediaContainer.fromExtension(it) }
             ?: MediaContainer.WEBM
         
         val original = OutputTarget(
-            path = pathTemplateEngine.render(
-                policy.originalTemplate ?: "{title}.{ext}", context
-            ).bind(),
+            path = pathTemplateEngine.render(policy.originalTemplate, context).bind(),
             format = OutputFormat.OriginalVideo(originalContainer),
         )
         
-        val additional = buildList {
-            policy.convertedTemplate?.let { template ->
-                add(OutputTarget(
-                    path = pathTemplateEngine.render(template, context).bind(),
-                    format = OutputFormat.ConvertedVideo(postProcess.targetContainer),
-                ))
-            }
-            if (postProcess.extractAudio) {
-                policy.audioOnlyTemplate?.let { template ->
-                    add(OutputTarget(
-                        path = pathTemplateEngine.render(template, context).bind(),
-                        format = OutputFormat.Audio(postProcess.audioFormat),
-                    ))
-                }
-            }
+        val additional = policy.additionalOutputs.map { output ->
+            OutputTarget(
+                path = pathTemplateEngine.render(output.pathTemplate, context).bind(),
+                format = output.format,
+            )
         }
         
         StoragePlan(original = original, additional = additional)
@@ -1146,7 +1170,7 @@ class PreviewUseCase(
 | Поле                            | Правило                                   |
 |---------------------------------|-------------------------------------------|
 | `title`, `artist`, `seriesName` | Не пустые после trim                      |
-| `releaseDate`                   | `LocalDate` (ISO 8601) или null            |
+| `releaseDate`                   | `LocalDate` (ISO 8601) или null           |
 | `tags`                          | Нормализуются: trim, dedupe, remove empty |
 | `priority`                      | Int, может быть отрицательным             |
 | `percent` (progress)            | 0-100                                     |

@@ -201,7 +201,7 @@ sealed interface RuleMatchDto {
 @JsonClassDiscriminator("type")
 sealed interface ResolvedMetadataDto {
     val title: String
-    val year: Int?
+    val releaseDate: String?   // ISO 8601: "2024-02-25"
     val tags: List<String>
     val comment: String?
     
@@ -210,7 +210,7 @@ sealed interface ResolvedMetadataDto {
     data class MusicVideo(
         val artist: String,
         override val title: String,
-        override val year: Int? = null,
+        override val releaseDate: String? = null,
         override val tags: List<String> = emptyList(),
         override val comment: String? = null,
     ) : ResolvedMetadataDto
@@ -222,7 +222,7 @@ sealed interface ResolvedMetadataDto {
         val season: String? = null,
         val episode: String? = null,
         override val title: String,
-        override val year: Int? = null,
+        override val releaseDate: String? = null,
         override val tags: List<String> = emptyList(),
         override val comment: String? = null,
     ) : ResolvedMetadataDto
@@ -231,7 +231,7 @@ sealed interface ResolvedMetadataDto {
     @SerialName("other")
     data class Other(
         override val title: String,
-        override val year: Int? = null,
+        override val releaseDate: String? = null,
         override val tags: List<String> = emptyList(),
         override val comment: String? = null,
     ) : ResolvedMetadataDto
@@ -246,7 +246,7 @@ sealed interface ResolvedMetadataDto {
   "type": "musicVideo",
   "artist": "Rick Astley",
   "title": "Never Gonna Give You Up",
-  "year": 1987,
+  "releaseDate": "1987-10-01",
   "tags": ["80s", "pop"],
   "comment": null
 }
@@ -260,7 +260,7 @@ sealed interface ResolvedMetadataDto {
   "season": "2024",
   "episode": "01",
   "title": "The Egg",
-  "year": 2024,
+  "releaseDate": "2024-01-15",
   "tags": ["science", "animation"],
   "comment": null
 }
@@ -271,7 +271,7 @@ sealed interface ResolvedMetadataDto {
 {
   "type": "other",
   "title": "Random Video Title",
-  "year": null,
+  "releaseDate": null,
   "tags": [],
   "comment": null
 }
@@ -338,6 +338,7 @@ data class PreviewResponseDto(
   },
   "videoInfo": {
     "videoId": "dQw4w9WgXcQ",
+    "extractor": "youtube",
     "title": "Rick Astley - Never Gonna Give You Up",
     "channelId": "UCuAXFkgsw1L7xaCfnd5JJOw",
     "channelName": "Rick Astley",
@@ -356,22 +357,21 @@ data class PreviewResponseDto(
     "type": "musicVideo",
     "artist": "Rick Astley",
     "title": "Never Gonna Give You Up",
-    "year": 2009,
+    "releaseDate": "2009-10-25",
     "tags": ["music", "official"],
     "comment": null
   },
   "storagePlan": {
     "original": {
-      "path": "/media/Music Videos/original/Rick Astley/Never Gonna Give You Up [dQw4w9WgXcQ].mp4",
-      "container": "mp4",
-      "kind": "ORIGINAL"
+      "path": "/media/Music Videos/original/Rick Astley/Never Gonna Give You Up [dQw4w9WgXcQ].webm",
+      "format": { "type": "originalVideo", "container": "webm" }
     },
-    "converted": {
-      "path": "/media/Music Videos/Rick Astley/Never Gonna Give You Up.mp4",
-      "container": "mp4",
-      "kind": "CONVERTED"
-    },
-    "additional": []
+    "additional": [
+      {
+        "path": "/media/Music Videos/converted/Rick Astley/Never Gonna Give You Up.mp4",
+        "format": { "type": "convertedVideo", "container": "mp4" }
+      }
+    ]
   },
   "warnings": []
 }
@@ -426,7 +426,7 @@ data class SaveAsRuleDto(
     "type": "musicVideo",
     "artist": "Rick Astley",
     "title": "Never Gonna Give You Up",
-    "year": 1987,
+    "releaseDate": "1987-10-01",
     "tags": ["80s"],
     "comment": null
   },
@@ -596,11 +596,12 @@ data class VideoSourceDto(
 @Serializable
 data class VideoInfoDto(
     val videoId: String,
+    val extractor: String,    // "youtube", "rutube", "vk", "generic", ...
     val title: String,
     val channelId: String,
     val channelName: String,
     val uploadDate: String?,  // YYYY-MM-DD
-    val durationSeconds: Int,
+    val durationSeconds: Int, // маппинг: domain Duration ↔ DTO Int
     val webpageUrl: String,
     val thumbnails: List<ThumbnailDto> = emptyList(),
     val description: String? = null,
@@ -619,17 +620,31 @@ data class ThumbnailDto(
 ```kotlin
 @Serializable
 data class StoragePlanDto(
-    val original: OutputTargetDto?,
-    val converted: OutputTargetDto?,
+    val original: OutputTargetDto,
     val additional: List<OutputTargetDto> = emptyList(),
 )
 
 @Serializable
 data class OutputTargetDto(
     val path: String,
-    val container: String,
-    val kind: String,
+    val format: OutputFormatDto,
 )
+
+@Serializable
+@JsonClassDiscriminator("type")
+sealed interface OutputFormatDto {
+    @Serializable @SerialName("originalVideo")
+    data class OriginalVideo(val container: String) : OutputFormatDto
+    
+    @Serializable @SerialName("convertedVideo")
+    data class ConvertedVideo(val container: String) : OutputFormatDto
+    
+    @Serializable @SerialName("audio")
+    data class Audio(val format: String) : OutputFormatDto
+    
+    @Serializable @SerialName("thumbnail")
+    data class Thumbnail(val format: String = "jpg") : OutputFormatDto
+}
 ```
 
 ### 7.4 JobProgressDto
@@ -688,36 +703,64 @@ data class RuleSummaryDto(
 
 ```kotlin
 @Serializable
-data class MetadataTemplateDto(
-    val artistPattern: String? = null,
-    val titlePattern: String? = null,
-    val seriesNameOverride: String? = null,
-    val defaultTags: List<String> = emptyList(),
-)
+@JsonClassDiscriminator("type")
+sealed interface MetadataTemplateDto {
+    val titleOverride: String?
+    val titlePattern: String?
+    val defaultTags: List<String>
+    
+    @Serializable @SerialName("musicVideo")
+    data class MusicVideo(
+        val artistOverride: String? = null,
+        val artistPattern: String? = null,
+        override val titleOverride: String? = null,
+        override val titlePattern: String? = null,
+        override val defaultTags: List<String> = emptyList(),
+    ) : MetadataTemplateDto
+    
+    @Serializable @SerialName("seriesEpisode")
+    data class SeriesEpisode(
+        val seriesNameOverride: String? = null,
+        val seasonPattern: String? = null,
+        val episodePattern: String? = null,
+        override val titleOverride: String? = null,
+        override val titlePattern: String? = null,
+        override val defaultTags: List<String> = emptyList(),
+    ) : MetadataTemplateDto
+    
+    @Serializable @SerialName("other")
+    data class Other(
+        override val titleOverride: String? = null,
+        override val titlePattern: String? = null,
+        override val defaultTags: List<String> = emptyList(),
+    ) : MetadataTemplateDto
+}
 
 @Serializable
 data class DownloadPolicyDto(
     val maxQuality: String = "BEST",
-    val preferredFormat: String? = null,
+    val preferredContainer: String? = null,   // "mp4", "mkv", "webm", ...
     val downloadSubtitles: Boolean = false,
     val subtitleLanguages: List<String> = emptyList(),
 )
 
 @Serializable
+data class OutputTemplateDto(
+    val pathTemplate: String,
+    val format: OutputFormatDto,
+)
+
+@Serializable
 data class StoragePolicyDto(
-    val originalTemplate: String?,
-    val convertedTemplate: String?,
-    val audioOnlyTemplate: String? = null,
+    val originalTemplate: String,
+    val additionalOutputs: List<OutputTemplateDto> = emptyList(),
 )
 
 @Serializable
 data class PostProcessPolicyDto(
-    val convertToMp4: Boolean = true,
     val embedThumbnail: Boolean = true,
     val embedMetadata: Boolean = true,
     val normalizeAudio: Boolean = false,
-    val extractAudio: Boolean = false,
-    val audioFormat: String = "m4a",
 )
 ```
 
@@ -768,7 +811,7 @@ fun ResolvedMetadata.toDto(): ResolvedMetadataDto = when (this) {
     is ResolvedMetadata.MusicVideo -> ResolvedMetadataDto.MusicVideo(
         artist = artist,
         title = title,
-        year = year,
+        releaseDate = releaseDate?.value,
         tags = tags,
         comment = comment,
     )
@@ -777,13 +820,13 @@ fun ResolvedMetadata.toDto(): ResolvedMetadataDto = when (this) {
         season = season,
         episode = episode,
         title = title,
-        year = year,
+        releaseDate = releaseDate?.value,
         tags = tags,
         comment = comment,
     )
     is ResolvedMetadata.Other -> ResolvedMetadataDto.Other(
         title = title,
-        year = year,
+        releaseDate = releaseDate?.value,
         tags = tags,
         comment = comment,
     )

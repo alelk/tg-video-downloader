@@ -46,10 +46,10 @@
 
 ### 1.3 Kotlin-идиоматичность
 
-- **Sealed classes/interfaces** для полиморфных типов (RuleMatch, ResolvedMetadata, DomainError)
+- **Sealed classes/interfaces** для полиморфных типов (RuleMatch, ResolvedMetadata, MetadataTemplate, OutputFormat, DomainError)
 - **Data classes** для DTO и value objects
-- **Value classes** для typesafe идентификаторов (KMP-совместимые с Kotlin 2.1+)
-- **Extension functions** для утилит
+- **Value classes** для typesafe идентификаторов и доменных примитивов (KMP-совместимые с Kotlin 2.1+)
+- **Extension properties** для cheap computed values (например, `ResolvedMetadata.category`)
 - **Coroutines** для асинхронности
 - **Either** (Arrow) для обработки ошибок без исключений
 
@@ -109,26 +109,26 @@
 **Организация**: Package-by-feature (не по техническим слоям).
 
 **Содержит**:
-- `common/` — Value objects (`VideoId`, `RuleId`, `JobId`), `Category`, `DomainError`
+- `common/` — Value objects (`VideoId`, `RuleId`, `JobId`, `Url`, `FilePath`, `LocalDate`, `Extractor`), `Category`, `DomainError`
 - `video/` — `VideoSource`, `VideoInfo`, `VideoInfoExtractor` port
 - `rule/` — `Rule`, `RuleMatch` (sealed), `RuleMatchingService`, `RuleRepository` port
-- `metadata/` — `ResolvedMetadata` (sealed), `MetadataResolver`, `LlmPort`, `LlmSuggestion`
-- `storage/` — `StoragePlan`, `StoragePolicy`, `PathTemplateEngine`, `VideoDownloader` port
+- `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `MetadataResolver`, `LlmPort`
+- `storage/` — `StoragePlan`, `StoragePolicy`, `OutputFormat` (sealed), `PathTemplateEngine`, `VideoDownloader` port
 - `job/` — `Job`, `JobStatus`, `CreateJobUseCase`, `JobRepository` port
 - `preview/` — `PreviewUseCase` (оркестратор)
 
-**Зависимости**: Kotlin stdlib (`kotlin.time.Instant`, `kotlin.uuid.Uuid`), Arrow (Either), kotlinx-coroutines.
+**Зависимости**: Kotlin stdlib (`kotlin.time.Instant`, `kotlin.time.Duration`, `kotlin.uuid.Uuid`), Arrow (Either), kotlinx-coroutines.
 
 **Не содержит**: Ktor, kotlinx.serialization, DB, файловая система.
 
 ```
 domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
-├── common/         # Value objects, Category, DomainError
+├── common/         # Value objects (VideoId, Url, FilePath, LocalDate, Extractor...), Category, DomainError
 ├── video/          # VideoSource, VideoInfo, VideoInfoExtractor port
-├── rule/           # Rule, RuleMatch, RuleMatchingService, RuleRepository port
-├── metadata/       # ResolvedMetadata, MetadataResolver, LlmPort
-├── storage/        # StoragePlan, StoragePolicy, PathTemplateEngine
-├── job/            # Job, CreateJobUseCase, JobRepository port
+├── rule/           # Rule, RuleMatch (sealed), RuleMatchingService, RuleRepository port
+├── metadata/       # ResolvedMetadata (sealed), MetadataTemplate (sealed), MetadataResolver, LlmPort
+├── storage/        # StoragePlan, StoragePolicy, OutputFormat (sealed), PathTemplateEngine, VideoDownloader port
+├── job/            # Job, JobStatus, CreateJobUseCase, JobRepository port
 └── preview/        # PreviewUseCase
 ```
 
@@ -503,19 +503,23 @@ JobExecutor
        │         ▼
        │    temp file (webm/mkv — макс. качество)
        │
-       ├──▶ if (storagePlan.original != null):
+       ├──▶ Process original:
        │         MetadataTagger.tag(temp)          ← вшить метаданные + обложку
-       │         FileStorageService.copy(→ original/)
+       │         FileStorageService.copy(→ storagePlan.original.path)
        │
-       ├──▶ if (storagePlan.converted != null):
-       │         FfmpegConverter.convert(→ targetContainer)
-       │         MetadataTagger.tag(converted)     ← вшить метаданные + обложку
-       │         FileStorageService.move(→ converted/)
+       ├──▶ for each additional in storagePlan.additional:
+       │         when (additional.format) {
+       │           ConvertedVideo → FfmpegConverter.convert(→ container)
+       │           Audio          → FfmpegConverter.extractAudio(→ format)
+       │           Thumbnail      → extract thumbnail
+       │         }
+       │         MetadataTagger.tag(output)
+       │         FileStorageService.move(→ additional.path)
        │
        └──▶ JobRepository.updateStatus(DONE)
 ```
 
-> Для `MUSIC_VIDEO`: оригинал (webm) сохраняется в `original/`, затем конвертируется в mp4 и сохраняется в `converted/`. Оба файла получают вшитые метаданные и обложку.
+> Для `MUSIC_VIDEO`: оригинал (webm) сохраняется, затем каждый additional target обрабатывается по типу `OutputFormat`. Все файлы получают вшитые метаданные и обложку (если `PostProcessPolicy.embedThumbnail/embedMetadata`).
 
 ---
 
@@ -532,9 +536,12 @@ JobExecutor
 
 1. Добавить в `enum Category` (domain, commonMain)
 2. Добавить sealed subclass в `ResolvedMetadata` (domain)
-3. Добавить sealed subclass в `ResolvedMetadataDto` (api:contract)
-4. Добавить маппинг (api:mapping)
-5. Обновить UI (features)
+3. Добавить sealed subclass в `MetadataTemplate` (domain)
+4. Добавить sealed subclass в `ResolvedMetadataDto` (api:contract)
+5. Добавить sealed subclass в `MetadataTemplateDto` (api:contract)
+6. Добавить маппинг (api:mapping)
+7. Обновить `MetadataResolver` (domain)
+8. Обновить UI (features)
 
 ### 6.3 Добавление нового типа матчинга
 

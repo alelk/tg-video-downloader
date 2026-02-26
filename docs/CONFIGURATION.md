@@ -59,12 +59,12 @@ ffmpeg:
   path: "ffmpeg"
   timeout: "60m"
 
-# Post-processing
+# Post-processing (defaults for rules without explicit PostProcessPolicy)
 postProcess:
   taggingTool: "FFMPEG"                 # FFMPEG | ATOMICPARSLEY | MP4BOX
-  targetContainer: "mp4"               # формат конвертации: mp4, mkv, avi
   embedThumbnail: true
   embedMetadata: true
+  normalizeAudio: false
 
 # Jobs
 jobs:
@@ -154,9 +154,9 @@ data class FfmpegConfig(
 
 data class PostProcessConfig(
     val taggingTool: TaggingTool = TaggingTool.FFMPEG,
-    val targetContainer: String = "mp4",    // формат конвертации (mp4, mkv, avi)
     val embedThumbnail: Boolean = true,
     val embedMetadata: Boolean = true,
+    val normalizeAudio: Boolean = false,
 ) {
     enum class TaggingTool { FFMPEG, ATOMICPARSLEY, MP4BOX }
 }

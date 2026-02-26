@@ -68,11 +68,12 @@ tg-video-downloader/
 
 ### 2. Kotlin-идиоматичность
 
-- **Sealed classes** для полиморфных типов (`RuleMatch`, `ResolvedMetadata`, `DomainError`)
-- **Value classes** для typesafe ID (`VideoId`, `RuleId`, `JobId`)
+- **Sealed classes** для полиморфных типов (`RuleMatch`, `ResolvedMetadata`, `MetadataTemplate`, `OutputFormat`, `DomainError`)
+- **Value classes** для typesafe ID и value objects (`VideoId`, `RuleId`, `JobId`, `Url`, `FilePath`, `LocalDate`, `Extractor`)
 - **Data classes** для DTO и value objects
 - **Either<Error, T>** для обработки ошибок (Arrow)
 - **Coroutines** для асинхронности
+- **`val` (extension property)** для cheap computed values вместо `fun` без аргументов
 
 ### 3. Разделение слоёв
 
