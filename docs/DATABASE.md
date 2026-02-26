@@ -44,7 +44,7 @@ CREATE INDEX idx_rules_match ON rules USING GIN (match);
 -- Комментарии
 COMMENT ON TABLE rules IS 'Правила обработки видео';
 COMMENT ON COLUMN rules.match IS 'Критерии матчинга (RuleMatchDto JSON)';
-COMMENT ON COLUMN rules.category IS 'Категория: MUSIC_VIDEO, SERIES, OTHER';
+COMMENT ON COLUMN rules.category IS 'Категория: music-video, series, other';
 ```
 
 ### 2.2 Таблица `jobs`
@@ -52,7 +52,7 @@ COMMENT ON COLUMN rules.category IS 'Категория: MUSIC_VIDEO, SERIES, OT
 ```sql
 CREATE TABLE jobs (
     id                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    status                     TEXT NOT NULL DEFAULT 'QUEUED',
+    status                     TEXT NOT NULL DEFAULT 'queued',
     video_id                   TEXT NOT NULL,
     source_url                 TEXT NOT NULL,
     source_extractor           TEXT NOT NULL,  -- "youtube", "rutube", "vk", ...
@@ -75,17 +75,17 @@ CREATE TABLE jobs (
 CREATE INDEX idx_jobs_status ON jobs(status);
 CREATE INDEX idx_jobs_video_id ON jobs(video_id);
 CREATE INDEX idx_jobs_created_at ON jobs(created_at DESC);
-CREATE INDEX idx_jobs_queued ON jobs(created_at) WHERE status = 'QUEUED';
+CREATE INDEX idx_jobs_queued ON jobs(created_at) WHERE status = 'queued';
 CREATE INDEX idx_jobs_user ON jobs(created_by_telegram_user_id);
 
 -- Partial unique для предотвращения дублей активных jobs
 CREATE UNIQUE INDEX idx_jobs_active_video 
     ON jobs(video_id) 
-    WHERE status IN ('QUEUED', 'RUNNING', 'POST_PROCESSING');
+    WHERE status IN ('queued', 'running', 'post-processing');
 
 -- Комментарии
 COMMENT ON TABLE jobs IS 'Задачи скачивания';
-COMMENT ON COLUMN jobs.status IS 'QUEUED, RUNNING, POST_PROCESSING, DONE, FAILED, CANCELLED';
+COMMENT ON COLUMN jobs.status IS 'queued, running, post-processing, done, failed, cancelled';
 COMMENT ON COLUMN jobs.metadata IS 'ResolvedMetadataDto JSON с type';
 COMMENT ON COLUMN jobs.storage_plan IS 'StoragePlanDto JSON';
 ```
@@ -118,7 +118,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 
 ```json
 {
-  "type": "channelId",
+  "type": "channel-id",
   "value": "UCq-Fj5jknLsUf-MWSy4_brA"
 }
 ```
@@ -127,10 +127,10 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 
 ```json
 {
-  "type": "allOf",
+  "type": "all-of",
   "matches": [
-    { "type": "channelName", "value": "Rick Astley" },
-    { "type": "titleRegex", "pattern": "Official" }
+    { "type": "channel-name", "value": "Rick Astley" },
+    { "type": "title-regex", "pattern": "Official" }
   ]
 }
 ```
@@ -143,7 +143,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 **MusicVideo** (с override исполнителя):
 ```json
 {
-  "type": "musicVideo",
+  "type": "music-video",
   "artistOverride": "Casting Crowns",
   "defaultTags": ["worship", "ccm"]
 }
@@ -152,7 +152,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 **MusicVideo** (с regex-паттерном для парсинга):
 ```json
 {
-  "type": "musicVideo",
+  "type": "music-video",
   "artistPattern": "^(.+?)\\s*[-–—]",
   "titlePattern": "[-–—]\\s*(.+)$"
 }
@@ -161,7 +161,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 **SeriesEpisode**:
 ```json
 {
-  "type": "seriesEpisode",
+  "type": "series-episode",
   "seriesNameOverride": "Tech News Weekly",
   "seasonPattern": "S(\\d+)",
   "episodePattern": "E(\\d+)"
@@ -179,7 +179,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 
 ```json
 {
-  "maxQuality": "BEST",
+  "maxQuality": "best",
   "preferredContainer": "mp4",
   "downloadSubtitles": false,
   "subtitleLanguages": []
@@ -216,7 +216,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 
 ```json
 {
-  "type": "musicVideo",
+  "type": "music-video",
   "artist": "Rick Astley",
   "title": "Never Gonna Give You Up",
   "releaseDate": "1987-10-01",
@@ -246,7 +246,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 
 ```json
 {
-  "phase": "DOWNLOAD",
+  "phase": "download",
   "percent": 45,
   "message": "Downloading video..."
 }
@@ -288,7 +288,7 @@ object RulesTable : UUIDTable("rules") {
 
 ```kotlin
 object JobsTable : UUIDTable("jobs") {
-    val status = varchar("status", 20).default("QUEUED")
+    val status = varchar("status", 20).default("queued")
     val videoId = varchar("video_id", 50)
     val sourceUrl = text("source_url")
     val sourceExtractor = varchar("source_extractor", 50)  // "youtube", "rutube", "vk", ...
@@ -374,7 +374,7 @@ CREATE INDEX idx_rules_priority ON rules(priority DESC);
 -- Jobs table
 CREATE TABLE jobs (
     id                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    status                     TEXT NOT NULL DEFAULT 'QUEUED',
+    status                     TEXT NOT NULL DEFAULT 'queued',
     video_id                   TEXT NOT NULL,
     source_url                 TEXT NOT NULL,
     source_extractor           TEXT NOT NULL,  -- "youtube", "rutube", "vk", ...
@@ -396,11 +396,11 @@ CREATE TABLE jobs (
 CREATE INDEX idx_jobs_status ON jobs(status);
 CREATE INDEX idx_jobs_video_id ON jobs(video_id);
 CREATE INDEX idx_jobs_created_at ON jobs(created_at DESC);
-CREATE INDEX idx_jobs_queued ON jobs(created_at) WHERE status = 'QUEUED';
+CREATE INDEX idx_jobs_queued ON jobs(created_at) WHERE status = 'queued';
 
 CREATE UNIQUE INDEX idx_jobs_active_video 
     ON jobs(video_id) 
-    WHERE status IN ('QUEUED', 'RUNNING', 'POST_PROCESSING');
+    WHERE status IN ('queued', 'running', 'post-processing');
 ```
 
 ### 5.3 Flyway конфигурация

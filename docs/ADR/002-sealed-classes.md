@@ -51,7 +51,7 @@ sealed interface ResolvedMetadata {
 @JsonClassDiscriminator("type")
 sealed interface RuleMatchDto {
     @Serializable
-    @SerialName("channelId")
+    @SerialName("channel-id")
     data class ChannelId(val value: String) : RuleMatchDto
     // ...
 }
@@ -59,7 +59,7 @@ sealed interface RuleMatchDto {
 
 JSON:
 ```json
-{ "type": "channelId", "value": "UC123" }
+{ "type": "channel-id", "value": "UC123" }
 ```
 
 ### База данных
@@ -67,7 +67,7 @@ JSON:
 Хранить как **JSONB** с тем же форматом, что и API.
 
 ```sql
-match JSONB NOT NULL  -- { "type": "channelId", "value": "UC123" }
+match JSONB NOT NULL  -- { "type": "channel-id", "value": "UC123" }
 ```
 
 ---
@@ -159,7 +159,7 @@ fun RuleMatchDto.toDomain(): Either<ValidationError, RuleMatch> = when (this) {
 
 ```kotlin
 // 1. Получаем JSON
-val json = """{"type": "channelId", "value": "UC123"}"""
+val json = """{"type": "channel-id", "value": "UC123"}"""
 
 // 2. Десериализуем в DTO
 val dto: RuleMatchDto = Json.decodeFromString(json)

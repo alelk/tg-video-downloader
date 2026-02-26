@@ -587,17 +587,17 @@ class RuleMatchMappingTest : FunSpec({
             val dto = RuleMatchDto.ChannelId("UC123")
             val json = Json.encodeToString(RuleMatchDto.serializer(), dto)
             
-            json shouldContain """"type":"channelId""""
+            json shouldContain """"type":"channel-id""""
             json shouldContain """"value":"UC123""""
         }
         
         test("deserializes nested structure") {
             val json = """
                 {
-                    "type": "allOf",
+                    "type": "all-of",
                     "matches": [
-                        { "type": "channelId", "value": "UC123" },
-                        { "type": "titleRegex", "pattern": ".*Test.*" }
+                        { "type": "channel-id", "value": "UC123" },
+                        { "type": "title-regex", "pattern": ".*Test.*" }
                     ]
                 }
             """.trimIndent()
@@ -801,7 +801,7 @@ class DownloadFlowTest : FunSpec({
         // 3. Poll until done
         eventually(5.minutes) {
             val job = client.get("/api/v1/jobs/${jobId}")
-            job.status shouldBe "DONE"
+            job.status shouldBe "done"
         }
         
         // 4. Verify file exists

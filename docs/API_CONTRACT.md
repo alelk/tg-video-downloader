@@ -120,38 +120,38 @@ val json = Json {
 sealed interface RuleMatchDto {
     
     @Serializable
-    @SerialName("allOf")
+    @SerialName("all-of")
     data class AllOf(
         val matches: List<RuleMatchDto>,
     ) : RuleMatchDto
     
     @Serializable
-    @SerialName("anyOf")
+    @SerialName("any-of")
     data class AnyOf(
         val matches: List<RuleMatchDto>,
     ) : RuleMatchDto
     
     @Serializable
-    @SerialName("channelId")
+    @SerialName("channel-id")
     data class ChannelId(
         val value: String,
     ) : RuleMatchDto
     
     @Serializable
-    @SerialName("channelName")
+    @SerialName("channel-name")
     data class ChannelName(
         val value: String,
         val ignoreCase: Boolean = true,
     ) : RuleMatchDto
     
     @Serializable
-    @SerialName("titleRegex")
+    @SerialName("title-regex")
     data class TitleRegex(
         val pattern: String,
     ) : RuleMatchDto
     
     @Serializable
-    @SerialName("urlRegex")
+    @SerialName("url-regex")
     data class UrlRegex(
         val pattern: String,
     ) : RuleMatchDto
@@ -163,7 +163,7 @@ sealed interface RuleMatchDto {
 **ChannelId**:
 ```json
 {
-  "type": "channelId",
+  "type": "channel-id",
   "value": "UCq-Fj5jknLsUf-MWSy4_brA"
 }
 ```
@@ -171,10 +171,10 @@ sealed interface RuleMatchDto {
 **AllOf (AND)**:
 ```json
 {
-  "type": "allOf",
+  "type": "all-of",
   "matches": [
-    { "type": "channelName", "value": "Kurzgesagt" },
-    { "type": "titleRegex", "pattern": ".*Documentary.*" }
+    { "type": "channel-name", "value": "Kurzgesagt" },
+    { "type": "title-regex", "pattern": ".*Documentary.*" }
   ]
 }
 ```
@@ -182,10 +182,10 @@ sealed interface RuleMatchDto {
 **AnyOf (OR)**:
 ```json
 {
-  "type": "anyOf",
+  "type": "any-of",
   "matches": [
-    { "type": "channelId", "value": "UC123" },
-    { "type": "channelId", "value": "UC456" }
+    { "type": "channel-id", "value": "UC123" },
+    { "type": "channel-id", "value": "UC456" }
   ]
 }
 ```
@@ -206,7 +206,7 @@ sealed interface ResolvedMetadataDto {
     val comment: String?
     
     @Serializable
-    @SerialName("musicVideo")
+    @SerialName("music-video")
     data class MusicVideo(
         val artist: String,
         override val title: String,
@@ -216,7 +216,7 @@ sealed interface ResolvedMetadataDto {
     ) : ResolvedMetadataDto
     
     @Serializable
-    @SerialName("seriesEpisode")
+    @SerialName("series-episode")
     data class SeriesEpisode(
         val seriesName: String,
         val season: String? = null,
@@ -243,7 +243,7 @@ sealed interface ResolvedMetadataDto {
 **MusicVideo**:
 ```json
 {
-  "type": "musicVideo",
+  "type": "music-video",
   "artist": "Rick Astley",
   "title": "Never Gonna Give You Up",
   "releaseDate": "1987-10-01",
@@ -255,7 +255,7 @@ sealed interface ResolvedMetadataDto {
 **SeriesEpisode**:
 ```json
 {
-  "type": "seriesEpisode",
+  "type": "series-episode",
   "seriesName": "Kurzgesagt",
   "season": "2024",
   "episode": "01",
@@ -284,9 +284,9 @@ sealed interface ResolvedMetadataDto {
 ```kotlin
 @Serializable
 enum class MetadataSourceDto {
-    @SerialName("RULE")     RULE,       // Metadata derived from a matched rule
-    @SerialName("LLM")      LLM,       // Metadata inferred by LLM
-    @SerialName("FALLBACK") FALLBACK,   // Metadata from video source (yt-dlp) without specific rules
+    @SerialName("rule")     RULE,
+    @SerialName("llm")      LLM,
+    @SerialName("fallback") FALLBACK,
 }
 ```
 
@@ -351,10 +351,10 @@ data class PreviewResponseDto(
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "name": "Rick Astley Music Videos"
   },
-  "metadataSource": "RULE",
-  "category": "MUSIC_VIDEO",
+  "metadataSource": "rule",
+  "category": "music-video",
   "metadata": {
-    "type": "musicVideo",
+    "type": "music-video",
     "artist": "Rick Astley",
     "title": "Never Gonna Give You Up",
     "releaseDate": "2009-10-25",
@@ -420,10 +420,10 @@ data class SaveAsRuleDto(
     "extractor": "youtube"
   },
   "ruleId": "550e8400-e29b-41d4-a716-446655440000",
-  "category": "MUSIC_VIDEO",
+  "category": "music-video",
   "videoInfo": { ... },
   "metadata": {
-    "type": "musicVideo",
+    "type": "music-video",
     "artist": "Rick Astley",
     "title": "Never Gonna Give You Up",
     "releaseDate": "1987-10-01",
@@ -695,7 +695,7 @@ sealed interface MetadataTemplateDto {
     val titlePattern: String?
     val defaultTags: List<String>
     
-    @Serializable @SerialName("musicVideo")
+    @Serializable @SerialName("music-video")
     data class MusicVideo(
         val artistOverride: String? = null,
         val artistPattern: String? = null,
@@ -704,7 +704,7 @@ sealed interface MetadataTemplateDto {
         override val defaultTags: List<String> = emptyList(),
     ) : MetadataTemplateDto
     
-    @Serializable @SerialName("seriesEpisode")
+    @Serializable @SerialName("series-episode")
     data class SeriesEpisode(
         val seriesNameOverride: String? = null,
         val seasonPattern: String? = null,
@@ -724,7 +724,7 @@ sealed interface MetadataTemplateDto {
 
 @Serializable
 data class DownloadPolicyDto(
-    val maxQuality: String = "BEST",
+    val maxQuality: String = "best",
     val preferredContainer: String? = null,   // "mp4", "mkv", "webm", ...
     val downloadSubtitles: Boolean = false,
     val subtitleLanguages: List<String> = emptyList(),
