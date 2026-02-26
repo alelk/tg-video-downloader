@@ -1,0 +1,50 @@
+package io.github.alelk.tgvd.api.contract.rule
+
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonClassDiscriminator
+
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+@JsonClassDiscriminator("type")
+sealed interface RuleMatchDto {
+
+    @Serializable
+    @SerialName("all-of")
+    data class AllOf(
+        val matches: List<RuleMatchDto>,
+    ) : RuleMatchDto
+
+    @Serializable
+    @SerialName("any-of")
+    data class AnyOf(
+        val matches: List<RuleMatchDto>,
+    ) : RuleMatchDto
+
+    @Serializable
+    @SerialName("channel-id")
+    data class ChannelId(
+        val value: String,
+    ) : RuleMatchDto
+
+    @Serializable
+    @SerialName("channel-name")
+    data class ChannelName(
+        val value: String,
+        val ignoreCase: Boolean = true,
+    ) : RuleMatchDto
+
+    @Serializable
+    @SerialName("title-regex")
+    data class TitleRegex(
+        val pattern: String,
+    ) : RuleMatchDto
+
+    @Serializable
+    @SerialName("url-regex")
+    data class UrlRegex(
+        val pattern: String,
+    ) : RuleMatchDto
+}
+
