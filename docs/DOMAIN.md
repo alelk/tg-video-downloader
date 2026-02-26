@@ -720,14 +720,25 @@ data class OutputTarget(
     val format: OutputFormat,
 )
 
+/**
+ * План сохранения файлов.
+ * 
+ * [original] — исходное видео (как скачано yt-dlp). Всегда один.
+ * [additional] — производные: конвертированное видео, аудио-дорожка, обложка и т.д.
+ * Тип каждого определяется через [OutputFormat] (sealed).
+ *
+ * Пример для MUSIC_VIDEO:
+ *   original  = .../original/Artist/Title.webm       (OriginalVideo)
+ *   additional = [
+ *     .../converted/Artist/Title.mp4                  (ConvertedVideo)
+ *     .../audio/Artist/Title.m4a                      (Audio)          — если extractAudio
+ *   ]
+ */
 data class StoragePlan(
-    val original: OutputTarget?,       // OutputFormat.OriginalVideo
-    val converted: OutputTarget?,      // OutputFormat.ConvertedVideo
-    val audio: OutputTarget?,          // OutputFormat.Audio
-    val thumbnail: OutputTarget?,      // OutputFormat.Thumbnail
+    val original: OutputTarget,
+    val additional: List<OutputTarget> = emptyList(),
 ) {
-    val allTargets: List<OutputTarget> get() =
-        listOfNotNull(original, converted, audio, thumbnail)
+    val allTargets: List<OutputTarget> get() = listOf(original) + additional
 }
 ```
 
@@ -1082,32 +1093,35 @@ class PreviewUseCase(
     private fun buildStoragePlan(
         policy: StoragePolicy, context: PathTemplateEngine.TemplateContext, postProcess: PostProcessPolicy,
     ): Either<DomainError, StoragePlan> = either {
-        StoragePlan(
-            original = policy.originalTemplate?.let { template ->
-                val container = context.get("ext")
-                    ?.let { MediaContainer.fromExtension(it) }
-                    ?: MediaContainer.WEBM
-                OutputTarget(
-                    path = pathTemplateEngine.render(template, context).bind(),
-                    format = OutputFormat.OriginalVideo(container),
-                )
-            },
-            converted = policy.convertedTemplate?.let { template ->
-                OutputTarget(
+        val originalContainer = context.get("ext")
+            ?.let { MediaContainer.fromExtension(it) }
+            ?: MediaContainer.WEBM
+        
+        val original = OutputTarget(
+            path = pathTemplateEngine.render(
+                policy.originalTemplate ?: "{title}.{ext}", context
+            ).bind(),
+            format = OutputFormat.OriginalVideo(originalContainer),
+        )
+        
+        val additional = buildList {
+            policy.convertedTemplate?.let { template ->
+                add(OutputTarget(
                     path = pathTemplateEngine.render(template, context).bind(),
                     format = OutputFormat.ConvertedVideo(postProcess.targetContainer),
-                )
-            },
-            audio = if (postProcess.extractAudio) {
+                ))
+            }
+            if (postProcess.extractAudio) {
                 policy.audioOnlyTemplate?.let { template ->
-                    OutputTarget(
+                    add(OutputTarget(
                         path = pathTemplateEngine.render(template, context).bind(),
                         format = OutputFormat.Audio(postProcess.audioFormat),
-                    )
+                    ))
                 }
-            } else null,
-            thumbnail = null,  // TODO: thumbnail template support
-        )
+            }
+        }
+        
+        StoragePlan(original = original, additional = additional)
     }
     
     data class PreviewResult(
