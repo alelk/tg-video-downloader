@@ -431,21 +431,23 @@ enum class MetadataSource { RULE, LLM, FALLBACK }
 ```kotlin
 sealed interface ResolvedMetadata {
     val title: String
-    val year: Int?
+    val releaseDate: LocalDate?
     val tags: List<String>
     val comment: String?
+    
+    /** Год выпуска (из releaseDate). Удобно для path templates: {year} */
+    val year: Int? get() = releaseDate?.year
     
     data class MusicVideo(
         val artist: String,
         override val title: String,
-        override val year: Int? = null,
+        override val releaseDate: LocalDate? = null,
         override val tags: List<String> = emptyList(),
         override val comment: String? = null,
     ) : ResolvedMetadata {
         init {
             require(artist.isNotBlank()) { "Artist cannot be blank" }
             require(title.isNotBlank()) { "Title cannot be blank" }
-            year?.let { require(it in 1800..2100) { "Year out of range" } }
         }
     }
     
@@ -454,7 +456,7 @@ sealed interface ResolvedMetadata {
         val season: String? = null,
         val episode: String? = null,
         override val title: String,
-        override val year: Int? = null,
+        override val releaseDate: LocalDate? = null,
         override val tags: List<String> = emptyList(),
         override val comment: String? = null,
     ) : ResolvedMetadata {
@@ -466,7 +468,7 @@ sealed interface ResolvedMetadata {
     
     data class Other(
         override val title: String,
-        override val year: Int? = null,
+        override val releaseDate: LocalDate? = null,
         override val tags: List<String> = emptyList(),
         override val comment: String? = null,
     ) : ResolvedMetadata {
@@ -474,47 +476,129 @@ sealed interface ResolvedMetadata {
     }
 }
 
-fun ResolvedMetadata.category(): Category = when (this) {
+val ResolvedMetadata.category: Category get() = when (this) {
     is ResolvedMetadata.MusicVideo -> Category.MUSIC_VIDEO
     is ResolvedMetadata.SeriesEpisode -> Category.SERIES
     is ResolvedMetadata.Other -> Category.OTHER
 }
 ```
 
-### 5.3 MetadataTemplate
+### 5.3 MetadataTemplate (sealed)
 
 ```kotlin
-data class MetadataTemplate(
-    val artistPattern: String? = null,
-    val titlePattern: String? = null,
-    val seriesNameOverride: String? = null,
-    val defaultTags: List<String> = emptyList(),
-)
+/**
+ * Шаблон для определения метаданных видео.
+ * 
+ * Sealed по категории — каждый подтип содержит только релевантные поля.
+ * Зеркалит структуру [ResolvedMetadata]: MusicVideo → MusicVideo, и т.д.
+ * 
+ * **Override-поля** — жёстко задают значение (приоритет над извлечением).
+ * **Pattern-поля** — regex для извлечения из title/description видео.
+ * 
+ * Приоритет: override > pattern > fallback (парсинг по разделителям).
+ */
+sealed interface MetadataTemplate {
+    val titleOverride: String?
+    val titlePattern: String?
+    val defaultTags: List<String>
+    
+    data class MusicVideo(
+        val artistOverride: String? = null,       // e.g. "Casting Crowns"
+        val artistPattern: String? = null,        // regex с группой, e.g. "^(.+?)\\s*[-–—]"
+        override val titleOverride: String? = null,
+        override val titlePattern: String? = null,
+        override val defaultTags: List<String> = emptyList(),
+    ) : MetadataTemplate
+    
+    data class SeriesEpisode(
+        val seriesNameOverride: String? = null,   // e.g. "Tech News Weekly"
+        val seasonPattern: String? = null,        // regex для извлечения сезона
+        val episodePattern: String? = null,       // regex для извлечения эпизода
+        override val titleOverride: String? = null,
+        override val titlePattern: String? = null,
+        override val defaultTags: List<String> = emptyList(),
+    ) : MetadataTemplate
+    
+    data class Other(
+        override val titleOverride: String? = null,
+        override val titlePattern: String? = null,
+        override val defaultTags: List<String> = emptyList(),
+    ) : MetadataTemplate
+}
 ```
+
+> **Пример**: канал "Casting Crowns" — правило с `category = MUSIC_VIDEO`,
+> `metadataTemplate = MetadataTemplate.MusicVideo(artistOverride = "Casting Crowns")`.
+> Видео "Who Am I (Official Music Video)" → `artist = "Casting Crowns"`, `title = "Who Am I (Official Music Video)"`.
+> Невозможно случайно задать `artistOverride` для `SERIES` — компилятор не даст.
 
 ### 5.4 MetadataResolver
 
 ```kotlin
 class MetadataResolver {
     
-    fun resolve(video: VideoInfo, category: Category, template: MetadataTemplate?): ResolvedMetadata =
-        when (category) {
-            Category.MUSIC_VIDEO -> resolveMusicVideo(video, template)
-            Category.SERIES -> resolveSeriesEpisode(video, template)
-            Category.OTHER -> resolveOther(video, template)
+    fun resolve(video: VideoInfo, template: MetadataTemplate): ResolvedMetadata =
+        when (template) {
+            is MetadataTemplate.MusicVideo -> resolveMusicVideo(video, template)
+            is MetadataTemplate.SeriesEpisode -> resolveSeriesEpisode(video, template)
+            is MetadataTemplate.Other -> resolveOther(video, template)
         }
     
-    private fun resolveMusicVideo(video: VideoInfo, template: MetadataTemplate?): ResolvedMetadata.MusicVideo {
-        val (artist, title) = parseArtistTitle(video.title, template?.artistPattern)
+    private fun resolveMusicVideo(
+        video: VideoInfo, template: MetadataTemplate.MusicVideo,
+    ): ResolvedMetadata.MusicVideo {
+        val (fallbackArtist, fallbackTitle) = parseArtistTitle(video.title)
+        
+        val artist = template.artistOverride                                           // 1. override
+            ?: template.artistPattern?.let { extractByPattern(video.title, it) }       // 2. pattern
+            ?: fallbackArtist                                                           // 3. fallback
+        
+        val title = template.titleOverride
+            ?: template.titlePattern?.let { extractByPattern(video.title, it) }
+            ?: fallbackTitle
+        
         return ResolvedMetadata.MusicVideo(
             artist = artist,
             title = title,
-            year = video.uploadDate?.year,
-            tags = template?.defaultTags.orEmpty(),
+            releaseDate = video.uploadDate,
+            tags = template.defaultTags,
         )
     }
     
-    private fun parseArtistTitle(title: String, pattern: String?): Pair<String, String> {
+    private fun resolveSeriesEpisode(
+        video: VideoInfo, template: MetadataTemplate.SeriesEpisode,
+    ): ResolvedMetadata.SeriesEpisode {
+        val seriesName = template.seriesNameOverride ?: video.channelName
+        val season = template.seasonPattern?.let { extractByPattern(video.title, it) }
+        val episode = template.episodePattern?.let { extractByPattern(video.title, it) }
+        
+        return ResolvedMetadata.SeriesEpisode(
+            seriesName = seriesName,
+            season = season,
+            episode = episode,
+            title = template.titleOverride ?: video.title,
+            releaseDate = video.uploadDate,
+            tags = template.defaultTags,
+        )
+    }
+    
+    private fun resolveOther(
+        video: VideoInfo, template: MetadataTemplate.Other,
+    ): ResolvedMetadata.Other =
+        ResolvedMetadata.Other(
+            title = template.titleOverride ?: video.title,
+            releaseDate = video.uploadDate,
+            tags = template.defaultTags,
+        )
+    
+    /** Извлечение первой группы из regex-паттерна */
+    private fun extractByPattern(input: String, pattern: String): String? =
+        runCatching { pattern.toRegex().find(input)?.groupValues?.getOrNull(1)?.trim() }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+    
+    /** Fallback: парсинг "Artist - Title" по разделителям */
+    private fun parseArtistTitle(title: String): Pair<String, String> {
         val separators = listOf(" - ", " – ", " — ", ": ")
         for (sep in separators) {
             if (sep in title) {
@@ -524,8 +608,6 @@ class MetadataResolver {
         }
         return "Unknown Artist" to title
     }
-    
-    // ... resolveSeriesEpisode, resolveOther
 }
 ```
 
@@ -561,10 +643,33 @@ domain/storage/
 └── VideoDownloader.kt         # port
 ```
 
-### 6.1 OutputKind
+### 6.1 OutputKind, MediaContainer, AudioFormat
 
 ```kotlin
 enum class OutputKind { ORIGINAL, CONVERTED, AUDIO_ONLY, THUMBNAIL }
+
+/** Видео/медиа контейнер. Поддерживаемые форматы yt-dlp + ffmpeg. */
+enum class MediaContainer(val extension: String) {
+    MP4("mp4"),
+    MKV("mkv"),
+    WEBM("webm"),
+    AVI("avi"),
+    MOV("mov");
+    
+    companion object {
+        fun fromExtension(ext: String): MediaContainer? =
+            entries.find { it.extension.equals(ext, ignoreCase = true) }
+    }
+}
+
+/** Аудио формат для извлечения аудио-дорожки. */
+enum class AudioFormat(val extension: String) {
+    M4A("m4a"),
+    MP3("mp3"),
+    OPUS("opus"),
+    FLAC("flac"),
+    WAV("wav");
+}
 ```
 
 ### 6.2 StoragePlan & OutputTarget
@@ -580,7 +685,7 @@ data class StoragePlan(
 
 data class OutputTarget(
     val path: FilePath,
-    val container: String,
+    val container: MediaContainer,
     val kind: OutputKind,
 )
 ```
@@ -590,7 +695,7 @@ data class OutputTarget(
 ```kotlin
 data class DownloadPolicy(
     val maxQuality: VideoQuality = VideoQuality.BEST,
-    val preferredFormat: String? = null,
+    val preferredContainer: MediaContainer? = null,
     val downloadSubtitles: Boolean = false,
     val subtitleLanguages: List<String> = emptyList(),
 ) {
@@ -617,9 +722,16 @@ data class StoragePolicy(
             originalTemplate = "/media/Music Videos/original/{artist}/{title} [{videoId}].{ext}",
             convertedTemplate = "/media/Music Videos/converted/{artist}/{title}.mp4",
         )
+        // season/episode задаются из метаданных правила
         val SERIES_DEFAULT = StoragePolicy(
             originalTemplate = null,
             convertedTemplate = "/media/TV/{seriesName}/Season {season}/{episode} - {title}.mp4",
+        )
+        // для каналов-серий: сезон = год, файл начинается с даты
+        // пример: /media/Yt Series/Channel 1/2026/2026-01-12 Video Title.mp4
+        val YT_SERIES_DEFAULT = StoragePolicy(
+            originalTemplate = null,
+            convertedTemplate = "/media/Yt Series/{channelName}/{year}/{date} {title}.mp4",
         )
         val OTHER_DEFAULT = StoragePolicy(
             originalTemplate = "/media/Videos/{channelName}/{title} [{videoId}].{ext}",
@@ -639,12 +751,12 @@ data class StoragePolicy(
 ```kotlin
 data class PostProcessPolicy(
     val convert: Boolean = true,
-    val targetContainer: String = "mp4",
+    val targetContainer: MediaContainer = MediaContainer.MP4,
     val embedThumbnail: Boolean = true,
     val embedMetadata: Boolean = true,
     val normalizeAudio: Boolean = false,
     val extractAudio: Boolean = false,
-    val audioFormat: String = "m4a",
+    val audioFormat: AudioFormat = AudioFormat.M4A,
 )
 ```
 
@@ -676,9 +788,13 @@ class PathTemplateEngine(
         
         companion object {
             fun from(metadata: ResolvedMetadata, video: VideoInfo): TemplateContext {
+                val date = metadata.releaseDate ?: video.uploadDate
                 val map = mutableMapOf(
                     "title" to metadata.title,
-                    "year" to (metadata.year?.toString() ?: ""),
+                    "date" to (date?.value ?: ""),                         // "2026-01-12"
+                    "year" to (date?.year?.toString() ?: ""),              // "2026"
+                    "month" to (date?.month?.toString()?.padStart(2, '0') ?: ""),  // "01"
+                    "day" to (date?.day?.toString()?.padStart(2, '0') ?: ""),      // "12"
                     "channelName" to video.channelName,
                     "videoId" to video.videoId.value,
                     "uploadDate" to (video.uploadDate?.value ?: ""),
@@ -716,7 +832,7 @@ interface VideoDownloader {
         onProgress: (JobProgress) -> Unit,
     ): Either<DomainError, DownloadResult>
     
-    data class DownloadResult(val filePath: FilePath, val format: String, val fileSize: Long)
+    data class DownloadResult(val filePath: FilePath, val container: MediaContainer, val fileSize: Long)
 }
 ```
 
@@ -896,14 +1012,14 @@ class PreviewUseCase(
      * Три пути определения метаданных:
      * 1. Rule → MetadataResolver (если правило найдено)
      * 2. LLM → LlmPort (если правила нет, но LLM настроен)
-     * 3. Fallback → MetadataResolver с Category.OTHER
+     * 3. Fallback → MetadataResolver с MetadataTemplate.Other()
      */
     private suspend fun resolveMetadata(
         video: VideoInfo, rule: Rule?,
     ): Either<DomainError, Triple<Category, ResolvedMetadata, MetadataSource>> = either {
         when {
             rule != null -> {
-                val metadata = metadataResolver.resolve(video, rule.category, rule.metadataTemplate)
+                val metadata = metadataResolver.resolve(video, rule.metadataTemplate)
                 Triple(rule.category, metadata, MetadataSource.RULE)
             }
             llmPort != null -> {
@@ -911,12 +1027,12 @@ class PreviewUseCase(
                 if (suggestion != null) {
                     Triple(suggestion.category, suggestion.metadata, MetadataSource.LLM)
                 } else {
-                    val metadata = metadataResolver.resolve(video, Category.OTHER, null)
+                    val metadata = metadataResolver.resolve(video, MetadataTemplate.Other())
                     Triple(Category.OTHER, metadata, MetadataSource.FALLBACK)
                 }
             }
             else -> {
-                val metadata = metadataResolver.resolve(video, Category.OTHER, null)
+                val metadata = metadataResolver.resolve(video, MetadataTemplate.Other())
                 Triple(Category.OTHER, metadata, MetadataSource.FALLBACK)
             }
         }
@@ -929,7 +1045,9 @@ class PreviewUseCase(
             original = policy.originalTemplate?.let { template ->
                 OutputTarget(
                     path = pathTemplateEngine.render(template, context).bind(),
-                    container = context.get("ext") ?: "webm",
+                    container = context.get("ext")
+                        ?.let { MediaContainer.fromExtension(it) }
+                        ?: MediaContainer.WEBM,
                     kind = OutputKind.ORIGINAL,
                 )
             },
@@ -965,7 +1083,7 @@ class PreviewUseCase(
 | Поле                            | Правило                                   |
 |---------------------------------|-------------------------------------------|
 | `title`, `artist`, `seriesName` | Не пустые после trim                      |
-| `year`                          | 1800-2100 или null                        |
+| `releaseDate`                   | `LocalDate` (ISO 8601) или null            |
 | `tags`                          | Нормализуются: trim, dedupe, remove empty |
 | `priority`                      | Int, может быть отрицательным             |
 | `percent` (progress)            | 0-100                                     |
