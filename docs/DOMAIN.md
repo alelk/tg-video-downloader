@@ -686,7 +686,14 @@ enum class ImageFormat(val extension: String) {
 ```kotlin
 /**
  * Формат выходного файла. Sealed — кодирует и тип (видео/аудио/изображение), и конкретный формат.
- * Заменяет пару (OutputKind, container: String).
+ *
+ * Сериализуется в строку вида "kind/extension":
+ *   - "original/webm", "original/mkv"
+ *   - "video/mp4", "video/mkv"
+ *   - "audio/m4a", "audio/mp3", "audio/flac"
+ *   - "image/jpg", "image/png", "image/webp"
+ * 
+ * Строковое представление используется в API (JSON), БД (TEXT) и конфигурации (YAML).
  */
 sealed interface OutputFormat {
     val extension: String
@@ -709,6 +716,41 @@ sealed interface OutputFormat {
     /** Обложка / thumbnail. */
     data class Thumbnail(val format: ImageFormat = ImageFormat.JPG) : OutputFormat {
         override val extension: String get() = format.extension
+    }
+    
+    /** Сериализация в строку "kind/extension". */
+    val serialized: String get() = when (this) {
+        is OriginalVideo -> "original/${container.extension}"
+        is ConvertedVideo -> "video/${container.extension}"
+        is Audio -> "audio/${format.extension}"
+        is Thumbnail -> "image/${format.extension}"
+    }
+    
+    companion object {
+        /**
+         * Десериализация из строки "kind/extension".
+         * @throws IllegalArgumentException при невалидном формате.
+         */
+        fun parse(value: String): OutputFormat {
+            val (kind, ext) = value.split("/", limit = 2).also {
+                require(it.size == 2) { "Invalid OutputFormat: '$value', expected 'kind/extension'" }
+            }
+            return when (kind) {
+                "original" -> OriginalVideo(
+                    MediaContainer.fromExtension(ext) ?: error("Unknown container: $ext")
+                )
+                "video" -> ConvertedVideo(
+                    MediaContainer.fromExtension(ext) ?: error("Unknown container: $ext")
+                )
+                "audio" -> AudioFormat.entries.find { it.extension == ext }
+                    ?.let { Audio(it) }
+                    ?: error("Unknown audio format: $ext")
+                "image" -> ImageFormat.entries.find { it.extension == ext }
+                    ?.let { Thumbnail(it) }
+                    ?: error("Unknown image format: $ext")
+                else -> error("Unknown OutputFormat kind: $kind")
+            }
+        }
     }
 }
 ```

@@ -364,12 +364,12 @@ data class PreviewResponseDto(
   "storagePlan": {
     "original": {
       "path": "/media/Music Videos/original/Rick Astley/Never Gonna Give You Up [dQw4w9WgXcQ].webm",
-      "format": { "type": "originalVideo", "container": "webm" }
+      "format": "original/webm"
     },
     "additional": [
       {
         "path": "/media/Music Videos/converted/Rick Astley/Never Gonna Give You Up.mp4",
-        "format": { "type": "convertedVideo", "container": "mp4" }
+        "format": "video/mp4"
       }
     ]
   },
@@ -627,25 +627,11 @@ data class StoragePlanDto(
 @Serializable
 data class OutputTargetDto(
     val path: String,
-    val format: OutputFormatDto,
+    val format: String,  // "original/webm", "video/mp4", "audio/m4a", "image/jpg"
 )
-
-@Serializable
-@JsonClassDiscriminator("type")
-sealed interface OutputFormatDto {
-    @Serializable @SerialName("originalVideo")
-    data class OriginalVideo(val container: String) : OutputFormatDto
-    
-    @Serializable @SerialName("convertedVideo")
-    data class ConvertedVideo(val container: String) : OutputFormatDto
-    
-    @Serializable @SerialName("audio")
-    data class Audio(val format: String) : OutputFormatDto
-    
-    @Serializable @SerialName("thumbnail")
-    data class Thumbnail(val format: String = "jpg") : OutputFormatDto
-}
 ```
+
+> `format` — строка вида `"kind/extension"`. Маппинг в domain: `OutputFormat.parse(format)` / `outputFormat.serialized`.
 
 ### 7.4 JobProgressDto
 
@@ -747,7 +733,7 @@ data class DownloadPolicyDto(
 @Serializable
 data class OutputTemplateDto(
     val pathTemplate: String,
-    val format: OutputFormatDto,
+    val format: String,  // "video/mp4", "audio/m4a", "image/jpg"
 )
 
 @Serializable

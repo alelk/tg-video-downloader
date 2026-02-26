@@ -25,9 +25,9 @@ CREATE TABLE rules (
     priority             INTEGER NOT NULL DEFAULT 0,
     match                JSONB NOT NULL,
     category             TEXT NOT NULL,
-    metadata_template    JSONB NOT NULL DEFAULT '{}',
+    metadata_template    JSONB NOT NULL,          -- sealed: требует "type" discriminator
     download_policy      JSONB NOT NULL DEFAULT '{}',
-    storage_policy       JSONB NOT NULL,
+    storage_policy       JSONB NOT NULL,          -- originalTemplate обязателен
     post_process_policy  JSONB NOT NULL DEFAULT '{}',
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -98,7 +98,7 @@ COMMENT ON COLUMN jobs.storage_plan IS 'StoragePlanDto JSON';
 CREATE TABLE job_outputs (
     id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id   UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-    format   JSONB NOT NULL,   -- OutputFormatDto: {"type": "convertedVideo", "container": "mp4"}
+    format   TEXT NOT NULL,    -- "original/webm", "video/mp4", "audio/m4a", "image/jpg"
     path     TEXT NOT NULL,
     size     BIGINT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -107,7 +107,7 @@ CREATE TABLE job_outputs (
 CREATE INDEX idx_job_outputs_job_id ON job_outputs(job_id);
 
 COMMENT ON TABLE job_outputs IS 'Выходные файлы job';
-COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: originalVideo, convertedVideo, audio, thumbnail';
+COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, audio/ext, image/ext';
 ```
 
 ---
@@ -137,14 +137,41 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: originalVideo, convertedV
 
 ### 3.2 rules.metadata_template
 
+> Sealed тип (полиморфный): discriminator `"type"` определяет подтип.
+> Поля, специфичные для подтипа, присутствуют только в соответствующем JSON.
+
+**MusicVideo** (с override исполнителя):
 ```json
 {
   "type": "musicVideo",
-  "artistOverride": "Rick Astley",
-  "artistPattern": null,
-  "titleOverride": null,
-  "titlePattern": null,
-  "defaultTags": ["music", "official"]
+  "artistOverride": "Casting Crowns",
+  "defaultTags": ["worship", "ccm"]
+}
+```
+
+**MusicVideo** (с regex-паттерном для парсинга):
+```json
+{
+  "type": "musicVideo",
+  "artistPattern": "^(.+?)\\s*[-–—]",
+  "titlePattern": "[-–—]\\s*(.+)$"
+}
+```
+
+**SeriesEpisode**:
+```json
+{
+  "type": "seriesEpisode",
+  "seriesNameOverride": "Tech News Weekly",
+  "seasonPattern": "S(\\d+)",
+  "episodePattern": "E(\\d+)"
+}
+```
+
+**Other** (минимальный):
+```json
+{
+  "type": "other"
 }
 ```
 
@@ -167,7 +194,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: originalVideo, convertedV
   "additionalOutputs": [
     {
       "pathTemplate": "/media/Music Videos/converted/{artist}/{title}.mp4",
-      "format": { "type": "convertedVideo", "container": "mp4" }
+      "format": "video/mp4"
     }
   ]
 }
@@ -185,6 +212,8 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: originalVideo, convertedV
 
 ### 3.6 jobs.metadata
 
+> Sealed тип (полиморфный): discriminator `"type"` определяет подтип (`musicVideo`, `seriesEpisode`, `other`).
+
 ```json
 {
   "type": "musicVideo",
@@ -196,7 +225,24 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: originalVideo, convertedV
 }
 ```
 
-### 3.7 jobs.progress
+### 3.7 jobs.storage_plan
+
+```json
+{
+  "original": {
+    "path": "/media/Music Videos/original/Rick Astley/Never Gonna Give You Up [dQw4w9WgXcQ].webm",
+    "format": "original/webm"
+  },
+  "additional": [
+    {
+      "path": "/media/Music Videos/converted/Rick Astley/Never Gonna Give You Up.mp4",
+      "format": "video/mp4"
+    }
+  ]
+}
+```
+
+### 3.8 jobs.progress
 
 ```json
 {
@@ -206,7 +252,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: originalVideo, convertedV
 }
 ```
 
-### 3.8 jobs.error
+### 3.9 jobs.error
 
 ```json
 {
@@ -314,7 +360,7 @@ CREATE TABLE rules (
     priority             INTEGER NOT NULL DEFAULT 0,
     match                JSONB NOT NULL,
     category             TEXT NOT NULL,
-    metadata_template    JSONB NOT NULL DEFAULT '{}',
+    metadata_template    JSONB NOT NULL,
     download_policy      JSONB NOT NULL DEFAULT '{}',
     storage_policy       JSONB NOT NULL,
     post_process_policy  JSONB NOT NULL DEFAULT '{}',
