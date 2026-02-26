@@ -633,9 +633,12 @@ data class LlmSuggestion(
 
 ```
 domain/storage/
-├── StoragePlan.kt
+├── MediaContainer.kt
+├── AudioFormat.kt
+├── ImageFormat.kt
+├── OutputFormat.kt            # sealed interface
 ├── OutputTarget.kt
-├── OutputKind.kt
+├── StoragePlan.kt
 ├── StoragePolicy.kt
 ├── DownloadPolicy.kt
 ├── PostProcessPolicy.kt
@@ -643,11 +646,9 @@ domain/storage/
 └── VideoDownloader.kt         # port
 ```
 
-### 6.1 OutputKind, MediaContainer, AudioFormat
+### 6.1 MediaContainer, AudioFormat, ImageFormat
 
 ```kotlin
-enum class OutputKind { ORIGINAL, CONVERTED, AUDIO_ONLY, THUMBNAIL }
-
 /** Видео/медиа контейнер. Поддерживаемые форматы yt-dlp + ffmpeg. */
 enum class MediaContainer(val extension: String) {
     MP4("mp4"),
@@ -670,27 +671,67 @@ enum class AudioFormat(val extension: String) {
     FLAC("flac"),
     WAV("wav");
 }
+
+/** Формат изображения (для обложек/thumbnail). */
+enum class ImageFormat(val extension: String) {
+    JPG("jpg"),
+    PNG("png"),
+    WEBP("webp");
+}
 ```
 
-### 6.2 StoragePlan & OutputTarget
+### 6.2 OutputFormat (sealed)
 
 ```kotlin
-data class StoragePlan(
-    val original: OutputTarget?,
-    val converted: OutputTarget?,
-    val additional: List<OutputTarget> = emptyList(),
-) {
-    fun allTargets(): List<OutputTarget> = listOfNotNull(original, converted) + additional
+/**
+ * Формат выходного файла. Sealed — кодирует и тип (видео/аудио/изображение), и конкретный формат.
+ * Заменяет пару (OutputKind, container: String).
+ */
+sealed interface OutputFormat {
+    val extension: String
+    
+    /** Оригинальное видео (как скачано yt-dlp). */
+    data class OriginalVideo(val container: MediaContainer) : OutputFormat {
+        override val extension: String get() = container.extension
+    }
+    
+    /** Конвертированное видео (после ffmpeg). */
+    data class ConvertedVideo(val container: MediaContainer) : OutputFormat {
+        override val extension: String get() = container.extension
+    }
+    
+    /** Извлечённая аудио-дорожка. */
+    data class Audio(val format: AudioFormat) : OutputFormat {
+        override val extension: String get() = format.extension
+    }
+    
+    /** Обложка / thumbnail. */
+    data class Thumbnail(val format: ImageFormat = ImageFormat.JPG) : OutputFormat {
+        override val extension: String get() = format.extension
+    }
 }
-
-data class OutputTarget(
-    val path: FilePath,
-    val container: MediaContainer,
-    val kind: OutputKind,
-)
 ```
 
-### 6.3 DownloadPolicy
+### 6.3 StoragePlan & OutputTarget
+
+```kotlin
+data class OutputTarget(
+    val path: FilePath,
+    val format: OutputFormat,
+)
+
+data class StoragePlan(
+    val original: OutputTarget?,       // OutputFormat.OriginalVideo
+    val converted: OutputTarget?,      // OutputFormat.ConvertedVideo
+    val audio: OutputTarget?,          // OutputFormat.Audio
+    val thumbnail: OutputTarget?,      // OutputFormat.Thumbnail
+) {
+    val allTargets: List<OutputTarget> get() =
+        listOfNotNull(original, converted, audio, thumbnail)
+}
+```
+
+### 6.4 DownloadPolicy
 
 ```kotlin
 data class DownloadPolicy(
@@ -703,7 +744,7 @@ data class DownloadPolicy(
 }
 ```
 
-### 6.4 StoragePolicy
+### 6.5 StoragePolicy
 
 ```kotlin
 data class StoragePolicy(
@@ -746,7 +787,7 @@ data class StoragePolicy(
 }
 ```
 
-### 6.5 PostProcessPolicy
+### 6.6 PostProcessPolicy
 
 ```kotlin
 data class PostProcessPolicy(
@@ -762,7 +803,7 @@ data class PostProcessPolicy(
 
 > Для `MUSIC_VIDEO`: оригинал (webm/mkv, макс. качество) → `original/`, конвертация в `targetContainer` → `converted/`. Оба файла получают вшитые метаданные и обложку.
 
-### 6.6 PathTemplateEngine
+### 6.7 PathTemplateEngine
 
 ```kotlin
 class PathTemplateEngine(
@@ -821,7 +862,7 @@ class PathTemplateEngine(
 }
 ```
 
-### 6.7 VideoDownloader (port)
+### 6.8 VideoDownloader (port)
 
 ```kotlin
 interface VideoDownloader {
@@ -1043,21 +1084,29 @@ class PreviewUseCase(
     ): Either<DomainError, StoragePlan> = either {
         StoragePlan(
             original = policy.originalTemplate?.let { template ->
+                val container = context.get("ext")
+                    ?.let { MediaContainer.fromExtension(it) }
+                    ?: MediaContainer.WEBM
                 OutputTarget(
                     path = pathTemplateEngine.render(template, context).bind(),
-                    container = context.get("ext")
-                        ?.let { MediaContainer.fromExtension(it) }
-                        ?: MediaContainer.WEBM,
-                    kind = OutputKind.ORIGINAL,
+                    format = OutputFormat.OriginalVideo(container),
                 )
             },
             converted = policy.convertedTemplate?.let { template ->
                 OutputTarget(
                     path = pathTemplateEngine.render(template, context).bind(),
-                    container = postProcess.targetContainer,
-                    kind = OutputKind.CONVERTED,
+                    format = OutputFormat.ConvertedVideo(postProcess.targetContainer),
                 )
             },
+            audio = if (postProcess.extractAudio) {
+                policy.audioOnlyTemplate?.let { template ->
+                    OutputTarget(
+                        path = pathTemplateEngine.render(template, context).bind(),
+                        format = OutputFormat.Audio(postProcess.audioFormat),
+                    )
+                }
+            } else null,
+            thumbnail = null,  // TODO: thumbnail template support
         )
     }
     
