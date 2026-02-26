@@ -64,7 +64,7 @@ CREATE TABLE jobs (
     progress                   JSONB,
     error                      JSONB,
     attempt                    INTEGER NOT NULL DEFAULT 0,
-    created_by_telegram_user_id TEXT NOT NULL,
+    created_by_telegram_user_id BIGINT NOT NULL,
     created_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
     started_at                 TIMESTAMPTZ,
@@ -88,6 +88,7 @@ COMMENT ON TABLE jobs IS 'Задачи скачивания';
 COMMENT ON COLUMN jobs.status IS 'queued, running, post-processing, done, failed, cancelled';
 COMMENT ON COLUMN jobs.metadata IS 'ResolvedMetadataDto JSON с type';
 COMMENT ON COLUMN jobs.storage_plan IS 'StoragePlanDto JSON';
+COMMENT ON COLUMN jobs.created_by_telegram_user_id IS 'Telegram user id (BIGINT)';
 ```
 
 ### 2.3 Таблица `job_outputs` (опционально)
@@ -212,7 +213,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 
 ### 3.6 jobs.metadata
 
-> Sealed тип (полиморфный): discriminator `"type"` определяет подтип (`musicVideo`, `seriesEpisode`, `other`).
+> Sealed тип (полиморфный): discriminator `"type"` определяет подтип (`music-video`, `series-episode`, `other`).
 
 ```json
 {
@@ -270,15 +271,24 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 ### 4.1 RulesTable
 
 ```kotlin
+internal object CategoryTransformer : ColumnTransformer<String, Category> {
+    override fun wrap(value: String): Category = Category.parse(value) // принимает kebab-case: "music-video"
+    override fun unwrap(value: Category): String = value.serialized     // возвращает kebab-case
+}
+
 object RulesTable : UUIDTable("rules") {
     val enabled = bool("enabled").default(true)
     val priority = integer("priority").default(0)
     val match = jsonb<RuleMatchDto>("match", json)
-    val category = varchar("category", 50)
+
+    // Храним в БД как TEXT (kebab-case), работаем в коде как Category
+    val category = varchar("category", 50).transform(CategoryTransformer)
+
     val metadataTemplate = jsonb<MetadataTemplateDto>("metadata_template", json)
     val downloadPolicy = jsonb<DownloadPolicyDto>("download_policy", json)
     val storagePolicy = jsonb<StoragePolicyDto>("storage_policy", json)
     val postProcessPolicy = jsonb<PostProcessPolicyDto>("post_process_policy", json)
+
     val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
     val updatedAt = timestamp("updated_at").defaultExpression(CurrentTimestamp)
 }
@@ -287,20 +297,56 @@ object RulesTable : UUIDTable("rules") {
 ### 4.2 JobsTable
 
 ```kotlin
+internal object JobStatusTransformer : ColumnTransformer<String, JobStatus> {
+    override fun wrap(value: String): JobStatus = JobStatus.parse(value) // "queued", "post-processing", ...
+    override fun unwrap(value: JobStatus): String = value.serialized
+}
+
+internal object VideoIdTransformer : ColumnTransformer<String, VideoId> {
+    override fun wrap(value: String): VideoId = VideoId(value)
+    override fun unwrap(value: VideoId): String = value.value
+}
+
+internal object UrlTransformer : ColumnTransformer<String, Url> {
+    override fun wrap(value: String): Url = Url(value)
+    override fun unwrap(value: Url): String = value.value
+}
+
+internal object ExtractorTransformer : ColumnTransformer<String, Extractor> {
+    override fun wrap(value: String): Extractor = Extractor(value)
+    override fun unwrap(value: Extractor): String = value.value
+}
+
+internal object TelegramUserIdTransformer : ColumnTransformer<Long, TelegramUserId> {
+    override fun wrap(value: Long): TelegramUserId = TelegramUserId(value)
+    override fun unwrap(value: TelegramUserId): Long = value.value
+}
+
 object JobsTable : UUIDTable("jobs") {
-    val status = varchar("status", 20).default("queued")
-    val videoId = varchar("video_id", 50)
-    val sourceUrl = text("source_url")
-    val sourceExtractor = varchar("source_extractor", 50)  // "youtube", "rutube", "vk", ...
+    // status / category в БД — TEXT (kebab-case), в коде — enum
+    val status = varchar("status", 20).default("queued").transform(JobStatusTransformer)
+
+    // video_id / urls / extractor — доменные value classes
+    val videoId = varchar("video_id", 50).transform(VideoIdTransformer)
+    val sourceUrl = text("source_url").transform(UrlTransformer)
+    val sourceExtractor = varchar("source_extractor", 50).transform(ExtractorTransformer)
+
     val ruleId = reference("rule_id", RulesTable).nullable()
-    val category = varchar("category", 50)
+
+    val category = varchar("category", 50).transform(CategoryTransformer)
+
+    // Для крупных структур (yt-dlp info, metadata, storage plan) — JSONB
     val rawInfo = jsonb<VideoInfoDto>("raw_info", json)
     val metadata = jsonb<ResolvedMetadataDto>("metadata", json)
     val storagePlan = jsonb<StoragePlanDto>("storage_plan", json)
+
     val progress = jsonb<JobProgressDto>("progress", json).nullable()
     val error = jsonb<JobErrorDto>("error", json).nullable()
+
     val attempt = integer("attempt").default(0)
-    val createdByTelegramUserId = varchar("created_by_telegram_user_id", 50)
+
+    val createdByTelegramUserId = long("created_by_telegram_user_id").transform(TelegramUserIdTransformer)
+
     val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
     val updatedAt = timestamp("updated_at").defaultExpression(CurrentTimestamp)
     val startedAt = timestamp("started_at").nullable()
@@ -308,34 +354,44 @@ object JobsTable : UUIDTable("jobs") {
 }
 ```
 
-### 4.3 JSONB Extension
+### 4.3 JobOutputsTable (опционально)
+
+Если используется нормализованная таблица `job_outputs`, также имеет смысл типизировать `format`:
 
 ```kotlin
-fun <T : Any> Table.jsonb(
-    name: String, 
-    json: Json, 
-    serializer: KSerializer<T>,
-): Column<T> = registerColumn(name, JsonColumnType(json, serializer))
+internal object OutputFormatTransformer : ColumnTransformer<String, OutputFormat> {
+    override fun wrap(value: String): OutputFormat = OutputFormat.parse(value) // "video/mp4", "audio/m4a"...
+    override fun unwrap(value: OutputFormat): String = value.serialized
+}
 
-class JsonColumnType<T : Any>(
-    private val json: Json,
-    private val serializer: KSerializer<T>,
-) : ColumnType() {
-    
-    override fun sqlType() = "JSONB"
-    
-    override fun valueFromDB(value: Any): T = when (value) {
-        is PGobject -> json.decodeFromString(serializer, value.value!!)
-        is String -> json.decodeFromString(serializer, value)
-        else -> error("Unexpected value: $value")
-    }
-    
-    override fun notNullValueToDB(value: Any): PGobject = PGobject().apply {
-        type = "jsonb"
-        this.value = json.encodeToString(serializer, value as T)
-    }
+object JobOutputsTable : UUIDTable("job_outputs") {
+    val jobId = reference("job_id", JobsTable)
+    val format = varchar("format", 32).transform(OutputFormatTransformer)
+    val path = text("path")
+    val size = long("size").nullable()
+    val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
 }
 ```
+
+### 4.4 JSONB Extension
+
+```kotlin
+// Используем встроенный jsonb() из exposed-json
+// import org.jetbrains.exposed.v1.json.jsonb
+// import kotlinx.serialization.serializer
+
+// Вариант с Json + KSerializer
+val match = jsonb<RuleMatchDto>("match", json)                 // KSerializer<T> будет взят автоматически
+val storagePlan = jsonb<StoragePlanDto>("storage_plan", json)
+
+// Вариант с кастомными serialize/deserialize (если нужно):
+val metadata = jsonb("metadata",
+    serialize = { json.encodeToString(ResolvedMetadataDto.serializer(), it) },
+    deserialize = { json.decodeFromString(ResolvedMetadataDto.serializer(), it) }
+)
+```
+
+> Требуется зависимость `org.jetbrains.exposed:exposed-json`.
 
 ---
 
@@ -386,7 +442,7 @@ CREATE TABLE jobs (
     progress                   JSONB,
     error                      JSONB,
     attempt                    INTEGER NOT NULL DEFAULT 0,
-    created_by_telegram_user_id TEXT NOT NULL,
+    created_by_telegram_user_id BIGINT NOT NULL,
     created_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
     started_at                 TIMESTAMPTZ,
@@ -462,7 +518,7 @@ class RuleRepositoryImpl(
                 it[enabled] = rule.enabled
                 it[priority] = rule.priority
                 it[match] = rule.match.toDto()
-                it[category] = rule.category.name
+                it[category] = rule.category
                 it[metadataTemplate] = rule.metadataTemplate.toDto()
                 it[downloadPolicy] = rule.downloadPolicy.toDto()
                 it[storagePolicy] = rule.storagePolicy.toDto()
@@ -475,7 +531,7 @@ class RuleRepositoryImpl(
                 it[enabled] = rule.enabled
                 it[priority] = rule.priority
                 it[match] = rule.match.toDto()
-                it[category] = rule.category.name
+                it[category] = rule.category
                 it[metadataTemplate] = rule.metadataTemplate.toDto()
                 it[downloadPolicy] = rule.downloadPolicy.toDto()
                 it[storagePolicy] = rule.storagePolicy.toDto()
@@ -502,7 +558,7 @@ class RuleRepositoryImpl(
         match = this[RulesTable.match].toDomain().getOrElse { 
             throw IllegalStateException("Invalid match in DB") 
         },
-        category = Category.valueOf(this[RulesTable.category]),
+        category = this[RulesTable.category], // уже Category благодаря transform
         metadataTemplate = this[RulesTable.metadataTemplate].toDomain(),
         downloadPolicy = this[RulesTable.downloadPolicy].toDomain(),
         storagePolicy = this[RulesTable.storagePolicy].toDomain(),

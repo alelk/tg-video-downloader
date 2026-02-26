@@ -55,7 +55,7 @@
 | DI                | Koin 4.x                                   |
 | Сериализация      | kotlinx.serialization                      |
 | База данных       | PostgreSQL 16+                             |
-| ORM / SQL         | Exposed                                    |
+| ORM / SQL         | Exposed + exposed-json                    |
 | Миграции          | Flyway                                     |
 | UI                | Compose Multiplatform                      |
 | HTTP Client       | Ktor Client (KMP)                          |

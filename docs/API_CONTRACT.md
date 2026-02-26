@@ -758,50 +758,115 @@ data class PostProcessPolicyDto(
 
 Модуль: `api:mapping`
 
-### 8.2 Примеры
+### 8.2 Структура файлов
+
+```
+api/mapping/src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/
+├── RuleMatchToDto.kt
+├── RuleMatchToDomain.kt
+├── ResolvedMetadataToDto.kt
+├── ResolvedMetadataToDomain.kt
+├── MetadataTemplateToDto.kt
+├── MetadataTemplateToDomain.kt
+├── VideoInfoToDto.kt
+├── VideoInfoToDomain.kt
+├── StoragePlanToDto.kt
+├── StoragePlanToDomain.kt
+└── DomainErrorToApiError.kt
+```
+
+### 8.3 RuleMatchToDto.kt
 
 ```kotlin
-// RuleMatch -> RuleMatchDto
-fun RuleMatch.toDto(): RuleMatchDto = when (this) {
-    is RuleMatch.AllOf -> RuleMatchDto.AllOf(matches.map { it.toDto() })
-    is RuleMatch.AnyOf -> RuleMatchDto.AnyOf(matches.map { it.toDto() })
-    is RuleMatch.ChannelId -> RuleMatchDto.ChannelId(value)
-    is RuleMatch.ChannelName -> RuleMatchDto.ChannelName(value, ignoreCase)
-    is RuleMatch.TitleRegex -> RuleMatchDto.TitleRegex(pattern)
-    is RuleMatch.UrlRegex -> RuleMatchDto.UrlRegex(pattern)
-}
+// --- Подтипы ---
 
-// RuleMatchDto -> RuleMatch (с валидацией)
-fun RuleMatchDto.toDomain(): Either<DomainError.ValidationError, RuleMatch> = when (this) {
-    is RuleMatchDto.AllOf -> {
-        if (matches.isEmpty()) {
-            DomainError.ValidationError("matches", "Cannot be empty").left()
-        } else {
-            matches.traverse { it.toDomain() }.map { RuleMatch.AllOf(it) }
-        }
-    }
-    is RuleMatchDto.ChannelId -> {
-        if (value.isBlank()) {
-            DomainError.ValidationError("value", "Cannot be blank").left()
-        } else {
-            RuleMatch.ChannelId(value).right()
-        }
-    }
-    // ... остальные варианты
+fun RuleMatch.AllOf.toDto(): RuleMatchDto.AllOf =
+    RuleMatchDto.AllOf(matches.map { it.toDto() })
+
+fun RuleMatch.AnyOf.toDto(): RuleMatchDto.AnyOf =
+    RuleMatchDto.AnyOf(matches.map { it.toDto() })
+
+fun RuleMatch.ChannelId.toDto(): RuleMatchDto.ChannelId =
+    RuleMatchDto.ChannelId(value)
+
+fun RuleMatch.ChannelName.toDto(): RuleMatchDto.ChannelName =
+    RuleMatchDto.ChannelName(value, ignoreCase)
+
+fun RuleMatch.TitleRegex.toDto(): RuleMatchDto.TitleRegex =
+    RuleMatchDto.TitleRegex(pattern)
+
+fun RuleMatch.UrlRegex.toDto(): RuleMatchDto.UrlRegex =
+    RuleMatchDto.UrlRegex(pattern)
+
+// --- Супертип ---
+
+fun RuleMatch.toDto(): RuleMatchDto = when (this) {
+    is RuleMatch.AllOf -> toDto()
+    is RuleMatch.AnyOf -> toDto()
+    is RuleMatch.ChannelId -> toDto()
+    is RuleMatch.ChannelName -> toDto()
+    is RuleMatch.TitleRegex -> toDto()
+    is RuleMatch.UrlRegex -> toDto()
 }
 ```
 
+### 8.4 RuleMatchToDomain.kt
+
 ```kotlin
-// ResolvedMetadata -> ResolvedMetadataDto
-fun ResolvedMetadata.toDto(): ResolvedMetadataDto = when (this) {
-    is ResolvedMetadata.MusicVideo -> ResolvedMetadataDto.MusicVideo(
+// --- Подтипы ---
+
+fun RuleMatchDto.AllOf.toDomain(): Either<DomainError.ValidationError, RuleMatch.AllOf> =
+    if (matches.isEmpty()) DomainError.ValidationError("matches", "Cannot be empty").left()
+    else matches.traverse { it.toDomain() }.map { RuleMatch.AllOf(it) }
+
+fun RuleMatchDto.AnyOf.toDomain(): Either<DomainError.ValidationError, RuleMatch.AnyOf> =
+    if (matches.isEmpty()) DomainError.ValidationError("matches", "Cannot be empty").left()
+    else matches.traverse { it.toDomain() }.map { RuleMatch.AnyOf(it) }
+
+fun RuleMatchDto.ChannelId.toDomain(): Either<DomainError.ValidationError, RuleMatch.ChannelId> =
+    if (value.isBlank()) DomainError.ValidationError("value", "Cannot be blank").left()
+    else RuleMatch.ChannelId(value).right()
+
+fun RuleMatchDto.ChannelName.toDomain(): Either<DomainError.ValidationError, RuleMatch.ChannelName> =
+    if (value.isBlank()) DomainError.ValidationError("value", "Cannot be blank").left()
+    else RuleMatch.ChannelName(value, ignoreCase).right()
+
+fun RuleMatchDto.TitleRegex.toDomain(): Either<DomainError.ValidationError, RuleMatch.TitleRegex> =
+    if (pattern.isBlank()) DomainError.ValidationError("pattern", "Cannot be blank").left()
+    else RuleMatch.TitleRegex(pattern).right()
+
+fun RuleMatchDto.UrlRegex.toDomain(): Either<DomainError.ValidationError, RuleMatch.UrlRegex> =
+    if (pattern.isBlank()) DomainError.ValidationError("pattern", "Cannot be blank").left()
+    else RuleMatch.UrlRegex(pattern).right()
+
+// --- Супертип ---
+
+fun RuleMatchDto.toDomain(): Either<DomainError.ValidationError, RuleMatch> = when (this) {
+    is RuleMatchDto.AllOf -> toDomain()
+    is RuleMatchDto.AnyOf -> toDomain()
+    is RuleMatchDto.ChannelId -> toDomain()
+    is RuleMatchDto.ChannelName -> toDomain()
+    is RuleMatchDto.TitleRegex -> toDomain()
+    is RuleMatchDto.UrlRegex -> toDomain()
+}
+```
+
+### 8.5 ResolvedMetadataToDto.kt
+
+```kotlin
+// --- Подтипы ---
+
+fun ResolvedMetadata.MusicVideo.toDto(): ResolvedMetadataDto.MusicVideo =
+    ResolvedMetadataDto.MusicVideo(
         artist = artist,
         title = title,
         releaseDate = releaseDate?.value,
         tags = tags,
         comment = comment,
     )
-    is ResolvedMetadata.SeriesEpisode -> ResolvedMetadataDto.SeriesEpisode(
+
+fun ResolvedMetadata.SeriesEpisode.toDto(): ResolvedMetadataDto.SeriesEpisode =
+    ResolvedMetadataDto.SeriesEpisode(
         seriesName = seriesName,
         season = season,
         episode = episode,
@@ -810,14 +875,76 @@ fun ResolvedMetadata.toDto(): ResolvedMetadataDto = when (this) {
         tags = tags,
         comment = comment,
     )
-    is ResolvedMetadata.Other -> ResolvedMetadataDto.Other(
+
+fun ResolvedMetadata.Other.toDto(): ResolvedMetadataDto.Other =
+    ResolvedMetadataDto.Other(
         title = title,
         releaseDate = releaseDate?.value,
         tags = tags,
         comment = comment,
     )
+
+// --- Супертип ---
+
+fun ResolvedMetadata.toDto(): ResolvedMetadataDto = when (this) {
+    is ResolvedMetadata.MusicVideo -> toDto()
+    is ResolvedMetadata.SeriesEpisode -> toDto()
+    is ResolvedMetadata.Other -> toDto()
 }
 ```
+
+### 8.6 ResolvedMetadataToDomain.kt
+
+```kotlin
+// --- Подтипы ---
+
+fun ResolvedMetadataDto.MusicVideo.toDomain(): Either<DomainError.ValidationError, ResolvedMetadata.MusicVideo> =
+    either {
+        ResolvedMetadata.MusicVideo(
+            artist = ensure(artist.isNotBlank()) { DomainError.ValidationError("artist", "Cannot be blank") }.let { artist },
+            title = ensure(title.isNotBlank()) { DomainError.ValidationError("title", "Cannot be blank") }.let { title },
+            releaseDate = releaseDate?.let { LocalDate(it) },
+            tags = tags,
+            comment = comment,
+        )
+    }
+
+fun ResolvedMetadataDto.SeriesEpisode.toDomain(): Either<DomainError.ValidationError, ResolvedMetadata.SeriesEpisode> =
+    either {
+        ResolvedMetadata.SeriesEpisode(
+            seriesName = ensure(seriesName.isNotBlank()) { DomainError.ValidationError("seriesName", "Cannot be blank") }.let { seriesName },
+            season = season,
+            episode = episode,
+            title = ensure(title.isNotBlank()) { DomainError.ValidationError("title", "Cannot be blank") }.let { title },
+            releaseDate = releaseDate?.let { LocalDate(it) },
+            tags = tags,
+            comment = comment,
+        )
+    }
+
+fun ResolvedMetadataDto.Other.toDomain(): Either<DomainError.ValidationError, ResolvedMetadata.Other> =
+    either {
+        ResolvedMetadata.Other(
+            title = ensure(title.isNotBlank()) { DomainError.ValidationError("title", "Cannot be blank") }.let { title },
+            releaseDate = releaseDate?.let { LocalDate(it) },
+            tags = tags,
+            comment = comment,
+        )
+    }
+
+// --- Супертип ---
+
+fun ResolvedMetadataDto.toDomain(): Either<DomainError.ValidationError, ResolvedMetadata> = when (this) {
+    is ResolvedMetadataDto.MusicVideo -> toDomain()
+    is ResolvedMetadataDto.SeriesEpisode -> toDomain()
+    is ResolvedMetadataDto.Other -> toDomain()
+}
+```
+
+> **Принцип**: каждый подтип имеет свою `toDto()` / `toDomain()` функцию с точным возвращаемым типом.
+> Супертип делегирует через exhaustive `when`. Это позволяет:
+> - Вызывать типизированный маппинг напрямую, когда подтип известен
+> - Компилятор проверяет exhaustiveness при добавлении нового подтипа
 
 ### 8.3 Маппинг ошибок
 

@@ -8,13 +8,13 @@
 
 ### По source set
 
-| Source set    | Библиотеки                              | Назначение                                       |
-|--------------|-----------------------------------------|--------------------------------------------------|
+| Source set   | Библиотеки                                 | Назначение                                    |
+|--------------|--------------------------------------------|-----------------------------------------------|
 | `commonTest` | Kotest framework-engine, Kotest assertions | Domain, маппинг, use-cases (KMP-совместимые)  |
-| `jvmTest`    | Kotest runner-junit5, MockK             | Интеграционные тесты, мокирование                |
-| `jvmTest`    | Testcontainers                          | PostgreSQL в тестах                              |
-| `jvmTest`    | Ktor Test                               | HTTP-тесты без реального сервера                 |
-| `jsTest`     | Kotest framework-engine                 | JS-специфичные edge cases (при необходимости)    |
+| `jvmTest`    | Kotest runner-junit5, MockK                | Интеграционные тесты, мокирование             |
+| `jvmTest`    | Testcontainers                             | PostgreSQL в тестах                           |
+| `jvmTest`    | Ktor Test                                  | HTTP-тесты без реального сервера              |
+| `jsTest`     | Kotest framework-engine                    | JS-специфичные edge cases (при необходимости) |
 
 > **Kotest 6** полностью поддерживает KMP (jvm, js, native) через `kotest-framework-engine` + Kotest Gradle plugin + KSP.
 > Для JS/Native тестов: annotation-based configuration не работает (ограничение Kotlin runtime).
