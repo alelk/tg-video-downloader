@@ -1,22 +1,31 @@
 plugins {
-    alias(libs.plugins.kotlinJvm)
+    alias(libs.plugins.kotlinMultiplatform)
 }
 
 description = "API mapping: domain <-> DTO conversion"
 
 kotlin {
     jvmToolchain(21)
+
+    jvm()
+
+    js(IR) {
+        browser()
+    }
+
+    sourceSets {
+        commonMain {
+            dependencies {
+                api(project(":domain"))
+                api(project(":api:contract"))
+                implementation(libs.arrow.core)
+            }
+        }
+
+        commonTest {
+            dependencies {
+                implementation(libs.kotlin.test)
+            }
+        }
+    }
 }
-
-dependencies {
-    api(project(":domain"))
-    api(project(":api:contract"))
-
-    // Testing
-    testImplementation(libs.bundles.testing)
-}
-
-tasks.test {
-    useJUnitPlatform()
-}
-
