@@ -26,7 +26,6 @@ include(":domain")
 include(":api:contract")
 include(":api:mapping")
 include(":api:client")
-include(":api:client:di")
 
 // === Server ===
 include(":server:infra")
@@ -35,5 +34,4 @@ include(":server:di")
 include(":server:app")
 
 // === UI ===
-include(":features")
 include(":tgminiapp")

@@ -12,6 +12,8 @@
 /api/v1/
 ```
 
+Все ресурсы описаны с использованием **Ktor Resources** для обеспечения type-safety и удобства использования на клиенте.
+
 ### 1.2 Аутентификация
 
 Все запросы требуют Telegram `initData` в заголовке:
@@ -298,6 +300,8 @@ enum class MetadataSourceDto {
 
 Получить preview метаданных для URL.
 
+**Resource**: `ApiV1.Preview`
+
 #### Request
 
 ```kotlin
@@ -388,6 +392,8 @@ data class PreviewResponseDto(
 
 Создать job.
 
+**Resource**: `ApiV1.Jobs`
+
 #### Request
 
 ```kotlin
@@ -466,6 +472,8 @@ data class JobDto(
 ### 6.3 GET /api/v1/jobs
 
 Список jobs.
+
+**Resource**: `ApiV1.Jobs`
 
 #### Query Parameters
 

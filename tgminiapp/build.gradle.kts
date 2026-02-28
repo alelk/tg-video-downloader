@@ -41,7 +41,6 @@ kotlin {
                 // DI
                 implementation(libs.koin.core)
                 implementation(libs.koin.compose)
-
                 // Telegram Mini App
                 implementation(libs.tg.mini.app)
 
