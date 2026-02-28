@@ -2,6 +2,7 @@ package io.github.alelk.tgvd.domain.rule
 
 import io.github.alelk.tgvd.domain.common.RuleId
 import io.github.alelk.tgvd.domain.common.TelegramUserId
+import io.github.alelk.tgvd.domain.common.WorkspaceId
 import io.github.alelk.tgvd.domain.metadata.MetadataTemplate
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
 import io.github.alelk.tgvd.domain.storage.PostProcessPolicy
@@ -11,7 +12,7 @@ import kotlin.time.Instant
 data class Rule(
     val id: RuleId,
     val name: String,
-    val ownerId: TelegramUserId,
+    val workspaceId: WorkspaceId,
     val match: RuleMatch,
     val metadataTemplate: MetadataTemplate,
     val storagePolicy: StoragePolicy,

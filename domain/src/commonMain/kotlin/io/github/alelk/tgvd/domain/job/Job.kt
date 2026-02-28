@@ -3,6 +3,7 @@ package io.github.alelk.tgvd.domain.job
 import io.github.alelk.tgvd.domain.common.JobId
 import io.github.alelk.tgvd.domain.common.RuleId
 import io.github.alelk.tgvd.domain.common.TelegramUserId
+import io.github.alelk.tgvd.domain.common.WorkspaceId
 import io.github.alelk.tgvd.domain.metadata.MetadataSource
 import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.storage.StoragePlan
@@ -11,7 +12,8 @@ import kotlin.time.Instant
 
 data class Job(
     val id: JobId,
-    val ownerId: TelegramUserId,
+    val workspaceId: WorkspaceId,
+    val createdBy: TelegramUserId,
     val source: VideoSource,
     val metadata: ResolvedMetadata,
     val metadataSource: MetadataSource,

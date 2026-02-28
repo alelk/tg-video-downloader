@@ -17,6 +17,7 @@ data class JobDto(
     val progress: JobProgressDto? = null,
     val error: JobErrorDto? = null,
     val attempt: Int = 1,
+    val createdBy: String? = null,
     val createdAt: String,
     val updatedAt: String,
     val startedAt: String? = null,

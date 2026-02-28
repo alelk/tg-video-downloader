@@ -27,6 +27,7 @@ fun Job.toDto(): JobDto = JobDto(
         JobErrorDto(code = "ERROR", message = it)
     },
     attempt = 1,
+    createdBy = createdBy.value.toString(),
     createdAt = createdAt.toString(),
     updatedAt = updatedAt.toString(),
 )

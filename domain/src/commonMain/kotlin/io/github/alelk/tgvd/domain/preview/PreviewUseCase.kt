@@ -4,6 +4,7 @@ import arrow.core.Either
 import arrow.core.right
 import io.github.alelk.tgvd.domain.common.DomainError
 import io.github.alelk.tgvd.domain.common.Url
+import io.github.alelk.tgvd.domain.common.WorkspaceId
 import io.github.alelk.tgvd.domain.metadata.LlmPort
 import io.github.alelk.tgvd.domain.metadata.MetadataResolver
 import io.github.alelk.tgvd.domain.metadata.MetadataSource
@@ -30,9 +31,9 @@ class PreviewUseCase(
     private val metadataResolver: MetadataResolver,
     private val llmPort: LlmPort?,
 ) {
-    suspend fun preview(url: String): Either<DomainError, PreviewResult> {
+    suspend fun preview(url: String, workspaceId: WorkspaceId): Either<DomainError, PreviewResult> {
         return videoInfoExtractor.extract(url).map { videoInfo ->
-            val matchedRule = ruleMatchingService.findMatchingRule(videoInfo)
+            val matchedRule = ruleMatchingService.findMatchingRule(videoInfo, workspaceId)
 
             val (metadata, source) = if (matchedRule != null) {
                 metadataResolver.resolve(videoInfo, matchedRule.metadataTemplate) to MetadataSource.RULE

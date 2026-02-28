@@ -50,6 +50,12 @@ fun DomainError.toHttpResponse(correlationId: String): Pair<HttpStatusCode, ApiE
 
     is DomainError.PostProcessingFailed ->
         HttpStatusCode.InternalServerError to apiError("INTERNAL_ERROR", message, correlationId)
+
+    is DomainError.WorkspaceNotFound ->
+        HttpStatusCode.NotFound to apiError("NOT_FOUND", message, correlationId)
+
+    is DomainError.WorkspaceAccessDenied ->
+        HttpStatusCode.Forbidden to apiError("FORBIDDEN", message, correlationId)
 }
 
 

@@ -28,7 +28,8 @@ class CreateJobUseCase(
         val now = clock.now()
         val job = Job(
             id = JobId(Uuid.random()),
-            ownerId = request.createdBy,
+            workspaceId = request.workspaceId,
+            createdBy = request.createdBy,
             source = request.source,
             metadata = request.metadata,
             metadataSource = request.metadataSource,
@@ -46,6 +47,7 @@ class CreateJobUseCase(
     }
 
     data class CreateJobRequest(
+        val workspaceId: WorkspaceId,
         val source: VideoSource,
         val ruleId: RuleId?,
         val metadata: ResolvedMetadata,

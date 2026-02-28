@@ -34,6 +34,12 @@ sealed interface DomainError {
     data class Unauthorized(override val message: String = "Unauthorized") : DomainError
     data class Forbidden(val userId: TelegramUserId, override val message: String = "User ${userId.value} not allowed") : DomainError
 
+    // === Workspace ===
+    @OptIn(ExperimentalUuidApi::class)
+    data class WorkspaceNotFound(val id: WorkspaceId, override val message: String = "Workspace not found: ${id.value}") : DomainError
+    @OptIn(ExperimentalUuidApi::class)
+    data class WorkspaceAccessDenied(val workspaceId: WorkspaceId, val userId: TelegramUserId, override val message: String = "User ${userId.value} is not a member of workspace ${workspaceId.value}") : DomainError
+
     // === LLM ===
     data class LlmError(val provider: String, override val message: String, val statusCode: Int? = null) : DomainError
 }

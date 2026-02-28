@@ -19,6 +19,8 @@ dependencies {
     api(libs.bundles.ktor.server)
     api(libs.ktor.server.resources)
 
+    api(libs.koin.ktor)
+
     // Logging
     api(libs.kotlin.logging)
 

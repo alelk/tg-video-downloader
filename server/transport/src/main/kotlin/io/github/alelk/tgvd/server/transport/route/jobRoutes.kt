@@ -14,6 +14,7 @@ import io.github.alelk.tgvd.domain.common.JobId
 import io.github.alelk.tgvd.domain.common.RuleId
 import io.github.alelk.tgvd.domain.job.*
 import io.github.alelk.tgvd.domain.metadata.MetadataSource
+import io.github.alelk.tgvd.server.transport.auth.parseWorkspaceId
 import io.github.alelk.tgvd.server.transport.auth.telegramUser
 import io.github.alelk.tgvd.server.transport.util.parseId
 import io.github.alelk.tgvd.server.transport.util.respondEither
@@ -32,13 +33,15 @@ fun Route.jobRoutes() {
     val createJobUseCase by inject<CreateJobUseCase>()
     val jobRepository by inject<JobRepository>()
 
-    post<ApiV1.Jobs> {
+    post<ApiV1.Workspaces.ById.Jobs> { res ->
         val request = call.receive<CreateJobRequestDto>()
         val user = call.telegramUser
 
-        val result = either {
+        val result = either<DomainError, Job> {
+            val wsId = parseWorkspaceId(res.parent.workspaceId).bind()
             val metadata = request.metadata.toDomain().bind()
             val createRequest = CreateJobUseCase.CreateJobRequest(
+                workspaceId = wsId,
                 source = request.source.toDomain(),
                 ruleId = request.ruleId?.let { RuleId(Uuid.parse(it)) },
                 metadata = metadata,
@@ -52,35 +55,36 @@ fun Route.jobRoutes() {
         call.respondEither<JobDto, _>(result, HttpStatusCode.Created) { it.toDto() }
     }
 
-    get<ApiV1.Jobs> { res ->
-        val user = call.telegramUser
-        val jobs = jobRepository.findByOwner(user.id)
+    get<ApiV1.Workspaces.ById.Jobs> { res ->
+        val result = either<DomainError, JobListResponseDto> {
+            val wsId = parseWorkspaceId(res.parent.workspaceId).bind()
+            val jobs = jobRepository.findByWorkspace(wsId)
 
-        val filtered = if (res.status != null) {
-            jobs.filter { it.status.name.equals(res.status, ignoreCase = true) }
-        } else jobs
+            val filtered = if (res.status != null) {
+                jobs.filter { it.status.name.equals(res.status, ignoreCase = true) }
+            } else jobs
 
-        val paged = filtered.drop(res.offset).take(res.limit)
-        call.respond(
+            val paged = filtered.drop(res.offset).take(res.limit)
             JobListResponseDto(
                 items = paged.map { it.toDto() },
                 total = filtered.size,
                 limit = res.limit,
                 offset = res.offset,
             )
-        )
+        }
+        call.respondEither(result)
     }
 
-    get<ApiV1.Jobs.ById> { res ->
-        val result = either {
+    get<ApiV1.Workspaces.ById.Jobs.ById> { res ->
+        val result = either<DomainError, Job> {
             val jobId = parseId(res.id, "jobId", ::JobId).bind()
             jobRepository.findById(jobId) ?: raise(DomainError.JobNotFound(jobId))
         }
         call.respondEither<JobDto, _>(result) { it.toDto() }
     }
 
-    post<ApiV1.Jobs.ById.Cancel> { res ->
-        val result = either {
+    post<ApiV1.Workspaces.ById.Jobs.ById.Cancel> { res ->
+        val result = either<DomainError, Job> {
             val jobId = parseId(res.parent.id, "jobId", ::JobId).bind()
             val job = jobRepository.findById(jobId) ?: raise(DomainError.JobNotFound(jobId))
             if (!job.status.isCancellable) raise(DomainError.JobCannotBeCancelled(jobId, job.status))
@@ -89,4 +93,3 @@ fun Route.jobRoutes() {
         call.respondEither<JobDto, _>(result) { it.toDto() }
     }
 }
-
