@@ -1,5 +1,7 @@
 package io.github.alelk.tgvd.domain.metadata
 
+import io.github.alelk.tgvd.domain.common.Category
+
 sealed interface MetadataTemplate {
     val titleOverride: String?
     val titlePattern: String?
@@ -28,3 +30,11 @@ sealed interface MetadataTemplate {
         override val defaultTags: List<String> = emptyList(),
     ) : MetadataTemplate
 }
+
+val MetadataTemplate.category: Category
+    get() = when (this) {
+        is MetadataTemplate.MusicVideo -> Category.MUSIC_VIDEO
+        is MetadataTemplate.SeriesEpisode -> Category.SERIES
+        is MetadataTemplate.Other -> Category.OTHER
+    }
+
