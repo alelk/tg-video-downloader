@@ -219,10 +219,12 @@ fun Application.configureRouting() {
                 validator = get<TelegramAuthValidator>()
                 allowedUserIds = config.telegram.allowedUserIds.map { it.toLong() }.toSet()
             }
-            
+
+            workspaceRoutes()
             previewRoutes()
             jobRoutes()
             ruleRoutes()
+            systemRoutes()
         }
     }
 }
@@ -230,23 +232,37 @@ fun Application.configureRouting() {
 
 ---
 
-## 3. Allowlist
+## 3. Двухуровневая авторизация
 
-### 3.1 Конфигурация
+### 3.1 Уровень 1: Глобальный allowlist
+
+Определяет, кто вообще имеет доступ к сервису.
 
 ```yaml
 telegram:
-  botToken: "123456:ABC-DEF..."
   allowedUserIds:
     - "123456789"
     - "987654321"
 ```
 
-### 3.2 Поведение
-
 - Пустой список = **всем запрещено** (fail-safe)
-- `["*"]` = всем разрешено (не рекомендуется в production)
 - initData валиден, но user не в списке → `403 FORBIDDEN`
+
+### 3.2 Уровень 2: Workspace membership
+
+Определяет, к каким ресурсам имеет доступ пользователь.
+
+Все доменные ресурсы (jobs, rules, preview) привязаны к workspace через path:
+`/api/v1/workspaces/{workspaceId}/...`
+
+Сервер проверяет, что текущий пользователь является участником workspace.
+Если нет — `403 WORKSPACE_ACCESS_DENIED`.
+
+Роли:
+- **OWNER** — может управлять участниками (добавлять/удалять)
+- **MEMBER** — полный доступ ко всем ресурсам workspace
+
+Подробнее: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
 
 ---
 

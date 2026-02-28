@@ -2,7 +2,7 @@
 
 **Статус**: Принято  
 **Дата**: 2026-02-11  
-**Авторы**: Team
+**Авторы**: Alex Elkin
 
 ---
 
@@ -177,7 +177,8 @@ class CreateJobUseCase(...) {
 ### 2. Route Handler
 
 ```kotlin
-post("/api/v1/jobs") {
+// Пример: workspace-scoped endpoint
+post<ApiV1.Workspaces.ById.Jobs> { res ->
     val request = call.receive<CreateJobRequestDto>()
     val domainRequest = request.toDomain().getOrElse { error ->
         call.respond(error.toHttpResponse(call.correlationId))
@@ -242,4 +243,3 @@ suspend fun complexOperation(): Either<DomainError, Result> = either {
 
 - [Arrow Either](https://arrow-kt.io/docs/apidocs/arrow-core/arrow.core/-either/)
 - [Railway Oriented Programming](https://fsharpforfunandprofit.com/rop/)
-

@@ -47,11 +47,12 @@ COMMENT ON COLUMN rules.match IS 'Критерии матчинга (RuleMatchDt
 COMMENT ON COLUMN rules.category IS 'Категория: music-video, series, other';
 ```
 
-### 2.2 Таблица `jobs`
+### 2.4 Таблица `jobs`
 
 ```sql
 CREATE TABLE jobs (
     id                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id               UUID NOT NULL REFERENCES workspaces(id),
     status                     TEXT NOT NULL DEFAULT 'queued',
     video_id                   TEXT NOT NULL,
     source_url                 TEXT NOT NULL,
@@ -72,6 +73,7 @@ CREATE TABLE jobs (
 );
 
 -- Индексы
+CREATE INDEX idx_jobs_workspace ON jobs(workspace_id);
 CREATE INDEX idx_jobs_status ON jobs(status);
 CREATE INDEX idx_jobs_video_id ON jobs(video_id);
 CREATE INDEX idx_jobs_created_at ON jobs(created_at DESC);
@@ -91,7 +93,7 @@ COMMENT ON COLUMN jobs.storage_plan IS 'StoragePlanDto JSON';
 COMMENT ON COLUMN jobs.created_by_telegram_user_id IS 'Telegram user id (BIGINT)';
 ```
 
-### 2.3 Таблица `job_outputs` (опционально)
+### 2.5 Таблица `job_outputs` (опционально)
 
 Для нормализованного хранения результатов:
 
@@ -268,7 +270,25 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 
 ## 4. Exposed Tables
 
-### 4.1 RulesTable
+### 4.1 WorkspacesTable & WorkspaceMembersTable
+
+```kotlin
+object WorkspacesTable : UUIDTable("workspaces") {
+    val name = text("name")
+    val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
+}
+
+object WorkspaceMembersTable : Table("workspace_members") {
+    val workspaceId = reference("workspace_id", WorkspacesTable)
+    val userId = long("user_id")
+    val role = varchar("role", 20).default("member")
+    val joinedAt = timestamp("joined_at").defaultExpression(CurrentTimestamp)
+
+    override val primaryKey = PrimaryKey(workspaceId, userId)
+}
+```
+
+### 4.2 RulesTable
 
 ```kotlin
 internal object CategoryTransformer : ColumnTransformer<String, Category> {
@@ -277,6 +297,8 @@ internal object CategoryTransformer : ColumnTransformer<String, Category> {
 }
 
 object RulesTable : UUIDTable("rules") {
+    val workspaceId = reference("workspace_id", WorkspacesTable)
+    val name = text("name")
     val enabled = bool("enabled").default(true)
     val priority = integer("priority").default(0)
     val match = jsonb<RuleMatchDto>("match", json)
@@ -294,7 +316,7 @@ object RulesTable : UUIDTable("rules") {
 }
 ```
 
-### 4.2 JobsTable
+### 4.3 JobsTable
 
 ```kotlin
 internal object JobStatusTransformer : ColumnTransformer<String, JobStatus> {
@@ -323,6 +345,7 @@ internal object TelegramUserIdTransformer : ColumnTransformer<Long, TelegramUser
 }
 
 object JobsTable : UUIDTable("jobs") {
+    val workspaceId = reference("workspace_id", WorkspacesTable)
     // status / category в БД — TEXT (kebab-case), в коде — enum
     val status = varchar("status", 20).default("queued").transform(JobStatusTransformer)
 

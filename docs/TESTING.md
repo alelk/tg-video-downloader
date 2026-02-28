@@ -705,13 +705,13 @@ class RuleRepositoryTest : FunSpec({
 ```kotlin
 class PreviewRoutesTest : FunSpec({
 
-    test("POST /api/v1/preview returns preview") {
+    test("POST /api/v1/workspaces/{id}/preview returns preview") {
         testApplication {
             application {
                 configureTestApp()
             }
             
-            val response = client.post("/api/v1/preview") {
+            val response = client.post("/api/v1/workspaces/$testWorkspaceId/preview") {
                 header("X-Telegram-Init-Data", "dev")
                 contentType(ContentType.Application.Json)
                 setBody("""{"url": "https://youtube.com/watch?v=dQw4w9WgXcQ"}""")
@@ -725,13 +725,13 @@ class PreviewRoutesTest : FunSpec({
         }
     }
     
-    test("POST /api/v1/preview returns 400 for invalid URL") {
+    test("POST /api/v1/workspaces/{id}/preview returns 400 for invalid URL") {
         testApplication {
             application {
                 configureTestApp()
             }
             
-            val response = client.post("/api/v1/preview") {
+            val response = client.post("/api/v1/workspaces/$testWorkspaceId/preview") {
                 header("X-Telegram-Init-Data", "dev")
                 contentType(ContentType.Application.Json)
                 setBody("""{"url": "not-a-url"}""")
@@ -750,7 +750,7 @@ class PreviewRoutesTest : FunSpec({
                 configureTestApp()
             }
             
-            val response = client.post("/api/v1/preview") {
+            val response = client.post("/api/v1/workspaces/$testWorkspaceId/preview") {
                 contentType(ContentType.Application.Json)
                 setBody("""{"url": "https://youtube.com/watch?v=abc"}""")
             }
@@ -789,18 +789,18 @@ class DownloadFlowTest : FunSpec({
     
     test("full download flow").config(enabled = false) {
         // 1. Create preview
-        val previewResponse = client.post("/api/v1/preview") {
+        val previewResponse = client.post("/api/v1/workspaces/$testWorkspaceId/preview") {
             // ...
         }
         
         // 2. Create job
-        val jobResponse = client.post("/api/v1/jobs") {
+        val jobResponse = client.post("/api/v1/workspaces/$testWorkspaceId/jobs") {
             // ...
         }
         
         // 3. Poll until done
         eventually(5.minutes) {
-            val job = client.get("/api/v1/jobs/${jobId}")
+            val job = client.get("/api/v1/workspaces/$testWorkspaceId/jobs/${jobId}")
             job.status shouldBe "done"
         }
         

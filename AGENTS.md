@@ -87,10 +87,11 @@ UI Shell (tgminiapp) → features (Compose)
               server:transport → server:infra (DB, yt-dlp, LLM, Proxy)
 ```
 
-### 4. Contract-first
+### 4. Contract-first & Workspace-scoped API
 
 - Сначала DTO в `api:contract`, потом реализация
 - Discriminator `type` для sealed DTO в JSON
+- Все доменные ресурсы привязаны к workspace: `/api/v1/workspaces/{workspaceId}/...`
 - Версионирование API через `/api/v1/`, `/api/v2/`
 
 ---

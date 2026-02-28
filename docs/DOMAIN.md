@@ -24,7 +24,8 @@
 
 ```
 domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
-├── common/             # Общие типы: Category, DomainError, value objects
+├── common/             # Общие типы: Category, DomainError, value objects (WorkspaceId, JobId, etc.)
+├── workspace/          # Workspace, WorkspaceMember, WorkspaceRole, WorkspaceRepository port
 ├── video/              # VideoSource, VideoInfo, VideoInfoExtractor port
 ├── rule/               # Rule, RuleMatch, RuleMatchingService, RuleRepository port
 ├── metadata/           # ResolvedMetadata, MetadataResolver, MetadataTemplate, LlmPort
@@ -45,6 +46,8 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
                    video
                      │
                    common
+                     │
+              workspace ──▶ common
 
               job ──▶ video, storage, common
 ```
@@ -89,6 +92,9 @@ value class RuleId(val value: Uuid)  // kotlin.uuid.Uuid
 
 @JvmInline
 value class JobId(val value: Uuid)
+
+@JvmInline
+value class WorkspaceId(val value: Uuid)
 
 @JvmInline
 value class TelegramUserId(val value: Long) {
@@ -213,6 +219,10 @@ sealed interface DomainError {
     data class Unauthorized(override val message: String = "Unauthorized") : DomainError
     data class Forbidden(val userId: TelegramUserId, override val message: String = "User ${userId.value} not allowed") : DomainError
     
+    // === Workspace ===
+    data class WorkspaceNotFound(val id: WorkspaceId, override val message: String = "Workspace not found: ${id.value}") : DomainError
+    data class WorkspaceAccessDenied(val workspaceId: WorkspaceId, val userId: TelegramUserId, override val message: String = "User ${userId.value} is not a member of workspace ${workspaceId.value}") : DomainError
+
     // === LLM ===
     data class LlmError(val provider: String, override val message: String, val statusCode: Int? = null) : DomainError
 }
@@ -224,7 +234,73 @@ sealed interface DomainError {
 
 ---
 
-## 3. `video` — Видео
+## 3. `workspace` — Рабочее пространство
+
+Зависимости: `common`
+
+```
+domain/workspace/
+├── Workspace.kt
+├── WorkspaceMember.kt
+├── WorkspaceRole.kt
+└── WorkspaceRepository.kt
+```
+
+Workspace — группа пользователей с общими ресурсами. Все доменные сущности (Rule, Job) привязаны к workspace.
+
+### 3.1 Workspace
+
+```kotlin
+data class Workspace(
+    val id: WorkspaceId,
+    val name: String,
+    val createdAt: Instant,
+)
+```
+
+### 3.2 WorkspaceMember
+
+```kotlin
+data class WorkspaceMember(
+    val workspaceId: WorkspaceId,
+    val userId: TelegramUserId,
+    val role: WorkspaceRole,
+    val joinedAt: Instant,
+)
+```
+
+### 3.3 WorkspaceRole
+
+```kotlin
+enum class WorkspaceRole {
+    /** Может управлять участниками (добавлять/удалять) */
+    OWNER,
+    /** Полный доступ ко всем ресурсам workspace */
+    MEMBER,
+}
+```
+
+> Обе роли имеют равный доступ к ресурсам. OWNER дополнительно может управлять составом workspace.
+
+### 3.4 WorkspaceRepository (port)
+
+```kotlin
+interface WorkspaceRepository {
+    suspend fun findById(id: WorkspaceId): Workspace?
+    suspend fun findByUser(userId: TelegramUserId): List<WorkspaceMember>
+    suspend fun findMembers(workspaceId: WorkspaceId): List<WorkspaceMember>
+    suspend fun isMember(workspaceId: WorkspaceId, userId: TelegramUserId): Boolean
+    suspend fun save(workspace: Workspace): Either<DomainError, Workspace>
+    suspend fun addMember(member: WorkspaceMember): Either<DomainError, WorkspaceMember>
+    suspend fun removeMember(workspaceId: WorkspaceId, userId: TelegramUserId): Boolean
+}
+```
+
+Подробнее: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
+
+---
+
+## 4. `video` — Видео
 
 Зависимости: `common`
 
@@ -235,7 +311,7 @@ domain/video/
 └── VideoInfoExtractor.kt    # port
 ```
 
-### 3.1 VideoSource
+### 4.1 VideoSource
 
 ```kotlin
 data class VideoSource(
@@ -247,7 +323,7 @@ data class VideoSource(
 
 > `extractor` определяется автоматически yt-dlp. Поддерживается [1000+ сайтов](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
-### 3.2 VideoInfo
+### 4.2 VideoInfo
 
 ```kotlin
 data class VideoInfo(
@@ -267,7 +343,7 @@ data class VideoInfo(
 }
 ```
 
-### 3.3 VideoInfoExtractor (port)
+### 4.3 VideoInfoExtractor (port)
 
 ```kotlin
 interface VideoInfoExtractor {
@@ -277,7 +353,7 @@ interface VideoInfoExtractor {
 
 ---
 
-## 4. `rule` — Правила
+## 5. `rule` — Правила
 
 Зависимости: `common`, `video`
 
@@ -289,7 +365,7 @@ domain/rule/
 └── RuleRepository.kt          # port
 ```
 
-### 4.1 RuleMatch (sealed)
+### 5.1 RuleMatch (sealed)
 
 ```kotlin
 sealed interface RuleMatch {
@@ -354,11 +430,13 @@ fun RuleMatch.specificity(): Int = when (this) {
 }
 ```
 
-### 4.2 Rule
+### 5.2 Rule
 
 ```kotlin
 data class Rule(
     val id: RuleId,
+    val name: String,
+    val workspaceId: WorkspaceId,
     val enabled: Boolean,
     val priority: Int,
     val match: RuleMatch,
@@ -376,37 +454,36 @@ data class Rule(
 > `StoragePolicy` (из `storage/`), `DownloadPolicy` и `PostProcessPolicy` (из `storage/`). 
 > Это допустимо: `rule` зависит от `metadata` и `storage`, но не наоборот.
 
-### 4.3 RuleMatchingService
+### 5.3 RuleMatchingService
 
 ```kotlin
-class RuleMatchingService {
-    
-    fun findMatchingRule(video: VideoInfo, rules: List<Rule>): Rule? =
-        rules
-            .filter { it.enabled }
+class RuleMatchingService(
+    private val ruleRepository: RuleRepository,
+) {
+    suspend fun findMatchingRule(video: VideoInfo, workspaceId: WorkspaceId): Rule? {
+        val rules = ruleRepository.findEnabledByWorkspace(workspaceId)
+        return rules
             .filter { it.match.matches(video) }
-            .maxWithOrNull(compareBy(
-                { it.priority },
-                { it.match.specificity() },
-                { -it.createdAt.epochSecond }
-            ))
+            .maxByOrNull { it.priority * 1000 + it.match.specificity() }
+    }
 }
 ```
 
-### 4.4 RuleRepository (port)
+### 5.4 RuleRepository (port)
 
 ```kotlin
 interface RuleRepository {
     suspend fun findById(id: RuleId): Rule?
-    suspend fun findAll(enabled: Boolean? = null): List<Rule>
-    suspend fun save(rule: Rule): Rule
-    suspend fun delete(id: RuleId)
+    suspend fun findByWorkspace(workspaceId: WorkspaceId): List<Rule>
+    suspend fun findEnabledByWorkspace(workspaceId: WorkspaceId): List<Rule>
+    suspend fun save(rule: Rule): Either<DomainError, Rule>
+    suspend fun delete(id: RuleId): Boolean
 }
 ```
 
 ---
 
-## 5. `metadata` — Метаданные
+## 6. `metadata` — Метаданные
 
 Зависимости: `common`, `video`
 
@@ -420,13 +497,13 @@ domain/metadata/
 └── LlmPort.kt                # port
 ```
 
-### 5.1 MetadataSource
+### 6.1 MetadataSource
 
 ```kotlin
 enum class MetadataSource { RULE, LLM, FALLBACK }
 ```
 
-### 5.2 ResolvedMetadata (sealed)
+### 6.2 ResolvedMetadata (sealed)
 
 ```kotlin
 sealed interface ResolvedMetadata {
@@ -483,7 +560,7 @@ val ResolvedMetadata.category: Category get() = when (this) {
 }
 ```
 
-### 5.3 MetadataTemplate (sealed)
+### 6.3 MetadataTemplate (sealed)
 
 ```kotlin
 /**
@@ -532,7 +609,7 @@ sealed interface MetadataTemplate {
 > Видео "Who Am I (Official Music Video)" → `artist = "Casting Crowns"`, `title = "Who Am I (Official Music Video)"`.
 > Невозможно случайно задать `artistOverride` для `SERIES` — компилятор не даст.
 
-### 5.4 MetadataResolver
+### 6.4 MetadataResolver
 
 ```kotlin
 class MetadataResolver {
@@ -611,7 +688,7 @@ class MetadataResolver {
 }
 ```
 
-### 5.5 LlmPort (port) & LlmSuggestion
+### 6.5 LlmPort (port) & LlmSuggestion
 
 ```kotlin
 interface LlmPort {
@@ -627,7 +704,7 @@ data class LlmSuggestion(
 
 ---
 
-## 6. `storage` — Хранение и пост-обработка
+## 7. `storage` — Хранение и пост-обработка
 
 Зависимости: `common`, `video`, `metadata`
 
@@ -647,7 +724,7 @@ domain/storage/
 └── VideoDownloader.kt         # port
 ```
 
-### 6.1 MediaContainer, AudioFormat, ImageFormat
+### 7.1 MediaContainer, AudioFormat, ImageFormat
 
 ```kotlin
 /** Видео/медиа контейнер. Поддерживаемые форматы yt-dlp + ffmpeg. */
@@ -681,7 +758,7 @@ enum class ImageFormat(val extension: String) {
 }
 ```
 
-### 6.2 OutputFormat (sealed)
+### 7.2 OutputFormat (sealed)
 
 ```kotlin
 /**
@@ -755,7 +832,7 @@ sealed interface OutputFormat {
 }
 ```
 
-### 6.3 StoragePlan & OutputTarget
+### 7.3 StoragePlan & OutputTarget
 
 ```kotlin
 data class OutputTarget(
@@ -785,7 +862,7 @@ data class StoragePlan(
 }
 ```
 
-### 6.4 DownloadPolicy
+### 7.4 DownloadPolicy
 
 ```kotlin
 data class DownloadPolicy(
@@ -798,7 +875,7 @@ data class DownloadPolicy(
 }
 ```
 
-### 6.5 StoragePolicy
+### 7.5 StoragePolicy
 
 ```kotlin
 /**
@@ -813,7 +890,7 @@ data class OutputTemplate(
 /**
  * Политика хранения файлов.
  * 
- * [originalTemplate] — шаблон для исходного файла (как скачано yt-dlp).
+ * [originalTemplate] — шаблон для исходного файла (как скачано yt-длп).
  * [additionalOutputs] — производные файлы: конвертированное видео, аудио, thumbnail.
  * Каждый [OutputTemplate] привязывает path template к [OutputFormat].
  * 
@@ -878,7 +955,7 @@ data class StoragePolicy(
 > )
 > ```
 
-### 6.6 PostProcessPolicy
+### 7.6 PostProcessPolicy
 
 ```kotlin
 /**
@@ -893,7 +970,7 @@ data class PostProcessPolicy(
 )
 ```
 
-### 6.7 PathTemplateEngine
+### 7.7 PathTemplateEngine
 
 ```kotlin
 class PathTemplateEngine(
@@ -952,7 +1029,7 @@ class PathTemplateEngine(
 }
 ```
 
-### 6.8 VideoDownloader (port)
+### 7.8 VideoDownloader (port)
 
 ```kotlin
 interface VideoDownloader {
@@ -969,7 +1046,7 @@ interface VideoDownloader {
 
 ---
 
-## 7. `job` — Задачи скачивания
+## 8. `job` — Задачи скачивания
 
 Зависимости: `common`, `video`, `metadata`, `storage`
 
@@ -984,7 +1061,7 @@ domain/job/
 └── JobRepository.kt           # port
 ```
 
-### 7.1 JobStatus & JobPhase
+### 8.1 JobStatus & JobPhase
 
 ```kotlin
 enum class JobStatus {
@@ -996,7 +1073,7 @@ enum class JobStatus {
 enum class JobPhase { DOWNLOAD, MERGE, CONVERT, TAG, MOVE }
 ```
 
-### 7.2 JobProgress & JobError
+### 8.2 JobProgress & JobError
 
 ```kotlin
 data class JobProgress(val phase: JobPhase, val percent: Int, val message: String? = null) {
@@ -1006,11 +1083,12 @@ data class JobProgress(val phase: JobPhase, val percent: Int, val message: Strin
 data class JobError(val code: String, val message: String, val details: String? = null, val retryable: Boolean = false)
 ```
 
-### 7.3 Job
+### 8.3 Job
 
 ```kotlin
 data class Job(
     val id: JobId,
+    val workspaceId: WorkspaceId,
     val status: JobStatus,
     val source: VideoSource,
     val ruleId: RuleId?,
@@ -1032,7 +1110,7 @@ data class Job(
 }
 ```
 
-### 7.4 CreateJobUseCase
+### 8.4 CreateJobUseCase
 
 ```kotlin
 class CreateJobUseCase(
@@ -1050,6 +1128,7 @@ class CreateJobUseCase(
         val now = clock.now()
         val job = Job(
             id = JobId(Uuid.random()),
+            workspaceId = request.workspaceId,
             status = JobStatus.QUEUED,
             source = request.source,
             ruleId = request.ruleId,
@@ -1066,6 +1145,7 @@ class CreateJobUseCase(
     }
     
     data class CreateJobRequest(
+        val workspaceId: WorkspaceId,
         val source: VideoSource,
         val ruleId: RuleId?,
         val category: Category,
@@ -1077,23 +1157,24 @@ class CreateJobUseCase(
 }
 ```
 
-### 7.5 JobRepository (port)
+### 8.5 JobRepository (port)
 
 ```kotlin
 interface JobRepository {
     suspend fun findById(id: JobId): Job?
+    suspend fun findByWorkspace(workspaceId: WorkspaceId): List<Job>
     suspend fun findByVideoId(videoId: VideoId): List<Job>
     suspend fun findQueued(limit: Int = 10): List<Job>
     suspend fun findByStatus(status: JobStatus, limit: Int = 50, offset: Int = 0): List<Job>
     suspend fun save(job: Job): Job
-    suspend fun updateStatus(id: JobId, status: JobStatus, progress: JobProgress? = null)
+    suspend fun updateStatus(id: JobId, status: JobStatus): Either<DomainError, Job>
     suspend fun updateError(id: JobId, error: JobError)
 }
 ```
 
 ---
 
-## 8. `preview` — Предпросмотр
+## 9. `preview` — Предпросмотр
 
 Зависимости: `common`, `video`, `rule`, `metadata`, `storage`
 
@@ -1102,23 +1183,21 @@ domain/preview/
 └── PreviewUseCase.kt
 ```
 
-### 8.1 PreviewUseCase
+### 9.1 PreviewUseCase
 
 `PreviewUseCase` — оркестратор, который связывает все фичи:
 
 ```kotlin
 class PreviewUseCase(
     private val videoInfoExtractor: VideoInfoExtractor,
-    private val ruleRepository: RuleRepository,
     private val ruleMatchingService: RuleMatchingService,
     private val metadataResolver: MetadataResolver,
     private val pathTemplateEngine: PathTemplateEngine,
     private val llmPort: LlmPort?,  // nullable: если LLM не настроен
 ) {
-    suspend fun execute(url: String): Either<DomainError, PreviewResult> = either {
+    suspend fun execute(url: String, workspaceId: WorkspaceId): Either<DomainError, PreviewResult> = either {
         val videoInfo = videoInfoExtractor.extract(url).bind()
-        val rules = ruleRepository.findAll(enabled = true)
-        val matchedRule = ruleMatchingService.findMatchingRule(videoInfo, rules)
+        val matchedRule = ruleMatchingService.findMatchingRule(videoInfo, workspaceId)
         
         val (category, metadata, metadataSource) = resolveMetadata(videoInfo, matchedRule).bind()
         
@@ -1205,7 +1284,7 @@ class PreviewUseCase(
 
 ---
 
-## 9. Инварианты и валидация
+## 10. Инварианты и валидация
 
 ### 9.1 Общие правила
 

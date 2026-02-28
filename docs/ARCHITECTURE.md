@@ -109,7 +109,8 @@
 **Организация**: Package-by-feature (не по техническим слоям).
 
 **Содержит**:
-- `common/` — Value objects (`VideoId`, `RuleId`, `JobId`, `Url`, `FilePath`, `LocalDate`, `Extractor`), `Category`, `DomainError`
+- `common/` — Value objects (`VideoId`, `RuleId`, `JobId`, `WorkspaceId`, `Url`, `FilePath`, `LocalDate`, `Extractor`), `Category`, `DomainError`
+- `workspace/` — `Workspace`, `WorkspaceMember`, `WorkspaceRole`, `WorkspaceRepository` port
 - `video/` — `VideoSource`, `VideoInfo`, `VideoInfoExtractor` port
 - `rule/` — `Rule`, `RuleMatch` (sealed), `RuleMatchingService`, `RuleRepository` port
 - `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `MetadataResolver`, `LlmPort`
@@ -123,7 +124,8 @@
 
 ```
 domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
-├── common/         # Value objects (VideoId, Url, FilePath, LocalDate, Extractor...), Category, DomainError
+├── common/         # Value objects (VideoId, WorkspaceId, Url, FilePath, LocalDate, Extractor...), Category, DomainError
+├── workspace/      # Workspace, WorkspaceMember, WorkspaceRole, WorkspaceRepository port
 ├── video/          # VideoSource, VideoInfo, VideoInfoExtractor port
 ├── rule/           # Rule, RuleMatch (sealed), RuleMatchingService, RuleRepository port
 ├── metadata/       # ResolvedMetadata (sealed), MetadataTemplate (sealed), MetadataResolver, LlmPort
@@ -467,10 +469,10 @@ ksp = { id = "com.google.devtools.ksp", version = "2.3.0-1.0.30" }
 ### 5.1 Preview flow
 
 ```
-┌─────────┐    POST /api/v1/preview    ┌─────────────────┐
-│  Mini   │ ─────────────────────────▶ │ server:transport│
-│   App   │                            │  (Ktor route)   │
-└─────────┘                            └────────┬────────┘
+┌─────────┐  POST /api/v1/workspaces/{id}/preview   ┌─────────────────┐
+│  Mini   │ ──────────────────────────────────────▶ │ server:transport│
+│   App   │                                         │  (Ktor route)   │
+└─────────┘                                         └────────┬────────┘
                                                 │
                                                 ▼
                                        ┌────────────────┐

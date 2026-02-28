@@ -12,7 +12,24 @@
 /api/v1/
 ```
 
+Все доменные ресурсы (jobs, rules, preview) привязаны к workspace:
+
+```
+/api/v1/workspaces/{workspaceId}/jobs
+/api/v1/workspaces/{workspaceId}/rules
+/api/v1/workspaces/{workspaceId}/preview
+```
+
+Управление workspace и системные эндпоинты — на верхнем уровне:
+
+```
+/api/v1/workspaces
+/api/v1/system/...
+```
+
 Все ресурсы описаны с использованием **Ktor Resources** для обеспечения type-safety и удобства использования на клиенте.
+
+Подробнее о workspace: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
 
 ### 1.2 Аутентификация
 
@@ -72,18 +89,19 @@ data class ApiErrorDto(
 
 ### 2.3 Коды ошибок
 
-| Code                | HTTP Status | Описание                                   |
-|---------------------|-------------|--------------------------------------------|
-| `VALIDATION_ERROR`  | 400         | Ошибка валидации входных данных            |
-| `INVALID_URL`       | 400         | Некорректный URL видео                     |
-| `UNAUTHORIZED`      | 401         | Невалидный initData                        |
-| `FORBIDDEN`         | 403         | Пользователь не в allowlist                |
-| `NOT_FOUND`         | 404         | Ресурс не найден                           |
-| `CONFLICT`          | 409         | Конфликт (например, job уже существует)    |
-| `UPDATE_DISABLED`   | 403         | Обновление yt-dlp запрещено в конфигурации |
-| `VIDEO_UNAVAILABLE` | 422         | Видео недоступно                           |
-| `LLM_ERROR`         | 502         | Ошибка при обращении к LLM провайдеру      |
-| `INTERNAL_ERROR`    | 500         | Внутренняя ошибка сервера                  |
+| Code                      | HTTP Status | Описание                                      |
+|---------------------------|-------------|-----------------------------------------------|
+| `VALIDATION_ERROR`        | 400         | Ошибка валидации входных данных               |
+| `INVALID_URL`             | 400         | Некорректный URL видео                        |
+| `UNAUTHORIZED`            | 401         | Невалидный initData                           |
+| `FORBIDDEN`               | 403         | Пользователь не в allowlist                   |
+| `WORKSPACE_ACCESS_DENIED` | 403         | Пользователь не является участником workspace |
+| `NOT_FOUND`               | 404         | Ресурс не найден                              |
+| `CONFLICT`                | 409         | Конфликт (например, job уже существует)       |
+| `UPDATE_DISABLED`         | 403         | Обновление yt-dlp запрещено в конфигурации    |
+| `VIDEO_UNAVAILABLE`       | 422         | Видео недоступно                              |
+| `LLM_ERROR`               | 502         | Ошибка при обращении к LLM провайдеру         |
+| `INTERNAL_ERROR`          | 500         | Внутренняя ошибка сервера                     |
 
 ---
 
@@ -296,11 +314,11 @@ enum class MetadataSourceDto {
 
 ## 6. Эндпоинты
 
-### 6.1 POST /api/v1/preview
+### 6.1 POST /api/v1/workspaces/{workspaceId}/preview
 
 Получить preview метаданных для URL.
 
-**Resource**: `ApiV1.Preview`
+**Resource**: `ApiV1.Workspaces.ById.Preview`
 
 #### Request
 
@@ -388,11 +406,11 @@ data class PreviewResponseDto(
 
 ---
 
-### 6.2 POST /api/v1/jobs
+### 6.2 POST /api/v1/workspaces/{workspaceId}/jobs
 
 Создать job.
 
-**Resource**: `ApiV1.Jobs`
+**Resource**: `ApiV1.Workspaces.ById.Jobs`
 
 #### Request
 
@@ -455,6 +473,7 @@ data class JobDto(
     val progress: JobProgressDto?,
     val error: JobErrorDto?,
     val attempt: Int,
+    val createdBy: String?,   // Telegram user ID of the creator
     val createdAt: String,  // ISO-8601
     val updatedAt: String,
     val startedAt: String?,
@@ -469,11 +488,11 @@ data class JobDto(
 
 ---
 
-### 6.3 GET /api/v1/jobs
+### 6.3 GET /api/v1/workspaces/{workspaceId}/jobs
 
-Список jobs.
+Список jobs текущего workspace.
 
-**Resource**: `ApiV1.Jobs`
+**Resource**: `ApiV1.Workspaces.ById.Jobs`
 
 #### Query Parameters
 
@@ -497,7 +516,7 @@ data class JobListResponseDto(
 
 ---
 
-### 6.4 GET /api/v1/jobs/{id}
+### 6.4 GET /api/v1/workspaces/{workspaceId}/jobs/{id}
 
 Получить job по ID.
 
@@ -511,7 +530,7 @@ data class JobListResponseDto(
 
 ---
 
-### 6.5 POST /api/v1/jobs/{id}/cancel
+### 6.5 POST /api/v1/workspaces/{workspaceId}/jobs/{id}/cancel
 
 Отменить job.
 
@@ -526,7 +545,7 @@ data class JobListResponseDto(
 
 ---
 
-### 6.6 GET /api/v1/rules
+### 6.6 GET /api/v1/workspaces/{workspaceId}/rules
 
 Список правил.
 
@@ -541,7 +560,7 @@ data class RuleListResponseDto(
 
 ---
 
-### 6.7 POST /api/v1/rules
+### 6.7 POST /api/v1/workspaces/{workspaceId}/rules
 
 Создать правило.
 
@@ -550,6 +569,7 @@ data class RuleListResponseDto(
 ```kotlin
 @Serializable
 data class CreateRuleRequestDto(
+    val name: String,
     val enabled: Boolean = true,
     val priority: Int = 0,
     val match: RuleMatchDto,
@@ -567,19 +587,19 @@ data class CreateRuleRequestDto(
 
 ---
 
-### 6.8 GET /api/v1/rules/{id}
+### 6.8 GET /api/v1/workspaces/{workspaceId}/rules/{id}
 
 Получить правило по ID.
 
 ---
 
-### 6.9 PUT /api/v1/rules/{id}
+### 6.9 PUT /api/v1/workspaces/{workspaceId}/rules/{id}
 
 Обновить правило.
 
 ---
 
-### 6.10 DELETE /api/v1/rules/{id}
+### 6.10 DELETE /api/v1/workspaces/{workspaceId}/rules/{id}
 
 Удалить (или деактивировать) правило.
 
@@ -670,6 +690,7 @@ data class JobErrorDto(
 @Serializable
 data class RuleDto(
     val id: String,
+    val name: String,
     val enabled: Boolean,
     val priority: Int,
     val match: RuleMatchDto,
@@ -973,7 +994,9 @@ fun DomainError.toApiError(correlationId: String): Pair<HttpStatusCode, ApiError
         HttpStatusCode.Unauthorized to ApiErrorDto(...)
     is DomainError.Forbidden -> 
         HttpStatusCode.Forbidden to ApiErrorDto(...)
-    is DomainError.RuleNotFound, is DomainError.JobNotFound -> 
+    is DomainError.WorkspaceAccessDenied -> 
+        HttpStatusCode.Forbidden to ApiErrorDto(...)
+    is DomainError.RuleNotFound, is DomainError.JobNotFound, is DomainError.WorkspaceNotFound -> 
         HttpStatusCode.NotFound to ApiErrorDto(...)
     is DomainError.JobAlreadyExists -> 
         HttpStatusCode.Conflict to ApiErrorDto(...)
@@ -1016,9 +1039,109 @@ fun DomainError.toApiError(correlationId: String): Pair<HttpStatusCode, ApiError
 
 ---
 
-## 10. System
+## 10. Workspace
 
-### 10.1 GET /api/v1/system/yt-dlp/status
+### 10.1 GET /api/v1/workspaces
+
+Список workspaces текущего пользователя.
+
+**Resource**: `ApiV1.Workspaces`
+
+#### Response
+
+```kotlin
+@Serializable
+data class WorkspaceListResponseDto(
+    val items: List<WorkspaceDto>,
+)
+
+@Serializable
+data class WorkspaceDto(
+    val id: String,
+    val name: String,
+    val role: String,       // "owner" | "member"
+    val createdAt: String,  // ISO-8601
+)
+```
+
+### 10.2 POST /api/v1/workspaces
+
+Создать workspace. Создатель автоматически становится OWNER.
+
+**Resource**: `ApiV1.Workspaces`
+
+#### Request
+
+```kotlin
+@Serializable
+data class CreateWorkspaceRequestDto(
+    val name: String,
+)
+```
+
+#### Response (201 Created)
+
+`WorkspaceDto`
+
+### 10.3 GET /api/v1/workspaces/{workspaceId}/members
+
+Список участников workspace.
+
+**Resource**: `ApiV1.Workspaces.ById.Members`
+
+#### Response
+
+```kotlin
+@Serializable
+data class WorkspaceMemberListResponseDto(
+    val items: List<WorkspaceMemberDto>,
+)
+
+@Serializable
+data class WorkspaceMemberDto(
+    val userId: Long,
+    val role: String,       // "owner" | "member"
+    val joinedAt: String,   // ISO-8601
+)
+```
+
+### 10.4 POST /api/v1/workspaces/{workspaceId}/members
+
+Добавить участника в workspace. Только OWNER.
+
+**Resource**: `ApiV1.Workspaces.ById.Members`
+
+#### Request
+
+```kotlin
+@Serializable
+data class AddMemberRequestDto(
+    val userId: Long,
+    val role: String = "member",  // "owner" | "member"
+)
+```
+
+#### Response (201 Created)
+
+`WorkspaceMemberDto`
+
+### 10.5 DELETE /api/v1/workspaces/{workspaceId}/members/{userId}
+
+Удалить участника из workspace. Только OWNER.
+
+**Resource**: `ApiV1.Workspaces.ById.Members.ByUserId`
+
+#### Response
+
+`204 No Content`
+
+Подробнее о workspace: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
+
+---
+
+## 11. System
+
+### 11.1 GET /api/v1/system/yt-dlp/status
 
 Получить текущую версию yt-dlp и информацию о доступных обновлениях.
 
@@ -1032,7 +1155,7 @@ fun DomainError.toApiError(correlationId: String): Pair<HttpStatusCode, ApiError
 }
 ```
 
-### 10.2 POST /api/v1/system/yt-dlp/update
+### 11.2 POST /api/v1/system/yt-dlp/update
 
 Запустить процесс обновления yt-dlp.
 
