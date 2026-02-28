@@ -243,7 +243,9 @@ features/src/commonMain/kotlin/io/github/alelk/tgvd/features/
 
 **Назначение**: Реализация доменных портов (DB, процессы, FS, LLM).
 
-**Зависимости**: `domain`, `api:contract`, Exposed, Flyway, Ktor Client (JVM).
+**Зависимости**: `domain`, Exposed, Flyway, Ktor Client (JVM), kotlinx.serialization.
+
+> `server:infra` **не зависит** от `api:contract` и `api:mapping`. JSONB-колонки используют собственные persistence-модели (`*Pm`), маппинг domain ↔ DB полностью изолирован от API-контракта.
 
 ---
 

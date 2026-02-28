@@ -11,7 +11,6 @@ kotlin {
 
 dependencies {
     api(project(":domain"))
-    api(project(":api:contract"))
 
     // Database
     api(libs.bundles.exposed)

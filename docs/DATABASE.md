@@ -16,35 +16,54 @@
 
 ## 2. Схема
 
-### 2.1 Таблица `rules`
+### 2.1 Таблица `workspaces`
+
+```sql
+CREATE TABLE workspaces (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name       TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+### 2.2 Таблица `workspace_members`
+
+```sql
+CREATE TABLE workspace_members (
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    user_id      BIGINT NOT NULL,
+    role         VARCHAR(20) NOT NULL DEFAULT 'member',
+    joined_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (workspace_id, user_id)
+);
+
+CREATE INDEX idx_workspace_members_user ON workspace_members(user_id);
+```
+
+### 2.3 Таблица `rules`
 
 ```sql
 CREATE TABLE rules (
     id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id         UUID NOT NULL REFERENCES workspaces(id),
+    name                 TEXT NOT NULL DEFAULT '',
     enabled              BOOLEAN NOT NULL DEFAULT true,
     priority             INTEGER NOT NULL DEFAULT 0,
     match                JSONB NOT NULL,
     category             TEXT NOT NULL,
-    metadata_template    JSONB NOT NULL,          -- sealed: требует "type" discriminator
+    metadata_template    JSONB NOT NULL,
     download_policy      JSONB NOT NULL DEFAULT '{}',
-    storage_policy       JSONB NOT NULL,          -- originalTemplate обязателен
+    storage_policy       JSONB NOT NULL,
     post_process_policy  JSONB NOT NULL DEFAULT '{}',
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Индексы
+CREATE INDEX idx_rules_workspace ON rules(workspace_id);
 CREATE INDEX idx_rules_enabled ON rules(enabled) WHERE enabled = true;
 CREATE INDEX idx_rules_priority ON rules(priority DESC);
 CREATE INDEX idx_rules_category ON rules(category);
-
--- GIN индекс для поиска по match (опционально)
 CREATE INDEX idx_rules_match ON rules USING GIN (match);
-
--- Комментарии
-COMMENT ON TABLE rules IS 'Правила обработки видео';
-COMMENT ON COLUMN rules.match IS 'Критерии матчинга (RuleMatchDto JSON)';
-COMMENT ON COLUMN rules.category IS 'Категория: music-video, series, other';
 ```
 
 ### 2.4 Таблица `jobs`
@@ -270,151 +289,25 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 
 ## 4. Exposed Tables
 
-### 4.1 WorkspacesTable & WorkspaceMembersTable
+Определения Exposed-таблиц расположены в `server/infra/src/main/kotlin/.../db/table/`:
 
-```kotlin
-object WorkspacesTable : UUIDTable("workspaces") {
-    val name = text("name")
-    val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
-}
+| Файл                       | Описание                                   |
+|----------------------------|--------------------------------------------|
+| `WorkspacesTable.kt`       | `UuidTable("workspaces")`                  |
+| `WorkspaceMembersTable.kt` | `Table("workspace_members")`, composite PK |
+| `RulesTable.kt`            | `UuidTable("rules")`, JSONB-колонки        |
+| `JobsTable.kt`             | `UuidTable("jobs")`, JSONB-колонки         |
+| `JobOutputsTable.kt`       | `UuidTable("job_outputs")`                 |
 
-object WorkspaceMembersTable : Table("workspace_members") {
-    val workspaceId = reference("workspace_id", WorkspacesTable)
-    val userId = long("user_id")
-    val role = varchar("role", 20).default("member")
-    val joinedAt = timestamp("joined_at").defaultExpression(CurrentTimestamp)
+**Подход к маппингу DB ↔ Domain:**
+- Колонки хранят примитивные типы (`String`, `Long`, `Boolean`)
+- Маппинг `String` ↔ `enum` / value class — в функциях-расширениях в пакете `db/mapping/`
+- JSONB-колонки хранят persistence-модели (`*Pm`) через `jsonb<T>(name, json)` из `exposed-json`
+- Persistence-модели (`db/model/`) — отдельные `@Serializable` классы, **не зависят от `api:contract`**
+- Маппинг domain ↔ Pm — в `db/mapping/` (например `toPm()` / `toDomain()`)
+- `timestamp()` из `exposed-kotlin-datetime` возвращает `kotlin.time.Instant`
 
-    override val primaryKey = PrimaryKey(workspaceId, userId)
-}
-```
-
-### 4.2 RulesTable
-
-```kotlin
-internal object CategoryTransformer : ColumnTransformer<String, Category> {
-    override fun wrap(value: String): Category = Category.parse(value) // принимает kebab-case: "music-video"
-    override fun unwrap(value: Category): String = value.serialized     // возвращает kebab-case
-}
-
-object RulesTable : UUIDTable("rules") {
-    val workspaceId = reference("workspace_id", WorkspacesTable)
-    val name = text("name")
-    val enabled = bool("enabled").default(true)
-    val priority = integer("priority").default(0)
-    val match = jsonb<RuleMatchDto>("match", json)
-
-    // Храним в БД как TEXT (kebab-case), работаем в коде как Category
-    val category = varchar("category", 50).transform(CategoryTransformer)
-
-    val metadataTemplate = jsonb<MetadataTemplateDto>("metadata_template", json)
-    val downloadPolicy = jsonb<DownloadPolicyDto>("download_policy", json)
-    val storagePolicy = jsonb<StoragePolicyDto>("storage_policy", json)
-    val postProcessPolicy = jsonb<PostProcessPolicyDto>("post_process_policy", json)
-
-    val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
-    val updatedAt = timestamp("updated_at").defaultExpression(CurrentTimestamp)
-}
-```
-
-### 4.3 JobsTable
-
-```kotlin
-internal object JobStatusTransformer : ColumnTransformer<String, JobStatus> {
-    override fun wrap(value: String): JobStatus = JobStatus.parse(value) // "queued", "post-processing", ...
-    override fun unwrap(value: JobStatus): String = value.serialized
-}
-
-internal object VideoIdTransformer : ColumnTransformer<String, VideoId> {
-    override fun wrap(value: String): VideoId = VideoId(value)
-    override fun unwrap(value: VideoId): String = value.value
-}
-
-internal object UrlTransformer : ColumnTransformer<String, Url> {
-    override fun wrap(value: String): Url = Url(value)
-    override fun unwrap(value: Url): String = value.value
-}
-
-internal object ExtractorTransformer : ColumnTransformer<String, Extractor> {
-    override fun wrap(value: String): Extractor = Extractor(value)
-    override fun unwrap(value: Extractor): String = value.value
-}
-
-internal object TelegramUserIdTransformer : ColumnTransformer<Long, TelegramUserId> {
-    override fun wrap(value: Long): TelegramUserId = TelegramUserId(value)
-    override fun unwrap(value: TelegramUserId): Long = value.value
-}
-
-object JobsTable : UUIDTable("jobs") {
-    val workspaceId = reference("workspace_id", WorkspacesTable)
-    // status / category в БД — TEXT (kebab-case), в коде — enum
-    val status = varchar("status", 20).default("queued").transform(JobStatusTransformer)
-
-    // video_id / urls / extractor — доменные value classes
-    val videoId = varchar("video_id", 50).transform(VideoIdTransformer)
-    val sourceUrl = text("source_url").transform(UrlTransformer)
-    val sourceExtractor = varchar("source_extractor", 50).transform(ExtractorTransformer)
-
-    val ruleId = reference("rule_id", RulesTable).nullable()
-
-    val category = varchar("category", 50).transform(CategoryTransformer)
-
-    // Для крупных структур (yt-dlp info, metadata, storage plan) — JSONB
-    val rawInfo = jsonb<VideoInfoDto>("raw_info", json)
-    val metadata = jsonb<ResolvedMetadataDto>("metadata", json)
-    val storagePlan = jsonb<StoragePlanDto>("storage_plan", json)
-
-    val progress = jsonb<JobProgressDto>("progress", json).nullable()
-    val error = jsonb<JobErrorDto>("error", json).nullable()
-
-    val attempt = integer("attempt").default(0)
-
-    val createdByTelegramUserId = long("created_by_telegram_user_id").transform(TelegramUserIdTransformer)
-
-    val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
-    val updatedAt = timestamp("updated_at").defaultExpression(CurrentTimestamp)
-    val startedAt = timestamp("started_at").nullable()
-    val finishedAt = timestamp("finished_at").nullable()
-}
-```
-
-### 4.3 JobOutputsTable (опционально)
-
-Если используется нормализованная таблица `job_outputs`, также имеет смысл типизировать `format`:
-
-```kotlin
-internal object OutputFormatTransformer : ColumnTransformer<String, OutputFormat> {
-    override fun wrap(value: String): OutputFormat = OutputFormat.parse(value) // "video/mp4", "audio/m4a"...
-    override fun unwrap(value: OutputFormat): String = value.serialized
-}
-
-object JobOutputsTable : UUIDTable("job_outputs") {
-    val jobId = reference("job_id", JobsTable)
-    val format = varchar("format", 32).transform(OutputFormatTransformer)
-    val path = text("path")
-    val size = long("size").nullable()
-    val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
-}
-```
-
-### 4.4 JSONB Extension
-
-```kotlin
-// Используем встроенный jsonb() из exposed-json
-// import org.jetbrains.exposed.v1.json.jsonb
-// import kotlinx.serialization.serializer
-
-// Вариант с Json + KSerializer
-val match = jsonb<RuleMatchDto>("match", json)                 // KSerializer<T> будет взят автоматически
-val storagePlan = jsonb<StoragePlanDto>("storage_plan", json)
-
-// Вариант с кастомными serialize/deserialize (если нужно):
-val metadata = jsonb("metadata",
-    serialize = { json.encodeToString(ResolvedMetadataDto.serializer(), it) },
-    deserialize = { json.decodeFromString(ResolvedMetadataDto.serializer(), it) }
-)
-```
-
-> Требуется зависимость `org.jetbrains.exposed:exposed-json`.
+> **Важно**: `server:infra` зависит только от `domain`. DTO из `api:contract` не используются в слое хранения — это обеспечивает независимую эволюцию API и DB schema.
 
 ---
 
@@ -424,81 +317,29 @@ val metadata = jsonb("metadata",
 
 ```
 server/infra/src/main/resources/db/migration/
-├── V1__initial_schema.sql
-├── V2__add_job_outputs.sql
-└── V3__add_rules_name.sql
+└── V1__initial_schema.sql
 ```
 
 ### 5.2 V1__initial_schema.sql
 
-```sql
--- Rules table
-CREATE TABLE rules (
-    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    enabled              BOOLEAN NOT NULL DEFAULT true,
-    priority             INTEGER NOT NULL DEFAULT 0,
-    match                JSONB NOT NULL,
-    category             TEXT NOT NULL,
-    metadata_template    JSONB NOT NULL,
-    download_policy      JSONB NOT NULL DEFAULT '{}',
-    storage_policy       JSONB NOT NULL,
-    post_process_policy  JSONB NOT NULL DEFAULT '{}',
-    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_rules_enabled ON rules(enabled) WHERE enabled = true;
-CREATE INDEX idx_rules_priority ON rules(priority DESC);
-
--- Jobs table
-CREATE TABLE jobs (
-    id                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    status                     TEXT NOT NULL DEFAULT 'queued',
-    video_id                   TEXT NOT NULL,
-    source_url                 TEXT NOT NULL,
-    source_extractor           TEXT NOT NULL,  -- "youtube", "rutube", "vk", ...
-    rule_id                    UUID REFERENCES rules(id) ON DELETE SET NULL,
-    category                   TEXT NOT NULL,
-    raw_info                   JSONB NOT NULL,
-    metadata                   JSONB NOT NULL,
-    storage_plan               JSONB NOT NULL,
-    progress                   JSONB,
-    error                      JSONB,
-    attempt                    INTEGER NOT NULL DEFAULT 0,
-    created_by_telegram_user_id BIGINT NOT NULL,
-    created_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
-    started_at                 TIMESTAMPTZ,
-    finished_at                TIMESTAMPTZ
-);
-
-CREATE INDEX idx_jobs_status ON jobs(status);
-CREATE INDEX idx_jobs_video_id ON jobs(video_id);
-CREATE INDEX idx_jobs_created_at ON jobs(created_at DESC);
-CREATE INDEX idx_jobs_queued ON jobs(created_at) WHERE status = 'queued';
-
-CREATE UNIQUE INDEX idx_jobs_active_video 
-    ON jobs(video_id) 
-    WHERE status IN ('queued', 'running', 'post-processing');
-```
+> Актуальная версия: `server/infra/src/main/resources/db/migration/V1__initial_schema.sql`.
+> Создаёт таблицы: `workspaces`, `workspace_members`, `rules`, `jobs`, `job_outputs` с индексами.
 
 ### 5.3 Flyway конфигурация
 
 ```kotlin
-// В Application.kt
-fun Application.configureFlyway() {
-    val config = environment.config
-    val flyway = Flyway.configure()
-        .dataSource(
-            config.property("db.url").getString(),
-            config.property("db.user").getString(),
-            config.property("db.password").getString()
-        )
-        .locations("classpath:db/migration")
-        .baselineOnMigrate(true)
-        .load()
-    
-    flyway.migrate()
+// DatabaseFactory.kt
+class DatabaseFactory(private val config: DbConfig) {
+    fun create(): Database {
+        val dataSource = HikariDataSource(HikariConfig().apply { ... })
+        Flyway.configure()
+            .dataSource(dataSource)
+            .locations("classpath:db/migration")
+            .baselineOnMigrate(true)
+            .load()
+            .migrate()
+        return Database.connect(dataSource)
+    }
 }
 ```
 
@@ -506,91 +347,13 @@ fun Application.configureFlyway() {
 
 ## 6. Репозитории
 
-### 6.1 RuleRepositoryImpl
+Реализации расположены в `server/infra/src/main/kotlin/.../db/repository/`:
 
-```kotlin
-class RuleRepositoryImpl(
-    private val database: Database,
-) : RuleRepository {
-    
-    override suspend fun findById(id: RuleId): Rule? = dbQuery {
-        RulesTable.selectAll()
-            .where { RulesTable.id eq id.value }
-            .singleOrNull()
-            ?.toRule()
-    }
-    
-    override suspend fun findAll(enabled: Boolean?): List<Rule> = dbQuery {
-        RulesTable.selectAll()
-            .apply { 
-                if (enabled != null) {
-                    andWhere { RulesTable.enabled eq enabled }
-                }
-            }
-            .orderBy(RulesTable.priority, SortOrder.DESC)
-            .map { it.toRule() }
-    }
-    
-    override suspend fun save(rule: Rule): Rule = dbQuery {
-        val exists = RulesTable.selectAll()
-            .where { RulesTable.id eq rule.id.value }
-            .count() > 0
-        
-        if (exists) {
-            RulesTable.update({ RulesTable.id eq rule.id.value }) {
-                it[enabled] = rule.enabled
-                it[priority] = rule.priority
-                it[match] = rule.match.toDto()
-                it[category] = rule.category
-                it[metadataTemplate] = rule.metadataTemplate.toDto()
-                it[downloadPolicy] = rule.downloadPolicy.toDto()
-                it[storagePolicy] = rule.storagePolicy.toDto()
-                it[postProcessPolicy] = rule.postProcessPolicy.toDto()
-                it[updatedAt] = Instant.now()
-            }
-        } else {
-            RulesTable.insert {
-                it[id] = rule.id.value
-                it[enabled] = rule.enabled
-                it[priority] = rule.priority
-                it[match] = rule.match.toDto()
-                it[category] = rule.category
-                it[metadataTemplate] = rule.metadataTemplate.toDto()
-                it[downloadPolicy] = rule.downloadPolicy.toDto()
-                it[storagePolicy] = rule.storagePolicy.toDto()
-                it[postProcessPolicy] = rule.postProcessPolicy.toDto()
-                it[createdAt] = rule.createdAt
-                it[updatedAt] = rule.updatedAt
-            }
-        }
-        rule
-    }
-    
-    override suspend fun delete(id: RuleId) = dbQuery {
-        RulesTable.deleteWhere { RulesTable.id eq id.value }
-        Unit
-    }
-    
-    private suspend fun <T> dbQuery(block: suspend () -> T): T =
-        newSuspendedTransaction(Dispatchers.IO, database) { block() }
-    
-    private fun ResultRow.toRule(): Rule = Rule(
-        id = RuleId(this[RulesTable.id].value),
-        enabled = this[RulesTable.enabled],
-        priority = this[RulesTable.priority],
-        match = this[RulesTable.match].toDomain().getOrElse { 
-            throw IllegalStateException("Invalid match in DB") 
-        },
-        category = this[RulesTable.category], // уже Category благодаря transform
-        metadataTemplate = this[RulesTable.metadataTemplate].toDomain(),
-        downloadPolicy = this[RulesTable.downloadPolicy].toDomain(),
-        storagePolicy = this[RulesTable.storagePolicy].toDomain(),
-        postProcessPolicy = this[RulesTable.postProcessPolicy].toDomain(),
-        createdAt = this[RulesTable.createdAt],
-        updatedAt = this[RulesTable.updatedAt],
-    )
-}
-```
+- **`WorkspaceRepositoryImpl`** — CRUD для workspace и workspace_members
+- **`RuleRepositoryImpl`** — CRUD для правил с фильтрацией по workspace
+- **`JobRepositoryImpl`** — CRUD для задач с фильтрацией по workspace, обновление статусов
+
+Общая утилита `dbQuery(database) { ... }` (файл `db/dbQuery.kt`) оборачивает блок в `suspendTransaction` с `Dispatchers.IO`.
 
 ---
 
@@ -599,31 +362,14 @@ class RuleRepositoryImpl(
 ### 7.1 Подход
 
 ```kotlin
-suspend fun <T> transactional(block: suspend () -> T): T =
-    newSuspendedTransaction(Dispatchers.IO, database) {
-        block()
+// db/dbQuery.kt
+suspend fun <T> dbQuery(database: Database, block: suspend () -> T): T =
+    withContext(Dispatchers.IO) {
+        suspendTransaction(db = database) { block() }
     }
 ```
 
-### 7.2 Пример использования
-
-```kotlin
-class CreateJobUseCase(
-    private val jobRepository: JobRepository,
-    private val transactionManager: TransactionManager,
-) {
-    suspend fun execute(request: CreateJobRequest): Either<DomainError, Job> = either {
-        transactionManager.transactional {
-            // Проверки и создание в одной транзакции
-            val existing = jobRepository.findActiveByVideoId(request.source.videoId)
-            if (existing != null) {
-                raise(DomainError.JobAlreadyExists(...))
-            }
-            jobRepository.save(newJob)
-        }
-    }
-}
-```
+> `newSuspendedTransaction()` deprecated в Exposed 1.0.0. Используется `suspendTransaction()`.
 
 ---
 
@@ -631,20 +377,19 @@ class CreateJobUseCase(
 
 ### 8.1 Пул соединений
 
-HikariCP (уже включён в Exposed):
+HikariCP (настраивается в `DatabaseFactory`):
 
 ```kotlin
-val database = Database.connect(
-    HikariDataSource(HikariConfig().apply {
-        jdbcUrl = config.db.url
-        username = config.db.user
-        password = config.db.password
-        maximumPoolSize = 10
-        minimumIdle = 2
-        idleTimeout = 60000
-        connectionTimeout = 30000
-    })
-)
+val dataSource = HikariDataSource(HikariConfig().apply {
+    jdbcUrl = config.url
+    username = config.user
+    password = config.password
+    maximumPoolSize = config.poolSize
+    minimumIdle = config.minIdle
+    idleTimeout = 60000
+    connectionTimeout = 30000
+    driverClassName = "org.postgresql.Driver"
+})
 ```
 
 ### 8.2 Рекомендации
