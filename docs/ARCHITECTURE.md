@@ -243,6 +243,19 @@ features/src/commonMain/kotlin/io/github/alelk/tgvd/features/
 
 **Назначение**: Реализация доменных портов (DB, процессы, FS, LLM).
 
+**Содержит**:
+- `db/` — таблицы, репозитории, persistence-модели, маппинги
+- `process/` — YtDlpRunner, FfmpegRunner, YtDlpServiceImpl
+- `service/` — JobProcessor (фоновый обработчик задач)
+- `config/` — data-классы конфигурации
+
+**JobProcessor** — фоновый coroutine-цикл, который:
+1. Поллит БД на наличие `PENDING` job'ов (интервал из `JobsConfig.pollIntervalMs`)
+2. Ограничивает параллелизм через `Semaphore(maxConcurrentDownloads)`
+3. Скачивает видео через `VideoDownloader.downloadWithProgress()` с обновлением прогресса
+4. Обновляет статус job'а: `PENDING → DOWNLOADING → COMPLETED / FAILED`
+5. Запускается/останавливается автоматически с lifecycle Ktor Application
+
 **Зависимости**: `domain`, Exposed, Flyway, Ktor Client (JVM), kotlinx.serialization.
 
 > `server:infra` **не зависит** от `api:contract` и `api:mapping`. JSONB-колонки используют собственные persistence-модели (`*Pm`), маппинг domain ↔ DB полностью изолирован от API-контракта.

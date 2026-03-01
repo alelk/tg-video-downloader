@@ -15,6 +15,7 @@ import io.github.alelk.tgvd.server.transport.route.previewRoutes
 import io.github.alelk.tgvd.server.transport.route.ruleRoutes
 import io.github.alelk.tgvd.server.transport.route.systemRoutes
 import io.github.alelk.tgvd.server.transport.route.workspaceRoutes
+import io.github.alelk.tgvd.server.infra.service.JobProcessor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -95,6 +96,18 @@ fun Application.configureApplication(config: AppConfig) {
     }
 
     configureRouting()
+    configureJobProcessor()
+}
+
+private fun Application.configureJobProcessor() {
+    val jobProcessor by inject<JobProcessor>()
+
+    monitor.subscribe(ApplicationStarted) {
+        jobProcessor.start()
+    }
+    monitor.subscribe(ApplicationStopping) {
+        jobProcessor.stop()
+    }
 }
 
 private fun Application.configureRouting() {

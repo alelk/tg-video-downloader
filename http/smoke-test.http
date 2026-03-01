@@ -135,7 +135,7 @@ X-Telegram-Init-Data: {{initData}}
 
 ###
 
-### Get job status
+### Get job status (run multiple times to track progress)
 GET {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/jobs/{{jobId}}
 X-Telegram-Init-Data: {{initData}}
 
@@ -145,6 +145,9 @@ X-Telegram-Init-Data: {{initData}}
         client.assert(response.body.status != null, "Expected status");
     });
     client.log("Job status: " + response.body.status);
+    if (response.body.progress) {
+        client.log("Progress: " + response.body.progress.percent + "%");
+    }
 %}
 
 ###
