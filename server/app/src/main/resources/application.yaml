@@ -1,0 +1,63 @@
+server:
+  port: 8080
+  host: "0.0.0.0"
+  baseUrl: "http://localhost:8080"
+
+telegram:
+  botToken: "${TELEGRAM_BOT_TOKEN:-test-token}"
+  allowedUserIds: []
+  devMode: true
+
+db:
+  url: "jdbc:postgresql://localhost:5432/tgvd"
+  user: "tgvd"
+  password: "1234"
+  poolSize: 10
+  minIdle: 2
+
+storage:
+  baseDirectories:
+    - "/tmp/tgvd/media"
+  tempDirectory: "/tmp/tgvd/temp"
+
+ytDlp:
+  path: "yt-dlp"
+  timeout: "30m"
+  retries: 3
+  fragmentRetries: 10
+  allowUpdate: true
+  updateChannel: "stable"
+
+ffmpeg:
+  path: "ffmpeg"
+  timeout: "60m"
+
+postProcess:
+  taggingTool: "FFMPEG"
+  embedThumbnail: true
+  embedMetadata: true
+  normalizeAudio: false
+
+jobs:
+  maxConcurrentDownloads: 2
+  maxAttempts: 3
+  pollIntervalMs: 5000
+  retryDelayMs: 30000
+
+logging:
+  level: "INFO"
+  format: "TEXT"
+
+llm:
+  provider: "NONE"
+  apiKey: null
+  model: null
+
+proxy:
+  enabled: false
+  type: "HTTP"
+  host: "127.0.0.1"
+  port: 8080
+  username: null
+  password: null
+

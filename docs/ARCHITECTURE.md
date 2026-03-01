@@ -284,10 +284,10 @@ features/src/commonMain/kotlin/io/github/alelk/tgvd/features/
 | `api:client:di`    | api:client, Koin, Ktor engine                          | domain, server:*, features     |
 | `features`         | domain, api:client, api:mapping, Compose, Koin         | server:*, tgminiapp            |
 | `tgminiapp`        | features, api:client:di                                | server:*, domain напрямую      |
-| `server:infra`     | domain, api:contract                                   | transport, di, app, features   |
-| `server:transport` | domain, api:contract, api:mapping, Ktor Server         | di, app, features              |
-| `server:di`        | domain, server:infra, server:transport, Koin           | app, features                  |
-| `server:app`       | Все серверные модули                                   | features, tgminiapp            |
+| `server:infra`     | domain                                                 | api:*, transport, di, app      |
+| `server:transport` | domain, api:contract, api:mapping, Ktor Server         | infra, di, app, features       |
+| `server:di`        | domain, server:infra, server:transport, Koin           | api:*, app, features           |
+| `server:app`       | domain, api:contract, server:*, Hoplite, Netty         | api:mapping, features          |
 
 ---
 

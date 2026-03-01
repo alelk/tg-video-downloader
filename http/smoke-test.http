@@ -1,0 +1,185 @@
+### Health check
+GET {{baseUrl}}/health
+
+> {%
+    client.test("Health OK", function () {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+###
+
+### Create workspace
+POST {{baseUrl}}/api/v1/workspaces
+Content-Type: application/json
+X-Telegram-Init-Data: {{initData}}
+
+{
+  "name": "test-workspace"
+}
+
+> {%
+    client.test("Workspace created", function () {
+        client.assert(response.status === 200 || response.status === 201, "Expected 2xx");
+        client.assert(response.body.id != null, "Expected id");
+    });
+    client.global.set("workspaceId", response.body.id);
+%}
+
+###
+
+### List workspaces
+GET {{baseUrl}}/api/v1/workspaces
+X-Telegram-Init-Data: {{initData}}
+
+> {%
+    client.test("Workspaces listed", function () {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+###
+
+### Create rule
+POST {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/rules
+Content-Type: application/json
+X-Telegram-Init-Data: {{initData}}
+
+{
+  "name": "YouTube Downloads",
+  "category": "other",
+  "match": {
+    "type": "url-regex",
+    "pattern": "youtube\\.com|youtu\\.be"
+  },
+  "metadataTemplate": {
+    "type": "other"
+  },
+  "downloadPolicy": {
+    "maxQuality": "best"
+  },
+  "storagePolicy": {
+    "originalTemplate": "/tmp/tgvd/media/{title} [{videoId}].{ext}"
+  },
+  "postProcessPolicy": {
+    "embedThumbnail": true,
+    "embedMetadata": true,
+    "normalizeAudio": false
+  }
+}
+
+> {%
+    client.test("Rule created", function () {
+        client.assert(response.status === 200 || response.status === 201, "Expected 2xx");
+        client.assert(response.body.id != null, "Expected id");
+    });
+    client.global.set("ruleId", response.body.id);
+%}
+
+###
+
+### List rules
+GET {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/rules
+X-Telegram-Init-Data: {{initData}}
+
+> {%
+    client.test("Rules listed", function () {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+###
+
+### Create job (download video)
+POST {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/jobs
+Content-Type: application/json
+X-Telegram-Init-Data: {{initData}}
+
+{
+  "ruleId": "{{ruleId}}",
+  "source": {
+    "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+    "videoId": "jNQXAC9IVRw",
+    "extractor": "youtube"
+  },
+  "category": "other",
+  "videoInfo": {
+    "videoId": "jNQXAC9IVRw",
+    "title": "Me at the zoo",
+    "extractor": "youtube",
+    "channelId": "UC4QobU6STFB0P71PMvOGN5A",
+    "channelName": "jawed",
+    "durationSeconds": 19,
+    "webpageUrl": "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+  },
+  "metadata": {
+    "type": "other",
+    "title": "Me at the zoo",
+    "tags": []
+  },
+  "storagePlan": {
+    "original": {
+      "path": "/tmp/tgvd/media/Me at the zoo [jNQXAC9IVRw].mp4",
+      "format": "video/mp4"
+    }
+  }
+}
+
+> {%
+    client.test("Job created", function () {
+        client.assert(response.status === 200 || response.status === 201, "Expected 2xx");
+        client.assert(response.body.id != null, "Expected id");
+    });
+    client.global.set("jobId", response.body.id);
+%}
+
+###
+
+### Get job status
+GET {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/jobs/{{jobId}}
+X-Telegram-Init-Data: {{initData}}
+
+> {%
+    client.test("Job retrieved", function () {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.status != null, "Expected status");
+    });
+    client.log("Job status: " + response.body.status);
+%}
+
+###
+
+### List jobs
+GET {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/jobs
+X-Telegram-Init-Data: {{initData}}
+
+> {%
+    client.test("Jobs listed", function () {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+###
+
+### Cancel job
+POST {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/jobs/{{jobId}}/cancel
+X-Telegram-Init-Data: {{initData}}
+
+> {%
+    client.test("Job cancelled", function () {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+###
+
+### yt-dlp status
+GET {{baseUrl}}/api/v1/system/yt-dlp/status
+X-Telegram-Init-Data: {{initData}}
+
+> {%
+    client.test("yt-dlp status", function () {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+

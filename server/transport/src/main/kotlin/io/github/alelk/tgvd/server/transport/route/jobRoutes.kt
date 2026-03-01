@@ -37,7 +37,7 @@ fun Route.jobRoutes() {
         val request = call.receive<CreateJobRequestDto>()
         val user = call.telegramUser
 
-        val result = either<DomainError, Job> {
+        val result = either {
             val wsId = parseWorkspaceId(res.parent.workspaceId).bind()
             val metadata = request.metadata.toDomain().bind()
             val createRequest = CreateJobUseCase.CreateJobRequest(
@@ -76,7 +76,7 @@ fun Route.jobRoutes() {
     }
 
     get<ApiV1.Workspaces.ById.Jobs.ById> { res ->
-        val result = either<DomainError, Job> {
+        val result = either {
             val jobId = parseId(res.id, "jobId", ::JobId).bind()
             jobRepository.findById(jobId) ?: raise(DomainError.JobNotFound(jobId))
         }
@@ -84,7 +84,7 @@ fun Route.jobRoutes() {
     }
 
     post<ApiV1.Workspaces.ById.Jobs.ById.Cancel> { res ->
-        val result = either<DomainError, Job> {
+        val result = either {
             val jobId = parseId(res.parent.id, "jobId", ::JobId).bind()
             val job = jobRepository.findById(jobId) ?: raise(DomainError.JobNotFound(jobId))
             if (!job.status.isCancellable) raise(DomainError.JobCannotBeCancelled(jobId, job.status))

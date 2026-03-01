@@ -17,7 +17,6 @@ kotlin {
 dependencies {
     implementation(project(":domain"))
     implementation(project(":api:contract"))
-    implementation(project(":api:mapping"))
     implementation(project(":server:infra"))
     implementation(project(":server:transport"))
     implementation(project(":server:di"))

@@ -10,7 +10,6 @@ kotlin {
 
 dependencies {
     api(project(":domain"))
-    api(project(":api:mapping"))
     api(project(":server:infra"))
     api(project(":server:transport"))
 

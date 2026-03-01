@@ -50,7 +50,7 @@ class ApiV1 {
             @Serializable
             @Resource("jobs")
             class Jobs(
-                val parent: ById,
+                val parent: Workspaces.ById,
                 val status: String? = null,
                 val limit: Int = 20,
                 val offset: Int = 0,
@@ -68,7 +68,7 @@ class ApiV1 {
 
             @Serializable
             @Resource("rules")
-            class Rules(val parent: ById) {
+            class Rules(val parent: Workspaces.ById) {
                 @Serializable
                 @Resource("{id}")
                 class ById(val parent: Rules, val id: String)

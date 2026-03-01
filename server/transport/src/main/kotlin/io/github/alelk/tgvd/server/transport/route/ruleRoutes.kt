@@ -45,7 +45,7 @@ fun Route.ruleRoutes() {
     post<ApiV1.Workspaces.ById.Rules> { res ->
         val request = call.receive<CreateRuleRequestDto>()
 
-        val result = either<DomainError, Rule> {
+        val result = either {
             val wsId = parseWorkspaceId(res.parent.workspaceId).bind()
             val match = request.match.toDomain().bind()
             val now = Clock.System.now()
@@ -80,7 +80,7 @@ fun Route.ruleRoutes() {
     put<ApiV1.Workspaces.ById.Rules.ById> { res ->
         val request = call.receive<CreateRuleRequestDto>()
 
-        val result = either<DomainError, Rule> {
+        val result = either {
             val ruleId = parseId(res.id, "ruleId", ::RuleId).bind()
             val existing = ruleRepository.findById(ruleId) ?: raise(DomainError.RuleNotFound(ruleId))
             val match = request.match.toDomain().bind()
@@ -102,7 +102,7 @@ fun Route.ruleRoutes() {
     }
 
     delete<ApiV1.Workspaces.ById.Rules.ById> { res ->
-        val result = either<DomainError, Unit> {
+        val result = either {
             val ruleId = parseId(res.id, "ruleId", ::RuleId).bind()
             if (!ruleRepository.delete(ruleId)) raise(DomainError.RuleNotFound(ruleId))
         }
