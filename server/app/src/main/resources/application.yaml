@@ -21,12 +21,13 @@ storage:
   tempDirectory: "/tmp/tgvd/temp"
 
 ytDlp:
-  path: "yt-dlp"
+  path: "./yt-dlp"
   timeout: "30m"
   retries: 3
   fragmentRetries: 10
   allowUpdate: true
   updateChannel: "stable"
+  autoDownload: true
 
 ffmpeg:
   path: "ffmpeg"

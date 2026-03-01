@@ -10,5 +10,6 @@ data class YtDlpConfig(
     val fragmentRetries: Int = 10,
     val allowUpdate: Boolean = true,
     val updateChannel: String = "stable",
+    val autoDownload: Boolean = true,
 )
 

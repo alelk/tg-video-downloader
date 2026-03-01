@@ -92,4 +92,14 @@ fun Route.jobRoutes() {
         }
         call.respondEither<JobDto, _>(result) { it.toDto() }
     }
+
+    post<ApiV1.Workspaces.ById.Jobs.ById.Retry> { res ->
+        val result = either {
+            val jobId = parseId(res.parent.id, "jobId", ::JobId).bind()
+            val job = jobRepository.findById(jobId) ?: raise(DomainError.JobNotFound(jobId))
+            if (!job.status.isRetryable) raise(DomainError.JobCannotBeRetried(jobId, job.status))
+            jobRepository.updateStatus(jobId, JobStatus.PENDING).bind()
+        }
+        call.respondEither<JobDto, _>(result) { it.toDto() }
+    }
 }

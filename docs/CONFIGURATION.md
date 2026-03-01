@@ -47,12 +47,13 @@ storage:
 
 # yt-dlp
 ytDlp:
-  path: "yt-dlp"                        # или абсолютный путь
+  path: "yt-dlp"                        # или абсолютный путь (e.g. "./yt-dlp")
   timeout: "30m"
   retries: 3
   fragmentRetries: 10
   allowUpdate: true                    # разрешить обновление через UI
   updateChannel: "stable"              # stable | nightly
+  autoDownload: true                   # автоматически скачать yt-dlp при старте, если бинарник не найден
 
 # ffmpeg
 ffmpeg:

@@ -61,6 +61,10 @@ class ApiV1 {
                     @Serializable
                     @Resource("cancel")
                     class Cancel(val parent: ById)
+
+                    @Serializable
+                    @Resource("retry")
+                    class Retry(val parent: ById)
                 }
             }
 

@@ -1,3 +1,15 @@
+## Smoke test scenario for TG Video Downloader
+##
+## Usage:
+##   1. Select environment "local" (top-right dropdown)
+##   2. Run requests sequentially — variables are passed automatically via client.global.set()
+##   3. Or run individually — set variables below manually after each step
+##
+## To run individually, uncomment and fill in:
+
+@workspaceId = 131c3e90-634d-4e4f-b6c6-5ffbbf051544
+@jobId = 1cf6224c-cd4b-4e51-8303-9838b6a4171d
+
 ### Health check
 GET {{baseUrl}}/health
 
@@ -171,6 +183,19 @@ X-Telegram-Init-Data: {{initData}}
 > {%
     client.test("Job cancelled", function () {
         client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+###
+
+### Retry failed/cancelled job
+POST {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/jobs/{{jobId}}/retry
+X-Telegram-Init-Data: {{initData}}
+
+> {%
+    client.test("Job retried", function () {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.status === "pending", "Expected status pending after retry");
     });
 %}
 

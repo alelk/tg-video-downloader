@@ -54,3 +54,5 @@ bin/
 .DS_Store
 
 /yt-downloader-example
+
+/server/app/yt-dlp

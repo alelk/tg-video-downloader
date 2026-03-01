@@ -10,6 +10,7 @@ enum class JobStatus {
 
     val isTerminal: Boolean get() = this == COMPLETED || this == FAILED || this == CANCELLED
     val isCancellable: Boolean get() = this == PENDING || this == DOWNLOADING || this == POST_PROCESSING
+    val isRetryable: Boolean get() = this == FAILED || this == CANCELLED
 }
 
 enum class JobPhase {

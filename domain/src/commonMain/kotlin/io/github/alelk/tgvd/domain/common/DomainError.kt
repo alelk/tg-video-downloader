@@ -23,6 +23,7 @@ sealed interface DomainError {
     // === Job ===
     data class JobAlreadyExists(val videoId: VideoId, val existingJobId: JobId, override val message: String = "Job already exists for video ${videoId.value}") : DomainError
     data class JobCannotBeCancelled(val id: JobId, val currentStatus: JobStatus, override val message: String = "Cannot cancel job in status $currentStatus") : DomainError
+    data class JobCannotBeRetried(val id: JobId, val currentStatus: JobStatus, override val message: String = "Cannot retry job in status $currentStatus") : DomainError
     data class DownloadFailed(val jobId: JobId, val cause: String, override val message: String = "Download failed: $cause") : DomainError
     data class PostProcessingFailed(val jobId: JobId, val phase: io.github.alelk.tgvd.domain.job.JobPhase, val cause: String, override val message: String = "Post-processing failed at $phase: $cause") : DomainError
 

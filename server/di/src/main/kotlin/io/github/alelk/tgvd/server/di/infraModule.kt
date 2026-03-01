@@ -16,6 +16,7 @@ import io.github.alelk.tgvd.server.infra.db.repository.JobRepositoryImpl
 import io.github.alelk.tgvd.server.infra.db.repository.RuleRepositoryImpl
 import io.github.alelk.tgvd.server.infra.db.repository.WorkspaceRepositoryImpl
 import io.github.alelk.tgvd.server.infra.process.FfmpegRunner
+import io.github.alelk.tgvd.server.infra.process.YtDlpBootstrap
 import io.github.alelk.tgvd.server.infra.process.YtDlpRunner
 import io.github.alelk.tgvd.server.infra.process.YtDlpServiceImpl
 import io.github.alelk.tgvd.server.infra.service.JobProcessor
@@ -40,6 +41,7 @@ internal fun infraModule() = module {
 
     // System services
     single<YtDlpService> { YtDlpServiceImpl(get<YtDlpConfig>()) }
+    single { YtDlpBootstrap(get<YtDlpConfig>()) }
 
     // Job processor
     single {

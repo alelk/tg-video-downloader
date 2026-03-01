@@ -30,6 +30,9 @@ fun DomainError.toHttpResponse(correlationId: String): Pair<HttpStatusCode, ApiE
     is DomainError.JobCannotBeCancelled ->
         HttpStatusCode.Conflict to apiError("CONFLICT", message, correlationId)
 
+    is DomainError.JobCannotBeRetried ->
+        HttpStatusCode.Conflict to apiError("CONFLICT", message, correlationId)
+
     is DomainError.VideoUnavailable ->
         HttpStatusCode.UnprocessableEntity to apiError("VIDEO_UNAVAILABLE", message, correlationId)
 
