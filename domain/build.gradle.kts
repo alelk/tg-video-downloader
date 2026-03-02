@@ -42,6 +42,6 @@ kotlin {
     }
 }
 
-tasks.withType<Test>() {
+tasks.withType<Test> {
     useJUnitPlatform()
 }
