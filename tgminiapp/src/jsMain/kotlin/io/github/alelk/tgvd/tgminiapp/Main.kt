@@ -19,6 +19,7 @@ import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClientImpl
 import io.github.alelk.tgvd.api.contract.common.apiJson
 import io.github.alelk.tgvd.api.contract.workspace.CreateWorkspaceRequestDto
+import io.github.alelk.tgvd.features.common.persistence.PreferencesStorage
 import io.github.alelk.tgvd.features.common.state.WorkspaceState
 import io.github.alelk.tgvd.features.common.theme.PlatformCallbacks
 import io.github.alelk.tgvd.features.common.theme.TelegramThemeColors
@@ -41,9 +42,10 @@ fun main() {
     val root = document.getElementById("root")!!
     ComposeViewport(root) {
         val apiModule = remember { createApiModule() }
+        val platformModule = remember { createPlatformModule() }
 
         KoinApplication(application = {
-            modules(apiModule, featuresModule)
+            modules(platformModule, apiModule, featuresModule)
         }) {
             val telegramColors = remember { readTelegramThemeColors() }
             val platformCallbacks = remember { createPlatformCallbacks() }
@@ -59,6 +61,10 @@ fun main() {
             }
         }
     }
+}
+
+private fun createPlatformModule() = module {
+    single<PreferencesStorage> { LocalStoragePreferences() }
 }
 
 private fun initTelegramWebApp() {
@@ -135,7 +141,8 @@ private fun parseColor(hex: dynamic): Color? {
 /**
  * Initializes workspace before rendering the main UI.
  * Fetches user's workspaces; creates one if none exist.
- * Sets the workspaceId on the client so all subsequent API calls are scoped correctly.
+ * Restores previously selected workspace from localStorage.
+ * Sets the workspaceSlug on the client so all subsequent API calls are scoped correctly.
  */
 @Composable
 private fun WorkspaceInitializer(content: @Composable () -> Unit) {
@@ -154,8 +161,13 @@ private fun WorkspaceInitializer(content: @Composable () -> Unit) {
                 listOf(created)
             }
             workspaceState.workspaces = ws
-            workspaceState.selectedWorkspace = ws.first()
-            (client as TgVideoDownloaderClientImpl).workspaceSlug = ws.first().slug
+
+            // Restore previously selected workspace or use first
+            val savedSlug = workspaceState.savedSlug
+            val selected = savedSlug?.let { slug -> ws.find { it.slug == slug } } ?: ws.first()
+            workspaceState.selectWorkspace(selected)
+
+            (client as TgVideoDownloaderClientImpl).workspaceSlug = selected.slug
             ready = true
         } catch (e: Exception) {
             error = e.message ?: "Failed to initialize workspace"
@@ -183,4 +195,3 @@ private fun WorkspaceInitializer(content: @Composable () -> Unit) {
         }
     }
 }
-

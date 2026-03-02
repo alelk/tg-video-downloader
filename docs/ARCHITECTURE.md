@@ -204,24 +204,32 @@ actual fun createPlatformHttpClient(config: ClientConfig): HttpClient =
 
 ```
 features/src/commonMain/kotlin/io/github/alelk/tgvd/features/
-├── screen/
-│   ├── UrlInputScreen.kt
-│   ├── PreviewScreen.kt
-│   ├── JobListScreen.kt
-│   └── RuleEditorScreen.kt
-├── component/
-│   ├── MetadataEditor.kt
-│   ├── ProgressBar.kt
-│   └── SaveAsRuleCheckbox.kt
-├── state/
-│   ├── PreviewState.kt
-│   └── JobListState.kt
-└── viewmodel/
-    ├── PreviewViewModel.kt
-    └── JobListViewModel.kt
+├── common/
+│   ├── component/
+│   │   ├── WorkspaceTopBar.kt       ← текущий workspace в TopBar, смена через bottom sheet
+│   │   ├── CreateWorkspaceDialog.kt  ← диалог создания нового workspace
+│   │   ├── WorkspaceSelector.kt      ← dropdown для выбора workspace
+│   │   ├── SectionCard.kt
+│   │   ├── ErrorCard.kt
+│   │   └── InfoRow.kt
+│   ├── persistence/
+│   │   └── PreferencesStorage.kt     ← интерфейс для сохранения настроек (KMP)
+│   ├── state/
+│   │   └── WorkspaceState.kt         ← shared state: workspaces + selectedWorkspace + persistence
+│   └── theme/
+├── navigation/
+│   └── AppNavigation.kt              ← Scaffold с TopBar (workspace) + BottomBar (tabs)
+├── download/
+├── jobs/
+├── rules/
+├── settings/
+└── di/
+    └── FeaturesModule.kt
 ```
 
 > Это ключевой модуль для мультиплатформенности. Новый UI-shell (web, macOS, Android) подключает `features` и добавляет только platform-specific glue.
+> 
+> `PreferencesStorage` — KMP-интерфейс. Каждый shell предоставляет свою реализацию (JS → `localStorage`, Android → `SharedPreferences`, и т.д.)
 
 ---
 
@@ -229,11 +237,13 @@ features/src/commonMain/kotlin/io/github/alelk/tgvd/features/
 
 **Назначение**: Telegram Mini App shell (тонкая обёртка).
 
-**Содержит**: Main.kt, App.kt, TelegramWebApp.kt (JS interop), DI wiring.
+**Содержит**: Main.kt, LocalStoragePreferences.kt, TelegramWebApp interop, DI wiring.
 
 **Зависимости**: `features`, `api:client:di`, Compose HTML/Web runtime.
 
 **Не содержит**: Бизнес-логику, экраны, компоненты — всё в `features`.
+
+**Persistence**: Реализует `PreferencesStorage` через `localStorage` браузера. Выбранный workspace сохраняется между сессиями.
 
 > В будущем рядом появятся: `webapp` (JS), `desktopapp` (JVM), `androidapp` — все зависят от `features`.
 

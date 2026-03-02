@@ -10,7 +10,6 @@ import io.github.alelk.tgvd.api.contract.system.YtDlpStatusDto
 import io.github.alelk.tgvd.features.common.component.*
 import io.github.alelk.tgvd.features.common.state.WorkspaceState
 import io.github.alelk.tgvd.features.common.theme.StatusCompleted
-import io.github.alelk.tgvd.features.common.theme.StatusPending
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -51,13 +50,13 @@ fun SettingsScreen() {
             ErrorCard(message = it, onRetry = { loadStatus() })
         }
 
-        // Workspace selector
+        // Workspace info (selection is now in the top bar)
         SectionCard(title = "Workspace") {
-            WorkspaceSelector(
-                workspaces = workspaceState.workspaces,
-                selectedWorkspaceSlug = workspaceState.selectedWorkspaceSlug,
-                onWorkspaceSelected = { workspaceState.selectedWorkspace = it },
-            )
+            workspaceState.selectedWorkspace?.let { ws ->
+                InfoRow("Name", ws.name)
+                InfoRow("Slug", ws.slug)
+                InfoRow("Role", ws.role)
+            } ?: Text("No workspace selected", style = MaterialTheme.typography.bodyMedium)
         }
 
         // yt-dlp section
@@ -114,4 +113,3 @@ fun SettingsScreen() {
         }
     }
 }
-
