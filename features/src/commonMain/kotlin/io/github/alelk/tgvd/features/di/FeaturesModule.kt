@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.features.di
 
+import io.github.alelk.tgvd.features.common.state.WorkspaceState
 import org.koin.dsl.module
 
 /**
@@ -7,6 +8,5 @@ import org.koin.dsl.module
  * via koinInject() composables. Add ViewModel factories here if needed.
  */
 val featuresModule = module {
-    // ViewModels and use-cases can be registered here when needed
+    single { WorkspaceState() }
 }
-

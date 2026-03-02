@@ -42,12 +42,12 @@ private fun statusColors(status: String): Pair<Color, Color> = when (status.lowe
 }
 
 private fun statusDisplayName(status: String): String = when (status.lowercase()) {
-    "pending" -> "⏳ Pending"
-    "downloading" -> "⬇️ Downloading"
-    "post_processing" -> "⚙️ Processing"
-    "completed", "done" -> "✅ Done"
-    "failed" -> "❌ Failed"
-    "cancelled" -> "⛔ Cancelled"
+    "pending" -> "Pending"
+    "downloading" -> "Downloading"
+    "post_processing" -> "Processing"
+    "completed", "done" -> "Done"
+    "failed" -> "Failed"
+    "cancelled" -> "Cancelled"
     else -> status
 }
 

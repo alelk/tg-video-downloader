@@ -4,6 +4,7 @@ import io.github.alelk.tgvd.api.contract.job.*
 import io.github.alelk.tgvd.api.contract.preview.*
 import io.github.alelk.tgvd.api.contract.rule.*
 import io.github.alelk.tgvd.api.contract.system.*
+import io.github.alelk.tgvd.api.contract.workspace.*
 import io.github.alelk.tgvd.api.contract.resource.ApiV1
 import io.github.alelk.tgvd.api.contract.resource.ApiV1.Workspaces
 import io.ktor.client.*
@@ -19,7 +20,7 @@ class TgVideoDownloaderClientImpl(
     private val httpClient: HttpClient,
     baseUrl: String,
     private val initDataProvider: () -> String = { "" },
-    private val workspaceId: String = "default",
+    var workspaceId: String = "default",
 ) : TgVideoDownloaderClient {
 
     private val client = httpClient.config {
@@ -35,6 +36,17 @@ class TgVideoDownloaderClientImpl(
     }
 
     private fun workspace() = Workspaces.ById(workspaceId = workspaceId)
+
+    override suspend fun getWorkspaces(): WorkspaceListResponseDto =
+        client.get(Workspaces()) {
+            auth()
+        }.body()
+
+    override suspend fun createWorkspace(request: CreateWorkspaceRequestDto): WorkspaceDto =
+        client.post(Workspaces()) {
+            auth()
+            setBody(request)
+        }.body()
 
     override suspend fun preview(request: PreviewRequestDto): PreviewResponseDto =
         client.post(Workspaces.ById.Preview(workspace())) {

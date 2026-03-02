@@ -58,9 +58,8 @@ fun JobListScreen() {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("📋 Jobs", style = MaterialTheme.typography.headlineMedium)
-            TextButton(onClick = { loadJobs() }) { Text("🔄 Refresh") }
+        ) { Text("Jobs", style = MaterialTheme.typography.headlineMedium)
+            TextButton(onClick = { loadJobs() }) { Text("Refresh") }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -129,7 +128,7 @@ private fun JobCard(job: JobDto, client: TgVideoDownloaderClient, onRefresh: () 
             job.error?.let { error ->
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    "❌ ${error.message}",
+                    "${error.message}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )

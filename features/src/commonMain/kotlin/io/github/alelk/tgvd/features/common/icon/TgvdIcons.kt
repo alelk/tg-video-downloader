@@ -130,5 +130,79 @@ object TgvdIcons {
             }
         }.build()
     }
-}
 
+    /** Videocam icon — for video info */
+    val Videocam: ImageVector by lazy {
+        ImageVector.Builder("Videocam", 24.dp, 24.dp, 24f, 24f).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(17f, 10.5f); lineTo(21f, 6.5f); lineTo(21f, 17.5f); lineTo(17f, 13.5f); lineTo(17f, 17f)
+                lineTo(15f, 19f); lineTo(3f, 19f); lineTo(1f, 17f); lineTo(1f, 7f); lineTo(3f, 5f)
+                lineTo(15f, 5f); lineTo(17f, 7f); close()
+            }
+        }.build()
+    }
+
+    /** Label/tag icon — for metadata */
+    val Label: ImageVector by lazy {
+        ImageVector.Builder("Label", 24.dp, 24.dp, 24f, 24f).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(17.63f, 5.84f); lineTo(14f, 2f); lineTo(5f, 2f); lineTo(3f, 4f); lineTo(3f, 20f)
+                lineTo(5f, 22f); lineTo(14f, 22f); lineTo(17.63f, 18.16f); lineTo(21f, 12f); close()
+            }
+        }.build()
+    }
+
+    /** Folder icon — for storage */
+    val Folder: ImageVector by lazy {
+        ImageVector.Builder("Folder", 24.dp, 24.dp, 24f, 24f).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(10f, 4f); lineTo(4f, 4f); lineTo(2f, 6f); lineTo(2f, 18f); lineTo(4f, 20f)
+                lineTo(20f, 20f); lineTo(22f, 18f); lineTo(22f, 8f); lineTo(20f, 6f); lineTo(12f, 6f); close()
+            }
+        }.build()
+    }
+
+    /** Refresh icon */
+    val Refresh: ImageVector by lazy {
+        ImageVector.Builder("Refresh", 24.dp, 24.dp, 24f, 24f).apply {
+            addPath(
+                pathData = addPathNodes("M17.65,6.35C16.2,4.9 14.21,4 12,4c-4.42,0 -7.99,3.58 -7.99,8s3.57,8 7.99,8c3.73,0 6.84,-2.55 7.73,-6h-2.08c-0.82,2.33 -3.04,4 -5.65,4 -3.31,0 -6,-2.69 -6,-6s2.69,-6 6,-6c1.66,0 3.14,0.69 4.22,1.78L13,11h7V4l-2.35,2.35z"),
+                fill = SolidColor(Color.Black),
+            )
+        }.build()
+    }
+
+    /** Error/cancel icon */
+    val ErrorIcon: ImageVector by lazy {
+        ImageVector.Builder("Error", 24.dp, 24.dp, 24f, 24f).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(12f, 2f)
+                lineTo(1f, 21f); lineTo(23f, 21f); close()
+                moveTo(13f, 18f); lineTo(11f, 18f); lineTo(11f, 16f); lineTo(13f, 16f); close()
+                moveTo(13f, 14f); lineTo(11f, 14f); lineTo(11f, 10f); lineTo(13f, 10f); close()
+            }
+        }.build()
+    }
+
+    /** Check circle icon */
+    val CheckCircle: ImageVector by lazy {
+        ImageVector.Builder("CheckCircle", 24.dp, 24.dp, 24f, 24f).apply {
+            addPath(
+                pathData = addPathNodes("M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM10,17l-5,-5 1.41,-1.41L10,14.17l7.59,-7.59L19,8l-9,9z"),
+                fill = SolidColor(Color.Black),
+            )
+        }.build()
+    }
+
+    /** Movie/film icon */
+    val Movie: ImageVector by lazy {
+        ImageVector.Builder("Movie", 24.dp, 24.dp, 24f, 24f).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(18f, 4f); lineTo(20f, 8f); lineTo(17f, 8f); lineTo(15f, 4f); lineTo(13f, 4f)
+                lineTo(15f, 8f); lineTo(12f, 8f); lineTo(10f, 4f); lineTo(8f, 4f); lineTo(10f, 8f)
+                lineTo(7f, 8f); lineTo(5f, 4f); lineTo(4f, 4f); lineTo(2f, 6f); lineTo(2f, 18f)
+                lineTo(4f, 20f); lineTo(20f, 20f); lineTo(22f, 18f); lineTo(22f, 4f); close()
+            }
+        }.build()
+    }
+}

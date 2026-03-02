@@ -85,7 +85,7 @@ class RuleListScreen : Screen {
             Column(
                 modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp),
             ) {
-                Text("📐 Rules", style = MaterialTheme.typography.headlineMedium)
+                Text("Rules", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(12.dp))
 
                 errorMessage?.let {

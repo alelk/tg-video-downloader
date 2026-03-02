@@ -1,11 +1,25 @@
 package io.github.alelk.tgvd.tgminiapp
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.window.ComposeViewport
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClientImpl
 import io.github.alelk.tgvd.api.contract.common.apiJson
+import io.github.alelk.tgvd.api.contract.workspace.CreateWorkspaceRequestDto
+import io.github.alelk.tgvd.features.common.state.WorkspaceState
 import io.github.alelk.tgvd.features.common.theme.PlatformCallbacks
 import io.github.alelk.tgvd.features.common.theme.TelegramThemeColors
 import io.github.alelk.tgvd.features.common.theme.TgvdTheme
@@ -16,10 +30,8 @@ import io.ktor.client.engine.js.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.browser.document
-import kotlinx.browser.document
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.window.ComposeViewport
 import org.koin.compose.KoinApplication
+import org.koin.compose.koinInject
 import org.koin.dsl.module
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -37,11 +49,13 @@ fun main() {
             val platformCallbacks = remember { createPlatformCallbacks() }
 
             TgvdTheme(
-                isDarkTheme = true, // Telegram dark mode is more common
+                isDarkTheme = true,
                 telegramColors = telegramColors,
                 platformCallbacks = platformCallbacks,
             ) {
-                AppNavigation()
+                WorkspaceInitializer {
+                    AppNavigation()
+                }
             }
         }
     }
@@ -117,3 +131,56 @@ private fun parseColor(hex: dynamic): Color? {
     val b = str.substring(5, 7).toIntOrNull(16) ?: return null
     return Color(r, g, b)
 }
+
+/**
+ * Initializes workspace before rendering the main UI.
+ * Fetches user's workspaces; creates one if none exist.
+ * Sets the workspaceId on the client so all subsequent API calls are scoped correctly.
+ */
+@Composable
+private fun WorkspaceInitializer(content: @Composable () -> Unit) {
+    val client = koinInject<TgVideoDownloaderClient>()
+    val workspaceState = koinInject<WorkspaceState>()
+    var ready by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val workspaces = client.getWorkspaces()
+            val ws = if (workspaces.items.isNotEmpty()) {
+                workspaces.items
+            } else {
+                val created = client.createWorkspace(CreateWorkspaceRequestDto(name = "Default"))
+                listOf(created)
+            }
+            workspaceState.workspaces = ws
+            workspaceState.selectedWorkspace = ws.first()
+            (client as TgVideoDownloaderClientImpl).workspaceId = ws.first().id
+            ready = true
+        } catch (e: Exception) {
+            error = e.message ?: "Failed to initialize workspace"
+        }
+    }
+
+    // Sync client workspaceId when selection changes
+    LaunchedEffect(workspaceState.selectedWorkspace) {
+        workspaceState.selectedWorkspace?.let { ws ->
+            (client as TgVideoDownloaderClientImpl).workspaceId = ws.id
+        }
+    }
+
+    when {
+        error != null -> {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Error: $error", color = Color.Red)
+            }
+        }
+        ready -> content()
+        else -> {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+    }
+}
+

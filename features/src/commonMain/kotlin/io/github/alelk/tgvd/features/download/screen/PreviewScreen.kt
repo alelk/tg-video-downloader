@@ -54,7 +54,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                     .verticalScroll(rememberScrollState()),
             ) {
                 // Video Info
-                SectionCard(title = "Video Info", icon = "📹") {
+                SectionCard(title = "Video Info", icon = TgvdIcons.Videocam) {
                     InfoRow("Title", preview.videoInfo.title)
                     InfoRow("Channel", preview.videoInfo.channelName)
                     InfoRow("Duration", formatDuration(preview.videoInfo.durationSeconds))
@@ -65,7 +65,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Metadata
-                SectionCard(title = "Metadata (${preview.metadataSource.name.lowercase()})", icon = "🏷️") {
+                SectionCard(title = "Metadata (${preview.metadataSource.name.lowercase()})", icon = TgvdIcons.Label) {
                     InfoRow("Category", preview.category)
                     when (val meta = preview.metadata) {
                         is ResolvedMetadataDto.MusicVideo -> {
@@ -90,7 +90,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Storage Plan
-                SectionCard(title = "Storage Plan", icon = "📁") {
+                SectionCard(title = "Storage Plan", icon = TgvdIcons.Folder) {
                     Text("Original: ${preview.storagePlan.original.format}", style = MaterialTheme.typography.bodySmall)
                     Text(
                         preview.storagePlan.original.path,
@@ -112,7 +112,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
 
                 // Matched Rule
                 preview.matchedRule?.let { rule ->
-                    SectionCard(title = "Matched Rule", icon = "📐") {
+                    SectionCard(title = "Matched Rule", icon = TgvdIcons.Rule) {
                         InfoRow("Rule", rule.name ?: rule.id)
                     }
                     Spacer(modifier = Modifier.height(12.dp))
@@ -126,7 +126,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             preview.warnings.forEach { warning ->
-                                Text("⚠️ $warning", color = MaterialTheme.colorScheme.onErrorContainer)
+                                Text(warning, color = MaterialTheme.colorScheme.onErrorContainer)
                             }
                         }
                     }
@@ -172,7 +172,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(8.dp))
                     }
-                    Text(if (isCreating) "Creating..." else "⬇️ Download")
+                    Text(if (isCreating) "Creating..." else "Download")
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -180,4 +180,5 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
         }
     }
 }
+
 

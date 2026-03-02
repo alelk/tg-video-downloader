@@ -32,7 +32,7 @@ class UrlInputScreen : Screen {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = "🎬 Video Downloader",
+                text = "Video Downloader",
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.padding(bottom = 24.dp),
             )

@@ -4,8 +4,13 @@ import io.github.alelk.tgvd.api.contract.job.*
 import io.github.alelk.tgvd.api.contract.preview.*
 import io.github.alelk.tgvd.api.contract.rule.*
 import io.github.alelk.tgvd.api.contract.system.*
+import io.github.alelk.tgvd.api.contract.workspace.*
 
 interface TgVideoDownloaderClient {
+
+    suspend fun getWorkspaces(): WorkspaceListResponseDto
+
+    suspend fun createWorkspace(request: CreateWorkspaceRequestDto): WorkspaceDto
 
     suspend fun preview(request: PreviewRequestDto): PreviewResponseDto
 

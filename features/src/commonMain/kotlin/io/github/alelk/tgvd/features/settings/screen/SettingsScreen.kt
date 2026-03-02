@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.system.YtDlpStatusDto
 import io.github.alelk.tgvd.features.common.component.*
+import io.github.alelk.tgvd.features.common.state.WorkspaceState
 import io.github.alelk.tgvd.features.common.theme.StatusCompleted
 import io.github.alelk.tgvd.features.common.theme.StatusPending
 import kotlinx.coroutines.launch
@@ -16,6 +17,7 @@ import org.koin.compose.koinInject
 @Composable
 fun SettingsScreen() {
     val client = koinInject<TgVideoDownloaderClient>()
+    val workspaceState = koinInject<WorkspaceState>()
 
     var ytDlpStatus by remember { mutableStateOf<YtDlpStatusDto?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -43,14 +45,23 @@ fun SettingsScreen() {
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("⚙️ Settings", style = MaterialTheme.typography.headlineMedium)
+        Text("Settings", style = MaterialTheme.typography.headlineMedium)
 
         errorMessage?.let {
             ErrorCard(message = it, onRetry = { loadStatus() })
         }
 
+        // Workspace selector
+        SectionCard(title = "Workspace") {
+            WorkspaceSelector(
+                workspaces = workspaceState.workspaces,
+                selectedWorkspaceId = workspaceState.selectedWorkspaceId,
+                onWorkspaceSelected = { workspaceState.selectedWorkspace = it },
+            )
+        }
+
         // yt-dlp section
-        SectionCard(title = "yt-dlp", icon = "🔧") {
+        SectionCard(title = "yt-dlp") {
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
             } else {
@@ -87,7 +98,7 @@ fun SettingsScreen() {
                         }
                     } else {
                         Text(
-                            "✅ Up to date",
+                            "Up to date",
                             style = MaterialTheme.typography.bodyMedium,
                             color = StatusCompleted,
                         )
@@ -97,7 +108,7 @@ fun SettingsScreen() {
         }
 
         // About section
-        SectionCard(title = "About", icon = "ℹ️") {
+        SectionCard(title = "About") {
             InfoRow("App", "TG Video Downloader")
             InfoRow("Version", "0.1.0-SNAPSHOT")
         }
