@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.3.0"
+kotlin = "2.3.10"
 kotlinx-coroutines = "1.10.2"
 kotlinx-serialization-json = "1.10.0"
 kotlinx-datetime = "0.6.0"
@@ -22,7 +22,8 @@ slf4j = "2.0.17"
 logback = "1.5.26"
 logstash-logback-encoder = "9.0"
 
-kotest = "6.1.2"
+kotest = "6.1.4" # https://mvnrepository.com/artifact/io.kotest/kotest-assertions-core-jvm
+ksp = "2.3.6"
 testcontainers = "2.0.3"
 testcontainers-postgresql = "1.21.4"
 mockk = "1.14.9"
@@ -119,10 +120,13 @@ voyager-transitions = { module = "cafe.adriel.voyager:voyager-transitions", vers
 tg-mini-app = { module = "io.github.alelk:tg-mini-app", version.ref = "tgMiniApp" }
 
 # Testing
+kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
 kotest-runner = { module = "io.kotest:kotest-runner-junit5-jvm", version.ref = "kotest" }
-kotest-assertions-core = { module = "io.kotest:kotest-assertions-core-jvm", version.ref = "kotest" }
+kotest-assertions-core-jvm = { module = "io.kotest:kotest-assertions-core-jvm", version.ref = "kotest" }
+kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-assertions-json = { module = "io.kotest:kotest-assertions-json-jvm", version.ref = "kotest" }
-kotest-property = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
+kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
+kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 testcontainers-core = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers-postgresql" }
@@ -164,8 +168,8 @@ voyager = [
 ]
 testing = [
     "kotest-runner",
-    "kotest-assertions-core",
-    "kotest-property",
+    "kotest-assertions-core-jvm",
+    "kotest-property-jvm",
     "mockk",
     "kotlinx-coroutines-test",
 ]
@@ -184,3 +188,5 @@ composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "k
 composeHotReload = { id = "org.jetbrains.compose.hot-reload", version.ref = "composeHotReload" }
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+kotest = { id = "io.kotest", version.ref = "kotest" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

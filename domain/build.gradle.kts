@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.kotest)
+    alias(libs.plugins.ksp)
 }
 
 description = "Domain models, use-cases, and business logic (pure Kotlin, no frameworks)"
@@ -25,9 +27,21 @@ kotlin {
 
         commonTest {
             dependencies {
-                implementation(libs.kotlin.test)
-                implementation(libs.kotlinx.coroutines.test)
+                implementation(libs.kotest.framework.engine)
+                implementation(libs.kotest.assertions.core)
+                implementation(libs.kotest.property)
+                implementation(project(":domain:domain-test-fixtures"))
+            }
+        }
+
+        jvmTest {
+            dependencies {
+                implementation(libs.kotest.runner)
             }
         }
     }
+}
+
+tasks.withType<Test>() {
+    useJUnitPlatform()
 }

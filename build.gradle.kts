@@ -6,6 +6,8 @@ plugins {
     alias(libs.plugins.composeCompiler) apply false
     alias(libs.plugins.ktor) apply false
     alias(libs.plugins.shadow) apply false
+    alias(libs.plugins.kotest) apply false
+    alias(libs.plugins.ksp) apply false
 }
 
 group = "io.github.alelk.tgvd"

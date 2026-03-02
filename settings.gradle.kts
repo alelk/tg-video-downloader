@@ -21,6 +21,7 @@ rootProject.name = "tg-video-downloader"
 
 // === Domain ===
 include(":domain")
+include(":domain:domain-test-fixtures")
 
 // === API ===
 include(":api:contract")
