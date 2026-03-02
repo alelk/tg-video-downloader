@@ -14,6 +14,8 @@ import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.job.CreateJobRequestDto
 import io.github.alelk.tgvd.api.contract.metadata.ResolvedMetadataDto
 import io.github.alelk.tgvd.api.contract.preview.PreviewResponseDto
+import io.github.alelk.tgvd.api.contract.storage.OutputTargetDto
+import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
 import io.github.alelk.tgvd.features.common.component.ErrorCard
 import io.github.alelk.tgvd.features.common.component.InfoRow
 import io.github.alelk.tgvd.features.common.component.SectionCard
@@ -21,6 +23,15 @@ import io.github.alelk.tgvd.features.common.icon.TgvdIcons
 import io.github.alelk.tgvd.features.common.util.formatDuration
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+
+private val metadataTypes = listOf("other", "music-video", "series-episode")
+
+private val availableFormats = listOf(
+    "original/mp4", "original/mkv", "original/webm", "original/avi", "original/mov",
+    "video/mp4", "video/mkv", "video/webm", "video/avi", "video/mov",
+    "audio/m4a", "audio/mp3", "audio/opus", "audio/flac", "audio/wav",
+    "image/jpg", "image/png", "image/webp",
+)
 
 class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
 
@@ -33,6 +44,48 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
         var isCreating by remember { mutableStateOf(false) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
+
+        // --- Editable state initialized from preview ---
+        var category by remember { mutableStateOf(preview.category) }
+        var metadataType by remember {
+            mutableStateOf(
+                when (preview.metadata) {
+                    is ResolvedMetadataDto.MusicVideo -> "music-video"
+                    is ResolvedMetadataDto.SeriesEpisode -> "series-episode"
+                    is ResolvedMetadataDto.Other -> "other"
+                }
+            )
+        }
+        var title by remember { mutableStateOf(preview.metadata.title) }
+        var artist by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.MusicVideo)?.artist ?: "") }
+        var seriesName by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.SeriesEpisode)?.seriesName ?: "") }
+        var season by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.SeriesEpisode)?.season ?: "") }
+        var episode by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.SeriesEpisode)?.episode ?: "") }
+        var tags by remember { mutableStateOf(preview.metadata.tags.joinToString(", ")) }
+        var originalPath by remember { mutableStateOf(preview.storagePlan.original.path) }
+        var originalFormat by remember { mutableStateOf(preview.storagePlan.original.format) }
+
+        fun buildMetadata(): ResolvedMetadataDto {
+            val tagList = tags.split(",").map { it.trim() }.filter { it.isNotBlank() }
+            return when (metadataType) {
+                "music-video" -> ResolvedMetadataDto.MusicVideo(
+                    artist = artist,
+                    title = title,
+                    tags = tagList,
+                )
+                "series-episode" -> ResolvedMetadataDto.SeriesEpisode(
+                    seriesName = seriesName,
+                    season = season.takeIf { it.isNotBlank() },
+                    episode = episode.takeIf { it.isNotBlank() },
+                    title = title,
+                    tags = tagList,
+                )
+                else -> ResolvedMetadataDto.Other(
+                    title = title,
+                    tags = tagList,
+                )
+            }
+        }
 
         Scaffold(
             topBar = {
@@ -53,7 +106,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                     .padding(horizontal = 16.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // Video Info
+                // Video Info (read-only)
                 SectionCard(title = "Video Info", icon = TgvdIcons.Videocam) {
                     InfoRow("Title", preview.videoInfo.title)
                     InfoRow("Channel", preview.videoInfo.channelName)
@@ -64,53 +117,127 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Metadata
-                SectionCard(title = "Metadata (${preview.metadataSource.name.lowercase()})", icon = TgvdIcons.Label) {
-                    InfoRow("Category", preview.category)
-                    when (val meta = preview.metadata) {
-                        is ResolvedMetadataDto.MusicVideo -> {
-                            InfoRow("Artist", meta.artist)
-                            InfoRow("Title", meta.title)
-                        }
-                        is ResolvedMetadataDto.SeriesEpisode -> {
-                            InfoRow("Series", meta.seriesName)
-                            meta.season?.let { InfoRow("Season", it) }
-                            meta.episode?.let { InfoRow("Episode", it) }
-                            InfoRow("Title", meta.title)
-                        }
-                        is ResolvedMetadataDto.Other -> {
-                            InfoRow("Title", meta.title)
-                        }
-                    }
-                    if (preview.metadata.tags.isNotEmpty()) {
-                        InfoRow("Tags", preview.metadata.tags.joinToString(", "))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Storage Plan
-                SectionCard(title = "Storage Plan", icon = TgvdIcons.Folder) {
-                    Text("Original: ${preview.storagePlan.original.format}", style = MaterialTheme.typography.bodySmall)
-                    Text(
-                        preview.storagePlan.original.path,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // Metadata (editable)
+                SectionCard(
+                    title = if (preview.matchedRule != null) "Metadata (rule)" else "Metadata",
+                    icon = TgvdIcons.Label,
+                ) {
+                    // Category
+                    OutlinedTextField(
+                        value = category,
+                        onValueChange = { category = it },
+                        label = { Text("Category") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                    preview.storagePlan.additional.forEach { target ->
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Additional: ${target.format}", style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            target.path,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Metadata type selector
+                    Text("Type", style = MaterialTheme.typography.labelMedium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        metadataTypes.forEachIndexed { index, type ->
+                            SegmentedButton(
+                                selected = metadataType == type,
+                                onClick = { metadataType = type },
+                                shape = SegmentedButtonDefaults.itemShape(index, metadataTypes.size),
+                            ) {
+                                Text(
+                                    when (type) {
+                                        "music-video" -> "Music"
+                                        "series-episode" -> "Series"
+                                        else -> "Other"
+                                    },
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Title (always visible)
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Title") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    // Type-specific fields
+                    when (metadataType) {
+                        "music-video" -> {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = artist,
+                                onValueChange = { artist = it },
+                                label = { Text("Artist") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                        "series-episode" -> {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = seriesName,
+                                onValueChange = { seriesName = it },
+                                label = { Text("Series Name") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = season,
+                                    onValueChange = { season = it },
+                                    label = { Text("Season") },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                OutlinedTextField(
+                                    value = episode,
+                                    onValueChange = { episode = it },
+                                    label = { Text("Episode") },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = tags,
+                        onValueChange = { tags = it },
+                        label = { Text("Tags (comma-separated)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Matched Rule
+                // Storage Plan (editable path)
+                SectionCard(title = "Storage Plan", icon = TgvdIcons.Folder) {
+                    OutlinedTextField(
+                        value = originalPath,
+                        onValueChange = { originalPath = it },
+                        label = { Text("Output Path") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = false,
+                        minLines = 2,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FormatDropdown(
+                        selectedFormat = originalFormat,
+                        onFormatSelected = { originalFormat = it },
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Matched Rule (read-only info)
                 preview.matchedRule?.let { rule ->
                     SectionCard(title = "Matched Rule", icon = TgvdIcons.Rule) {
                         InfoRow("Rule", rule.name ?: rule.id)
@@ -146,17 +273,21 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                         errorMessage = null
                         scope.launch {
                             try {
+                                val metadata = buildMetadata()
+                                val storagePlan = StoragePlanDto(
+                                    original = OutputTargetDto(path = originalPath, format = originalFormat),
+                                    additional = preview.storagePlan.additional,
+                                )
                                 client.createJob(
                                     CreateJobRequestDto(
                                         source = preview.source,
                                         ruleId = preview.matchedRule?.id,
-                                        category = preview.category,
+                                        category = category,
                                         videoInfo = preview.videoInfo,
-                                        metadata = preview.metadata,
-                                        storagePlan = preview.storagePlan,
+                                        metadata = metadata,
+                                        storagePlan = storagePlan,
                                     )
                                 )
-                                // Go back to URL input after job created
                                 navigator.pop()
                             } catch (e: Exception) {
                                 errorMessage = e.message ?: "Failed to create job"
@@ -181,4 +312,44 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FormatDropdown(
+    selectedFormat: String,
+    onFormatSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = modifier,
+    ) {
+        OutlinedTextField(
+            value = selectedFormat,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Format") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            singleLine = true,
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            availableFormats.forEach { format ->
+                DropdownMenuItem(
+                    text = { Text(format) },
+                    onClick = {
+                        onFormatSelected(format)
+                        expanded = false
+                    },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                )
+            }
+        }
+    }
+}
 
