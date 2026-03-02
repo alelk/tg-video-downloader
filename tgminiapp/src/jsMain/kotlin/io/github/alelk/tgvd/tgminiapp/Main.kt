@@ -61,10 +61,12 @@ private fun createApiModule() = module {
         val httpClient = HttpClient(Js) {
             install(ContentNegotiation) { json(apiJson) }
         }
-        val baseUrl = js("window.location.origin").unsafeCast<String>()
+        val baseUrl = readEnvConfig("API_BASE_URL")
+            ?: js("window.location.origin").unsafeCast<String>()
         val initDataProvider = {
             try {
-                js("window.Telegram.WebApp.initData").unsafeCast<String>()
+                val initData = js("window.Telegram.WebApp.initData").unsafeCast<String>()
+                initData.takeIf { it.isNotBlank() } ?: "dev"
             } catch (_: Throwable) {
                 "dev"
             }
@@ -75,6 +77,15 @@ private fun createApiModule() = module {
             initDataProvider = initDataProvider,
         )
     }
+}
+
+/** Read a value from window.__ENV__ (set by config.js, generated at runtime in Docker). */
+private fun readEnvConfig(key: String): String? = try {
+    val env = js("window.__ENV__")
+    val value = env[key]
+    (value as? String)?.takeIf { it.isNotBlank() }
+} catch (_: Throwable) {
+    null
 }
 
 private fun readTelegramThemeColors(): TelegramThemeColors? = try {

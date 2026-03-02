@@ -1,5 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="run server" type="KtorApplicationConfigurationType" factoryName="Ktor">
+  <configuration default="false" name="run server (dev mode)" type="KtorApplicationConfigurationType" factoryName="Ktor">
+    <envs>
+      <env name="TELEGRAM__DEV_MODE" value="true" />
+    </envs>
     <option name="MAIN_CLASS_NAME" value="io.github.alelk.tgvd.server.ApplicationKt" />
     <module name="tg-video-downloader.server.app.main" />
     <option name="alternativeJrePath" />
