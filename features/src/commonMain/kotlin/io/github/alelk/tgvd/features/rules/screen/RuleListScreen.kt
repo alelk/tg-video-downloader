@@ -18,6 +18,7 @@ import io.github.alelk.tgvd.api.contract.rule.RuleMatchDto
 import io.github.alelk.tgvd.features.common.component.*
 import io.github.alelk.tgvd.features.common.theme.*
 import io.github.alelk.tgvd.features.common.icon.TgvdIcons
+import io.github.alelk.tgvd.features.common.util.categoryLabel
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -129,7 +130,7 @@ private fun RuleCard(rule: RuleDto, onEdit: () -> Unit, onDelete: () -> Unit) {
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "${rule.category} • priority: ${rule.priority}",
+                        text = "${categoryLabel(rule.category)} • priority: ${rule.priority}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

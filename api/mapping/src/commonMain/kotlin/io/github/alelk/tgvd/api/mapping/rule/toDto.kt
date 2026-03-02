@@ -2,7 +2,7 @@ package io.github.alelk.tgvd.api.mapping.rule
 
 import io.github.alelk.tgvd.api.contract.rule.RuleDto
 import io.github.alelk.tgvd.api.contract.rule.RuleMatchDto
-import io.github.alelk.tgvd.api.mapping.common.apiString
+import io.github.alelk.tgvd.api.mapping.common.toDto
 import io.github.alelk.tgvd.api.mapping.metadata.toDto
 import io.github.alelk.tgvd.api.mapping.storage.toDto
 import io.github.alelk.tgvd.domain.metadata.category
@@ -26,7 +26,7 @@ fun Rule.toDto(): RuleDto = RuleDto(
     enabled = enabled,
     priority = priority,
     match = match.toDto(),
-    category = metadataTemplate.category.apiString,
+    category = metadataTemplate.category.toDto(),
     metadataTemplate = metadataTemplate.toDto(),
     downloadPolicy = downloadPolicy.toDto(),
     storagePolicy = storagePolicy.toDto(),

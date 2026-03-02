@@ -11,7 +11,7 @@ class StorageDtoTest : FunSpec({
         test("serializes format as string") {
             val dto = OutputTargetDto(
                 path = "/tmp/tgvd/media/video.webm",
-                format = "original/webm",
+                format = OutputFormatDto.OriginalVideo(MediaContainerDto.WEBM),
             )
             val json = apiJson.encodeToString(OutputTargetDto.serializer(), dto)
             json shouldEqualJson """
@@ -31,17 +31,17 @@ class StorageDtoTest : FunSpec({
             """
             val dto = apiJson.decodeFromString(OutputTargetDto.serializer(), json)
             dto.path shouldBe "/media/converted/video.mp4"
-            dto.format shouldBe "video/mp4"
+            dto.format shouldBe OutputFormatDto.ConvertedVideo(MediaContainerDto.MP4)
         }
     }
 
     context("StoragePlanDto") {
         test("serializes with original and additional targets") {
             val dto = StoragePlanDto(
-                original = OutputTargetDto("/tmp/original.webm", "original/webm"),
+                original = OutputTargetDto("/tmp/original.webm", OutputFormatDto.OriginalVideo(MediaContainerDto.WEBM)),
                 additional = listOf(
-                    OutputTargetDto("/tmp/converted.mp4", "video/mp4"),
-                    OutputTargetDto("/tmp/audio.m4a", "audio/m4a"),
+                    OutputTargetDto("/tmp/converted.mp4", OutputFormatDto.ConvertedVideo(MediaContainerDto.MP4)),
+                    OutputTargetDto("/tmp/audio.m4a", OutputFormatDto.Audio(AudioFormatDto.M4A)),
                 ),
             )
             val json = apiJson.encodeToString(StoragePlanDto.serializer(), dto)
@@ -75,7 +75,7 @@ class StorageDtoTest : FunSpec({
                 }
             """
             val dto = apiJson.decodeFromString(StoragePlanDto.serializer(), json)
-            dto.original shouldBe OutputTargetDto("/tmp/video.webm", "original/webm")
+            dto.original shouldBe OutputTargetDto("/tmp/video.webm", OutputFormatDto.OriginalVideo(MediaContainerDto.WEBM))
             dto.additional shouldBe emptyList()
         }
     }
@@ -96,8 +96,8 @@ class StorageDtoTest : FunSpec({
 
         test("serializes with custom values") {
             val dto = DownloadPolicyDto(
-                maxQuality = "hd_1080",
-                preferredContainer = "mp4",
+                maxQuality = VideoQualityDto.HD_1080,
+                preferredContainer = MediaContainerDto.MP4,
                 downloadSubtitles = true,
                 subtitleLanguages = listOf("en", "ru"),
             )
@@ -114,8 +114,8 @@ class StorageDtoTest : FunSpec({
 
         test("round-trip") {
             val original = DownloadPolicyDto(
-                maxQuality = "hd_720",
-                preferredContainer = "mkv",
+                maxQuality = VideoQualityDto.HD_720,
+                preferredContainer = MediaContainerDto.MKV,
                 downloadSubtitles = true,
                 subtitleLanguages = listOf("en"),
             )
@@ -132,7 +132,7 @@ class StorageDtoTest : FunSpec({
                 additionalOutputs = listOf(
                     OutputTemplateDto(
                         pathTemplate = "/media/converted/{title}.mp4",
-                        format = "video/mp4",
+                        format = OutputFormatDto.ConvertedVideo(MediaContainerDto.MP4),
                     ),
                 ),
             )

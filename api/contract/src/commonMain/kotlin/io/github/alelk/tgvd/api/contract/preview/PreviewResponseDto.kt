@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.api.contract.preview
 
+import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.api.contract.metadata.MetadataSourceDto
 import io.github.alelk.tgvd.api.contract.metadata.ResolvedMetadataDto
 import io.github.alelk.tgvd.api.contract.rule.RuleSummaryDto
@@ -14,7 +15,7 @@ data class PreviewResponseDto(
     val videoInfo: VideoInfoDto,
     val matchedRule: RuleSummaryDto? = null,
     val metadataSource: MetadataSourceDto,
-    val category: String,
+    val category: CategoryDto,
     val metadata: ResolvedMetadataDto,
     val storagePlan: StoragePlanDto,
     val warnings: List<String> = emptyList(),

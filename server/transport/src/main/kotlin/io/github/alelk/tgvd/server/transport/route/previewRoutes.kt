@@ -5,7 +5,7 @@ import io.github.alelk.tgvd.api.contract.preview.PreviewRequestDto
 import io.github.alelk.tgvd.api.contract.preview.PreviewResponseDto
 import io.github.alelk.tgvd.api.contract.resource.ApiV1
 import io.github.alelk.tgvd.api.contract.rule.RuleSummaryDto
-import io.github.alelk.tgvd.api.mapping.common.apiString
+import io.github.alelk.tgvd.api.mapping.common.toDto
 import io.github.alelk.tgvd.api.mapping.metadata.toDto
 import io.github.alelk.tgvd.api.mapping.storage.toDto
 import io.github.alelk.tgvd.api.mapping.video.toDto
@@ -48,7 +48,7 @@ fun Route.previewRoutes() {
                     RuleSummaryDto(id = it.id.value.toString(), name = it.name)
                 },
                 metadataSource = preview.metadataSource.toDto(),
-                category = preview.metadata.category.apiString,
+                category = preview.metadata.category.toDto(),
                 metadata = preview.metadata.toDto(),
                 storagePlan = storagePlan.toDto(),
             )

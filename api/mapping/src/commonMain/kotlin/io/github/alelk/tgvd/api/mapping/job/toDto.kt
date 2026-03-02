@@ -3,7 +3,7 @@ package io.github.alelk.tgvd.api.mapping.job
 import io.github.alelk.tgvd.api.contract.job.JobDto
 import io.github.alelk.tgvd.api.contract.job.JobErrorDto
 import io.github.alelk.tgvd.api.contract.job.JobProgressDto
-import io.github.alelk.tgvd.api.mapping.common.apiString
+import io.github.alelk.tgvd.api.mapping.common.toDto
 import io.github.alelk.tgvd.api.mapping.metadata.toDto
 import io.github.alelk.tgvd.api.mapping.storage.toDto
 import io.github.alelk.tgvd.api.mapping.video.toDto
@@ -17,7 +17,7 @@ fun Job.toDto(): JobDto = JobDto(
     status = status.name.lowercase(),
     source = source.toDto(),
     ruleId = ruleId?.value?.toString(),
-    category = metadata.category.apiString,
+    category = metadata.category.toDto(),
     metadata = metadata.toDto(),
     storagePlan = storagePlan.toDto(),
     progress = phase?.let {

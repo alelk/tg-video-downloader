@@ -5,6 +5,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class OutputTargetDto(
     val path: String,
-    val format: String,
+    val format: OutputFormatDto,
 )
 

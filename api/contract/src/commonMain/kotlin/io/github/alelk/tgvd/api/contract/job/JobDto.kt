@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.api.contract.job
 
+import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.api.contract.metadata.ResolvedMetadataDto
 import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
 import io.github.alelk.tgvd.api.contract.video.VideoSourceDto
@@ -11,7 +12,7 @@ data class JobDto(
     val status: String,
     val source: VideoSourceDto,
     val ruleId: String? = null,
-    val category: String,
+    val category: CategoryDto,
     val metadata: ResolvedMetadataDto,
     val storagePlan: StoragePlanDto,
     val progress: JobProgressDto? = null,

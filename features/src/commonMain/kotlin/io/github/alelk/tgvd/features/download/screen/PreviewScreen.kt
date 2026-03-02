@@ -11,27 +11,26 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
+import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.api.contract.job.CreateJobRequestDto
 import io.github.alelk.tgvd.api.contract.metadata.ResolvedMetadataDto
 import io.github.alelk.tgvd.api.contract.preview.PreviewResponseDto
+import io.github.alelk.tgvd.api.contract.storage.OutputFormatDto
 import io.github.alelk.tgvd.api.contract.storage.OutputTargetDto
 import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
 import io.github.alelk.tgvd.features.common.component.ErrorCard
 import io.github.alelk.tgvd.features.common.component.InfoRow
 import io.github.alelk.tgvd.features.common.component.SectionCard
 import io.github.alelk.tgvd.features.common.icon.TgvdIcons
+import io.github.alelk.tgvd.features.common.util.categoryLabel
 import io.github.alelk.tgvd.features.common.util.formatDuration
+import io.github.alelk.tgvd.features.generated.resources.Res
+import io.github.alelk.tgvd.features.generated.resources.*
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 
-private val metadataTypes = listOf("other", "music-video", "series-episode")
-
-private val availableFormats = listOf(
-    "original/mp4", "original/mkv", "original/webm", "original/avi", "original/mov",
-    "video/mp4", "video/mkv", "video/webm", "video/avi", "video/mov",
-    "audio/m4a", "audio/mp3", "audio/opus", "audio/flac", "audio/wav",
-    "image/jpg", "image/png", "image/webp",
-)
+private val metadataTypes = CategoryDto.entries.toList()
 
 class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
 
@@ -50,9 +49,9 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
         var metadataType by remember {
             mutableStateOf(
                 when (preview.metadata) {
-                    is ResolvedMetadataDto.MusicVideo -> "music-video"
-                    is ResolvedMetadataDto.SeriesEpisode -> "series-episode"
-                    is ResolvedMetadataDto.Other -> "other"
+                    is ResolvedMetadataDto.MusicVideo -> CategoryDto.MUSIC_VIDEO
+                    is ResolvedMetadataDto.SeriesEpisode -> CategoryDto.SERIES_EPISODE
+                    is ResolvedMetadataDto.Other -> CategoryDto.OTHER
                 }
             )
         }
@@ -68,19 +67,19 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
         fun buildMetadata(): ResolvedMetadataDto {
             val tagList = tags.split(",").map { it.trim() }.filter { it.isNotBlank() }
             return when (metadataType) {
-                "music-video" -> ResolvedMetadataDto.MusicVideo(
+                CategoryDto.MUSIC_VIDEO -> ResolvedMetadataDto.MusicVideo(
                     artist = artist,
                     title = title,
                     tags = tagList,
                 )
-                "series-episode" -> ResolvedMetadataDto.SeriesEpisode(
+                CategoryDto.SERIES_EPISODE -> ResolvedMetadataDto.SeriesEpisode(
                     seriesName = seriesName,
                     season = season.takeIf { it.isNotBlank() },
                     episode = episode.takeIf { it.isNotBlank() },
                     title = title,
                     tags = tagList,
                 )
-                else -> ResolvedMetadataDto.Other(
+                CategoryDto.OTHER -> ResolvedMetadataDto.Other(
                     title = title,
                     tags = tagList,
                 )
@@ -122,32 +121,21 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                     title = if (preview.matchedRule != null) "Metadata (rule)" else "Metadata",
                     icon = TgvdIcons.Label,
                 ) {
-                    // Category
-                    OutlinedTextField(
-                        value = category,
-                        onValueChange = { category = it },
-                        label = { Text("Category") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Metadata type selector
-                    Text("Type", style = MaterialTheme.typography.labelMedium)
+                    // Category / Metadata type selector (unified)
+                    Text("Category", style = MaterialTheme.typography.labelMedium)
                     Spacer(modifier = Modifier.height(4.dp))
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                         metadataTypes.forEachIndexed { index, type ->
                             SegmentedButton(
                                 selected = metadataType == type,
-                                onClick = { metadataType = type },
+                                onClick = {
+                                    metadataType = type
+                                    category = type
+                                },
                                 shape = SegmentedButtonDefaults.itemShape(index, metadataTypes.size),
                             ) {
                                 Text(
-                                    when (type) {
-                                        "music-video" -> "Music"
-                                        "series-episode" -> "Series"
-                                        else -> "Other"
-                                    },
+                                    categoryLabel(type),
                                     style = MaterialTheme.typography.labelMedium,
                                 )
                             }
@@ -167,7 +155,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
 
                     // Type-specific fields
                     when (metadataType) {
-                        "music-video" -> {
+                        CategoryDto.MUSIC_VIDEO -> {
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(
                                 value = artist,
@@ -177,7 +165,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }
-                        "series-episode" -> {
+                        CategoryDto.SERIES_EPISODE -> {
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(
                                 value = seriesName,
@@ -204,6 +192,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                                 )
                             }
                         }
+                        CategoryDto.OTHER -> { /* no additional fields */ }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -315,8 +304,8 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FormatDropdown(
-    selectedFormat: String,
-    onFormatSelected: (String) -> Unit,
+    selectedFormat: OutputFormatDto,
+    onFormatSelected: (OutputFormatDto) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -327,7 +316,7 @@ private fun FormatDropdown(
         modifier = modifier,
     ) {
         OutlinedTextField(
-            value = selectedFormat,
+            value = selectedFormat.serialized,
             onValueChange = {},
             readOnly = true,
             label = { Text("Format") },
@@ -339,9 +328,9 @@ private fun FormatDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            availableFormats.forEach { format ->
+            OutputFormatDto.allFormats.forEach { format ->
                 DropdownMenuItem(
-                    text = { Text(format) },
+                    text = { Text(format.serialized) },
                     onClick = {
                         onFormatSelected(format)
                         expanded = false

@@ -11,6 +11,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
+import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.api.contract.metadata.MetadataTemplateDto
 import io.github.alelk.tgvd.api.contract.rule.CreateRuleRequestDto
 import io.github.alelk.tgvd.api.contract.rule.RuleDto
@@ -20,6 +21,7 @@ import io.github.alelk.tgvd.api.contract.storage.PostProcessPolicyDto
 import io.github.alelk.tgvd.api.contract.storage.StoragePolicyDto
 import io.github.alelk.tgvd.features.common.component.ErrorCard
 import io.github.alelk.tgvd.features.common.icon.TgvdIcons
+import io.github.alelk.tgvd.features.common.util.categoryLabel
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -40,7 +42,7 @@ class RuleEditorScreen(
         var name by remember { mutableStateOf("") }
         var enabled by remember { mutableStateOf(true) }
         var priority by remember { mutableStateOf("0") }
-        var category by remember { mutableStateOf("other") }
+        var category by remember { mutableStateOf(CategoryDto.OTHER) }
 
         // Match type
         var matchType by remember { mutableStateOf("channel-name") }
@@ -137,14 +139,13 @@ class RuleEditorScreen(
                 }
 
                 // Category
-                val categories = listOf("music_video" to "Music Video", "series" to "Series", "other" to "Other")
                 Text("Category", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    categories.forEach { (value, label) ->
+                    CategoryDto.entries.forEach { cat ->
                         FilterChip(
-                            selected = category == value,
-                            onClick = { category = value },
-                            label = { Text(label) },
+                            selected = category == cat,
+                            onClick = { category = cat },
+                            label = { Text(categoryLabel(cat)) },
                         )
                     }
                 }
@@ -256,10 +257,10 @@ private fun buildMatch(type: String, value: String, ignoreCase: Boolean): RuleMa
     else -> RuleMatchDto.ChannelName(value, ignoreCase)
 }
 
-private fun buildMetadataTemplate(category: String): MetadataTemplateDto = when (category) {
-    "music_video" -> MetadataTemplateDto.MusicVideo()
-    "series" -> MetadataTemplateDto.SeriesEpisode()
-    else -> MetadataTemplateDto.Other()
+private fun buildMetadataTemplate(category: CategoryDto): MetadataTemplateDto = when (category) {
+    CategoryDto.MUSIC_VIDEO -> MetadataTemplateDto.MusicVideo()
+    CategoryDto.SERIES_EPISODE -> MetadataTemplateDto.SeriesEpisode()
+    CategoryDto.OTHER -> MetadataTemplateDto.Other()
 }
 
 private fun populateMatch(

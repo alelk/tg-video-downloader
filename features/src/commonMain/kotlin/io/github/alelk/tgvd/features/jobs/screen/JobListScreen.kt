@@ -13,6 +13,7 @@ import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.job.JobDto
 import io.github.alelk.tgvd.features.common.component.*
 import io.github.alelk.tgvd.features.common.theme.*
+import io.github.alelk.tgvd.features.common.util.categoryLabel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -106,7 +107,7 @@ private fun JobCard(job: JobDto, client: TgVideoDownloaderClient, onRefresh: () 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "${job.category} • ${job.source.extractor}",
+                text = "${categoryLabel(job.category)} • ${job.source.extractor}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

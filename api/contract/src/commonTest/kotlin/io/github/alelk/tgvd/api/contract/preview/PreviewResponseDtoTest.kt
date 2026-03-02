@@ -1,9 +1,12 @@
 package io.github.alelk.tgvd.api.contract.preview
 
+import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.api.contract.common.apiJson
 import io.github.alelk.tgvd.api.contract.metadata.MetadataSourceDto
 import io.github.alelk.tgvd.api.contract.metadata.ResolvedMetadataDto
 import io.github.alelk.tgvd.api.contract.rule.RuleSummaryDto
+import io.github.alelk.tgvd.api.contract.storage.MediaContainerDto
+import io.github.alelk.tgvd.api.contract.storage.OutputFormatDto
 import io.github.alelk.tgvd.api.contract.storage.OutputTargetDto
 import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
 import io.github.alelk.tgvd.api.contract.video.VideoInfoDto
@@ -29,10 +32,10 @@ class PreviewResponseDtoTest : FunSpec({
                 ),
                 matchedRule = RuleSummaryDto(id = "rule-1", name = "YouTube Downloads"),
                 metadataSource = MetadataSourceDto.RULE,
-                category = "other",
+                category = CategoryDto.OTHER,
                 metadata = ResolvedMetadataDto.Other(title = "Test Video"),
                 storagePlan = StoragePlanDto(
-                    original = OutputTargetDto("/tmp/test.webm", "original/webm"),
+                    original = OutputTargetDto("/tmp/test.webm", OutputFormatDto.OriginalVideo(MediaContainerDto.WEBM)),
                 ),
                 warnings = listOf("Low quality source"),
             )
@@ -115,6 +118,7 @@ class PreviewResponseDtoTest : FunSpec({
             val dto = apiJson.decodeFromString(PreviewResponseDto.serializer(), json)
             dto.matchedRule shouldBe null
             dto.metadataSource shouldBe MetadataSourceDto.FALLBACK
+            dto.category shouldBe CategoryDto.OTHER
             dto.warnings shouldBe emptyList()
         }
 
@@ -133,16 +137,22 @@ class PreviewResponseDtoTest : FunSpec({
                 ),
                 matchedRule = RuleSummaryDto("rule-music", "Music Videos"),
                 metadataSource = MetadataSourceDto.RULE,
-                category = "music-video",
+                category = CategoryDto.MUSIC_VIDEO,
                 metadata = ResolvedMetadataDto.MusicVideo(
                     artist = "Rick Astley",
                     title = "Never Gonna Give You Up",
                     tags = listOf("pop", "80s"),
                 ),
                 storagePlan = StoragePlanDto(
-                    original = OutputTargetDto("/media/original/Rick Astley/Never Gonna Give You Up.webm", "original/webm"),
+                    original = OutputTargetDto(
+                        "/media/original/Rick Astley/Never Gonna Give You Up.webm",
+                        OutputFormatDto.OriginalVideo(MediaContainerDto.WEBM),
+                    ),
                     additional = listOf(
-                        OutputTargetDto("/media/converted/Rick Astley/Never Gonna Give You Up.mp4", "video/mp4"),
+                        OutputTargetDto(
+                            "/media/converted/Rick Astley/Never Gonna Give You Up.mp4",
+                            OutputFormatDto.ConvertedVideo(MediaContainerDto.MP4),
+                        ),
                     ),
                 ),
             )
@@ -152,4 +162,3 @@ class PreviewResponseDtoTest : FunSpec({
         }
     }
 })
-

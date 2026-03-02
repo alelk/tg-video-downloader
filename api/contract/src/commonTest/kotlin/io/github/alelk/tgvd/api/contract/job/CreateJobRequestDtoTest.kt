@@ -1,7 +1,10 @@
 package io.github.alelk.tgvd.api.contract.job
 
+import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.api.contract.common.apiJson
 import io.github.alelk.tgvd.api.contract.metadata.ResolvedMetadataDto
+import io.github.alelk.tgvd.api.contract.storage.MediaContainerDto
+import io.github.alelk.tgvd.api.contract.storage.OutputFormatDto
 import io.github.alelk.tgvd.api.contract.storage.OutputTargetDto
 import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
 import io.github.alelk.tgvd.api.contract.video.VideoInfoDto
@@ -21,7 +24,7 @@ class CreateJobRequestDtoTest : FunSpec({
                     extractor = "youtube",
                 ),
                 ruleId = "rule-1",
-                category = "other",
+                category = CategoryDto.OTHER,
                 videoInfo = VideoInfoDto(
                     videoId = "abc123",
                     extractor = "youtube",
@@ -33,7 +36,7 @@ class CreateJobRequestDtoTest : FunSpec({
                 ),
                 metadata = ResolvedMetadataDto.Other(title = "Test Video"),
                 storagePlan = StoragePlanDto(
-                    original = OutputTargetDto("/tmp/test.webm", "original/webm"),
+                    original = OutputTargetDto("/tmp/test.webm", OutputFormatDto.OriginalVideo(MediaContainerDto.WEBM)),
                 ),
             )
             val json = apiJson.encodeToString(CreateJobRequestDto.serializer(), dto)
@@ -111,14 +114,14 @@ class CreateJobRequestDtoTest : FunSpec({
             val dto = apiJson.decodeFromString(CreateJobRequestDto.serializer(), json)
             dto.ruleId shouldBe null
             dto.saveAsRule shouldBe null
-            dto.category shouldBe "music-video"
+            dto.category shouldBe CategoryDto.MUSIC_VIDEO
             dto.source.videoId shouldBe "x"
         }
 
         test("round-trip with saveAsRule") {
             val original = CreateJobRequestDto(
                 source = VideoSourceDto("https://example.com", "v1", "generic"),
-                category = "other",
+                category = CategoryDto.OTHER,
                 videoInfo = VideoInfoDto(
                     videoId = "v1",
                     extractor = "generic",
@@ -130,7 +133,7 @@ class CreateJobRequestDtoTest : FunSpec({
                 ),
                 metadata = ResolvedMetadataDto.Other(title = "Test"),
                 storagePlan = StoragePlanDto(
-                    original = OutputTargetDto("/tmp/test.webm", "original/webm"),
+                    original = OutputTargetDto("/tmp/test.webm", OutputFormatDto.OriginalVideo(MediaContainerDto.WEBM)),
                 ),
                 saveAsRule = SaveAsRuleDto(
                     enabled = true,
@@ -146,4 +149,3 @@ class CreateJobRequestDtoTest : FunSpec({
         }
     }
 })
-
