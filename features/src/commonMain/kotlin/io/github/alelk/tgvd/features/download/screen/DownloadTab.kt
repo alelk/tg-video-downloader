@@ -7,14 +7,12 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import cafe.adriel.voyager.transitions.SlideTransition
-import io.github.alelk.tgvd.features.generated.resources.Res
-import io.github.alelk.tgvd.features.generated.resources.ic_download
-import org.jetbrains.compose.resources.vectorResource
+import io.github.alelk.tgvd.features.common.icon.TgvdIcons
 
 object DownloadTab : Tab {
     override val options: TabOptions
         @Composable get() {
-            val icon = rememberVectorPainter(vectorResource(Res.drawable.ic_download))
+            val icon = rememberVectorPainter(TgvdIcons.Download)
             return remember(icon) { TabOptions(index = 0u, title = "Download", icon = icon) }
         }
 

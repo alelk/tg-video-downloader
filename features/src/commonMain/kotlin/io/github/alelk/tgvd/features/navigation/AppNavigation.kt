@@ -16,13 +16,6 @@ import io.github.alelk.tgvd.features.jobs.screen.JobsTab
 import io.github.alelk.tgvd.features.rules.screen.RulesTab
 import io.github.alelk.tgvd.features.settings.screen.SettingsTab
 
-private val tabEmojis = mapOf(
-    DownloadTab to "📥",
-    JobsTab to "📋",
-    RulesTab to "📐",
-    SettingsTab to "⚙️",
-)
-
 @Composable
 fun AppNavigation() {
     TabNavigator(DownloadTab) {
@@ -48,11 +41,15 @@ fun AppNavigation() {
 @Composable
 private fun RowScope.TabItem(tab: Tab) {
     val tabNavigator = LocalTabNavigator.current
-    val emoji = tabEmojis[tab] ?: ""
+    val options = tab.options
     NavigationBarItem(
         selected = tabNavigator.current == tab,
         onClick = { tabNavigator.current = tab },
-        icon = { Text(emoji) },
-        label = { Text(tab.options.title) },
+        icon = {
+            options.icon?.let { painter ->
+                Icon(painter = painter, contentDescription = options.title)
+            }
+        },
+        label = { Text(options.title) },
     )
 }

@@ -17,12 +17,10 @@ import io.github.alelk.tgvd.api.contract.preview.PreviewResponseDto
 import io.github.alelk.tgvd.features.common.component.ErrorCard
 import io.github.alelk.tgvd.features.common.component.InfoRow
 import io.github.alelk.tgvd.features.common.component.SectionCard
+import io.github.alelk.tgvd.features.common.icon.TgvdIcons
 import io.github.alelk.tgvd.features.common.util.formatDuration
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.vectorResource
 import org.koin.compose.koinInject
-import io.github.alelk.tgvd.features.generated.resources.Res
-import io.github.alelk.tgvd.features.generated.resources.ic_arrow_back
 
 class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
 
@@ -42,7 +40,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                     title = { Text("Preview") },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(vectorResource(Res.drawable.ic_arrow_back), contentDescription = "Back")
+                            Icon(TgvdIcons.ArrowBack, contentDescription = "Back")
                         }
                     },
                 )

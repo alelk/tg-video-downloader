@@ -19,6 +19,7 @@ import io.github.alelk.tgvd.api.contract.storage.DownloadPolicyDto
 import io.github.alelk.tgvd.api.contract.storage.PostProcessPolicyDto
 import io.github.alelk.tgvd.api.contract.storage.StoragePolicyDto
 import io.github.alelk.tgvd.features.common.component.ErrorCard
+import io.github.alelk.tgvd.features.common.icon.TgvdIcons
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -83,7 +84,7 @@ class RuleEditorScreen(
                     title = { Text(if (isEdit) "Edit Rule" else "Create Rule") },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Text("←")
+                            Icon(TgvdIcons.ArrowBack, contentDescription = "Back")
                         }
                     },
                 )

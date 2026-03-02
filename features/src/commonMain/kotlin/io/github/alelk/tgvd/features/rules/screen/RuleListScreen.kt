@@ -17,9 +17,8 @@ import io.github.alelk.tgvd.api.contract.rule.RuleDto
 import io.github.alelk.tgvd.api.contract.rule.RuleMatchDto
 import io.github.alelk.tgvd.features.common.component.*
 import io.github.alelk.tgvd.features.common.theme.*
-import io.github.alelk.tgvd.features.generated.resources.*
+import io.github.alelk.tgvd.features.common.icon.TgvdIcons
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.vectorResource
 import org.koin.compose.koinInject
 
 class RuleListScreen : Screen {
@@ -79,7 +78,7 @@ class RuleListScreen : Screen {
                 FloatingActionButton(
                     onClick = { navigator.push(RuleEditorScreen(ruleId = null, onSaved = { loadRules() })) },
                 ) {
-                    Icon(vectorResource(Res.drawable.ic_add), contentDescription = "Add Rule")
+                    Icon(TgvdIcons.Add, contentDescription = "Add Rule")
                 }
             },
         ) { paddingValues ->
@@ -168,10 +167,10 @@ private fun RuleCard(rule: RuleDto, onEdit: () -> Unit, onDelete: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 IconButton(onClick = onEdit) {
-                    Icon(vectorResource(Res.drawable.ic_edit), contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
+                    Icon(TgvdIcons.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(vectorResource(Res.drawable.ic_delete), contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                    Icon(TgvdIcons.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                 }
             }
         }
