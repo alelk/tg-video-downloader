@@ -4,6 +4,7 @@ import arrow.core.right
 import io.github.alelk.tgvd.domain.common.DomainError
 import io.github.alelk.tgvd.domain.common.TelegramUserId
 import io.github.alelk.tgvd.domain.common.WorkspaceId
+import io.github.alelk.tgvd.domain.common.WorkspaceSlug
 import io.github.alelk.tgvd.domain.workspace.Workspace
 import io.github.alelk.tgvd.domain.workspace.WorkspaceMember
 import io.github.alelk.tgvd.domain.workspace.WorkspaceRepository
@@ -33,6 +34,12 @@ class WorkspaceRepositoryImpl(
             .singleOrNull()
             ?.toWorkspace()
     }
+    override suspend fun findBySlug(slug: WorkspaceSlug): Workspace? = dbQuery(database) {
+        WorkspacesTable.selectAll()
+            .where { WorkspacesTable.slug eq slug.value }
+            .singleOrNull()
+            ?.toWorkspace()
+    }
     override suspend fun findByUser(userId: TelegramUserId): List<WorkspaceMember> = dbQuery(database) {
         WorkspaceMembersTable.selectAll()
             .where { WorkspaceMembersTable.userId eq userId.value }
@@ -57,11 +64,13 @@ class WorkspaceRepositoryImpl(
             .count() > 0
         if (exists) {
             WorkspacesTable.update({ WorkspacesTable.id eq workspace.id.value }) {
+                it[slug] = workspace.slug.value
                 it[name] = workspace.name
             }
         } else {
             WorkspacesTable.insert {
                 it[id] = workspace.id.value
+                it[slug] = workspace.slug.value
                 it[name] = workspace.name
             }
         }
@@ -83,6 +92,7 @@ class WorkspaceRepositoryImpl(
     }
     private fun ResultRow.toWorkspace(): Workspace = Workspace(
         id = WorkspaceId(this[WorkspacesTable.id].value),
+        slug = WorkspaceSlug(this[WorkspacesTable.slug]),
         name = this[WorkspacesTable.name],
         createdAt = this[WorkspacesTable.createdAt],
     )

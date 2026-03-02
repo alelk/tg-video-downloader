@@ -12,12 +12,12 @@ import io.github.alelk.tgvd.api.contract.workspace.WorkspaceDto
 @Composable
 fun WorkspaceSelector(
     workspaces: List<WorkspaceDto>,
-    selectedWorkspaceId: String?,
+    selectedWorkspaceSlug: String?,
     onWorkspaceSelected: (WorkspaceDto) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selected = workspaces.find { it.id == selectedWorkspaceId }
+    val selected = workspaces.find { it.slug == selectedWorkspaceSlug }
 
     ExposedDropdownMenuBox(
         expanded = expanded,

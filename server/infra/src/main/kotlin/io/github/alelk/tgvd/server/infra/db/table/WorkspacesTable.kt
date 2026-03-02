@@ -7,6 +7,7 @@ import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
 object WorkspacesTable : UuidTable("workspaces") {
+    val slug = text("slug").uniqueIndex()
     val name = text("name")
     val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
 }

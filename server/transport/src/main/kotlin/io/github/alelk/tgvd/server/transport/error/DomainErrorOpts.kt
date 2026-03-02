@@ -57,6 +57,12 @@ fun DomainError.toHttpResponse(correlationId: String): Pair<HttpStatusCode, ApiE
     is DomainError.WorkspaceNotFound ->
         HttpStatusCode.NotFound to apiError("NOT_FOUND", message, correlationId)
 
+    is DomainError.WorkspaceNotFoundBySlug ->
+        HttpStatusCode.NotFound to apiError("NOT_FOUND", message, correlationId)
+
+    is DomainError.WorkspaceSlugConflict ->
+        HttpStatusCode.Conflict to apiError("CONFLICT", message, correlationId)
+
     is DomainError.WorkspaceAccessDenied ->
         HttpStatusCode.Forbidden to apiError("FORBIDDEN", message, correlationId)
 }

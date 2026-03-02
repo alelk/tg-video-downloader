@@ -55,7 +55,7 @@ fun SettingsScreen() {
         SectionCard(title = "Workspace") {
             WorkspaceSelector(
                 workspaces = workspaceState.workspaces,
-                selectedWorkspaceId = workspaceState.selectedWorkspaceId,
+                selectedWorkspaceSlug = workspaceState.selectedWorkspaceSlug,
                 onWorkspaceSelected = { workspaceState.selectedWorkspace = it },
             )
         }

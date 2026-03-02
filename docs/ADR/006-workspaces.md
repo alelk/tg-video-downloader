@@ -31,8 +31,16 @@
 ```kotlin
 @JvmInline value class WorkspaceId(val value: Uuid)
 
+/**
+ * Человекочитаемый уникальный идентификатор workspace.
+ * Используется в URL path и конфигурации приложения.
+ * Примеры: "personal", "my-team", "project-alpha-2"
+ */
+@JvmInline value class WorkspaceSlug(val value: String) // ^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$
+
 data class Workspace(
-    val id: WorkspaceId,
+    val id: WorkspaceId,      // UUID — внутренний технический ключ
+    val slug: WorkspaceSlug,  // "my-team" — человекочитаемый, используется в URL и конфиге
     val name: String,
     val createdAt: Instant,
 )
@@ -105,8 +113,9 @@ data class Job(
 - Пользователи в одной группе видят все задачи и правила
 - Полная изоляция между группами
 - Пользователь может участвовать в нескольких рабочих пространствах
-- Type-safe workspace context через Ktor Resources — невозможно забыть workspaceId
-- `{workspaceId}` / `{workspaceName}` доступен как placeholder в path templates
+- Type-safe workspace context через Ktor Resources — невозможно забыть workspaceSlug
+- `{workspaceSlug}` в URL — читаемый, пригоден для закладок и логов
+- Slug используется в конфигурации приложения для преднастроек per-workspace
 
 ### Отрицательные
 - Дополнительная сложность: новые таблицы, middleware
@@ -126,23 +135,23 @@ data class Job(
 ```
 GET    /api/v1/workspaces                                         → WorkspaceListResponseDto
 POST   /api/v1/workspaces                                         → WorkspaceDto (201)
-GET    /api/v1/workspaces/{workspaceId}/members                    → WorkspaceMemberListResponseDto
-POST   /api/v1/workspaces/{workspaceId}/members                    → WorkspaceMemberDto (201)
-DELETE /api/v1/workspaces/{workspaceId}/members/{userId}           → 204
+GET    /api/v1/workspaces/{slug}/members                           → WorkspaceMemberListResponseDto
+POST   /api/v1/workspaces/{slug}/members                           → WorkspaceMemberDto (201)
+DELETE /api/v1/workspaces/{slug}/members/{userId}                  → 204
 ```
 
 ### Resource endpoints (scoped to workspace)
 ```
-POST   /api/v1/workspaces/{workspaceId}/preview                    → PreviewResponseDto
-GET    /api/v1/workspaces/{workspaceId}/jobs                       → JobListResponseDto
-POST   /api/v1/workspaces/{workspaceId}/jobs                       → JobDto (201)
-GET    /api/v1/workspaces/{workspaceId}/jobs/{id}                  → JobDto
-POST   /api/v1/workspaces/{workspaceId}/jobs/{id}/cancel           → JobDto
-GET    /api/v1/workspaces/{workspaceId}/rules                      → RuleListResponseDto
-POST   /api/v1/workspaces/{workspaceId}/rules                      → RuleDto (201)
-GET    /api/v1/workspaces/{workspaceId}/rules/{id}                 → RuleDto
-PUT    /api/v1/workspaces/{workspaceId}/rules/{id}                 → RuleDto
-DELETE /api/v1/workspaces/{workspaceId}/rules/{id}                 → 204
+POST   /api/v1/workspaces/{slug}/preview                           → PreviewResponseDto
+GET    /api/v1/workspaces/{slug}/jobs                              → JobListResponseDto
+POST   /api/v1/workspaces/{slug}/jobs                              → JobDto (201)
+GET    /api/v1/workspaces/{slug}/jobs/{id}                         → JobDto
+POST   /api/v1/workspaces/{slug}/jobs/{id}/cancel                  → JobDto
+GET    /api/v1/workspaces/{slug}/rules                             → RuleListResponseDto
+POST   /api/v1/workspaces/{slug}/rules                             → RuleDto (201)
+GET    /api/v1/workspaces/{slug}/rules/{id}                        → RuleDto
+PUT    /api/v1/workspaces/{slug}/rules/{id}                        → RuleDto
+DELETE /api/v1/workspaces/{slug}/rules/{id}                        → 204
 ```
 
 ### System-wide (не привязаны к workspace)
@@ -158,6 +167,7 @@ POST   /api/v1/system/yt-dlp/update                                → YtDlpUpda
 ```sql
 CREATE TABLE workspaces (
     id         UUID PRIMARY KEY,
+    slug       TEXT NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$'),
     name       TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

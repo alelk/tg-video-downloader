@@ -13,7 +13,7 @@ class WorkspaceState {
     var workspaces by mutableStateOf<List<WorkspaceDto>>(emptyList())
     var selectedWorkspace by mutableStateOf<WorkspaceDto?>(null)
 
-    val selectedWorkspaceId: String?
-        get() = selectedWorkspace?.id
+    val selectedWorkspaceSlug: String?
+        get() = selectedWorkspace?.slug
 }
 

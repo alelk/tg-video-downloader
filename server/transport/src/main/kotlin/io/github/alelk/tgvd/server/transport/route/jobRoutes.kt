@@ -14,7 +14,8 @@ import io.github.alelk.tgvd.domain.common.JobId
 import io.github.alelk.tgvd.domain.common.RuleId
 import io.github.alelk.tgvd.domain.job.*
 import io.github.alelk.tgvd.domain.metadata.MetadataSource
-import io.github.alelk.tgvd.server.transport.auth.parseWorkspaceId
+import io.github.alelk.tgvd.domain.workspace.WorkspaceRepository
+import io.github.alelk.tgvd.server.transport.auth.parseWorkspaceSlug
 import io.github.alelk.tgvd.server.transport.auth.telegramUser
 import io.github.alelk.tgvd.server.transport.util.parseId
 import io.github.alelk.tgvd.server.transport.util.respondEither
@@ -32,16 +33,18 @@ import kotlin.uuid.Uuid
 fun Route.jobRoutes() {
     val createJobUseCase by inject<CreateJobUseCase>()
     val jobRepository by inject<JobRepository>()
+    val workspaceRepository by inject<WorkspaceRepository>()
 
     post<ApiV1.Workspaces.ById.Jobs> { res ->
         val request = call.receive<CreateJobRequestDto>()
         val user = call.telegramUser
 
         val result = either {
-            val wsId = parseWorkspaceId(res.parent.workspaceId).bind()
+            val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
             val metadata = request.metadata.toDomain().bind()
             val createRequest = CreateJobUseCase.CreateJobRequest(
-                workspaceId = wsId,
+                workspaceId = ws.id,
                 source = request.source.toDomain(),
                 ruleId = request.ruleId?.let { RuleId(Uuid.parse(it)) },
                 metadata = metadata,
@@ -57,8 +60,9 @@ fun Route.jobRoutes() {
 
     get<ApiV1.Workspaces.ById.Jobs> { res ->
         val result = either<DomainError, JobListResponseDto> {
-            val wsId = parseWorkspaceId(res.parent.workspaceId).bind()
-            val jobs = jobRepository.findByWorkspace(wsId)
+            val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
+            val jobs = jobRepository.findByWorkspace(ws.id)
 
             val filtered = if (res.status != null) {
                 jobs.filter { it.status.name.equals(res.status, ignoreCase = true) }

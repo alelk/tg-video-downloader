@@ -1,6 +1,7 @@
 package io.github.alelk.tgvd.domain.workspace
 
 import io.github.alelk.tgvd.domain.common.WorkspaceId
+import io.github.alelk.tgvd.domain.common.WorkspaceSlug
 import kotlin.time.Instant
 
 /**
@@ -12,6 +13,7 @@ import kotlin.time.Instant
  */
 data class Workspace(
     val id: WorkspaceId,
+    val slug: WorkspaceSlug,
     val name: String,
     val createdAt: Instant,
 ) {

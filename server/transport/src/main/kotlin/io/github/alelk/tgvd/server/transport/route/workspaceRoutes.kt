@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+
 package io.github.alelk.tgvd.server.transport.route
 
 import arrow.core.raise.either
@@ -6,8 +8,9 @@ import io.github.alelk.tgvd.api.contract.workspace.*
 import io.github.alelk.tgvd.domain.common.DomainError
 import io.github.alelk.tgvd.domain.common.TelegramUserId
 import io.github.alelk.tgvd.domain.common.WorkspaceId
+import io.github.alelk.tgvd.domain.common.WorkspaceSlug
 import io.github.alelk.tgvd.domain.workspace.*
-import io.github.alelk.tgvd.server.transport.auth.parseWorkspaceId
+import io.github.alelk.tgvd.server.transport.auth.parseWorkspaceSlug
 import io.github.alelk.tgvd.server.transport.auth.telegramUser
 import io.github.alelk.tgvd.server.transport.util.respondEither
 import io.ktor.http.*
@@ -32,12 +35,7 @@ fun Route.workspaceRoutes() {
         val memberships = workspaceRepository.findByUser(user.id)
         val workspaces = memberships.mapNotNull { member ->
             workspaceRepository.findById(member.workspaceId)?.let { ws ->
-                WorkspaceDto(
-                    id = ws.id.value.toString(),
-                    name = ws.name,
-                    role = member.role.name.lowercase(),
-                    createdAt = ws.createdAt.toString(),
-                )
+                ws.toDto(member.role.name.lowercase())
             }
         }
         call.respond(WorkspaceListResponseDto(items = workspaces))
@@ -50,8 +48,12 @@ fun Route.workspaceRoutes() {
         val now = Clock.System.now()
 
         val result = either {
+            val slug = runCatching { WorkspaceSlug(request.slug) }
+                .getOrElse { raise(DomainError.ValidationError("slug", it.message ?: "Invalid slug")) }
+
             val workspace = Workspace(
                 id = WorkspaceId(Uuid.random()),
+                slug = slug,
                 name = request.name,
                 createdAt = now,
             )
@@ -71,24 +73,21 @@ fun Route.workspaceRoutes() {
         }
 
         call.respondEither<WorkspaceDto, _>(result, HttpStatusCode.Created) { ws ->
-            WorkspaceDto(
-                id = ws.id.value.toString(),
-                name = ws.name,
-                role = "owner",
-                createdAt = ws.createdAt.toString(),
-            )
+            ws.toDto("owner")
         }
     }
 
     // List members of a workspace
     get<ApiV1.Workspaces.ById.Members> { res ->
         val result = either {
-            val wsId = parseWorkspaceId(res.parent.workspaceId).bind()
+            val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.findBySlug(slug)
+                ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
             val user = call.telegramUser
-            if (!workspaceRepository.isMember(wsId, user.id)) {
-                raise(DomainError.WorkspaceAccessDenied(wsId, user.id))
+            if (!workspaceRepository.isMember(ws.id, user.id)) {
+                raise(DomainError.WorkspaceAccessDenied(ws.id, user.id))
             }
-            workspaceRepository.findMembers(wsId)
+            workspaceRepository.findMembers(ws.id)
         }
 
         call.respondEither<WorkspaceMemberListResponseDto, _>(result) { members ->
@@ -109,14 +108,16 @@ fun Route.workspaceRoutes() {
         val request = call.receive<AddMemberRequestDto>()
 
         val result = either {
-            val wsId = parseWorkspaceId(res.parent.workspaceId).bind()
+            val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.findBySlug(slug)
+                ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
             val user = call.telegramUser
 
             // Check caller is owner
-            val callerMembership = workspaceRepository.findMembers(wsId)
+            val callerMembership = workspaceRepository.findMembers(ws.id)
                 .find { it.userId == user.id }
             if (callerMembership == null || callerMembership.role != WorkspaceRole.OWNER) {
-                raise(DomainError.WorkspaceAccessDenied(wsId, user.id))
+                raise(DomainError.WorkspaceAccessDenied(ws.id, user.id))
             }
 
             val role = when (request.role.lowercase()) {
@@ -125,7 +126,7 @@ fun Route.workspaceRoutes() {
             }
 
             val member = WorkspaceMember(
-                workspaceId = wsId,
+                workspaceId = ws.id,
                 userId = TelegramUserId(request.userId),
                 role = role,
                 joinedAt = Clock.System.now(),
@@ -145,20 +146,32 @@ fun Route.workspaceRoutes() {
     // Remove member from workspace (only OWNER)
     delete<ApiV1.Workspaces.ById.Members.ByUserId> { res ->
         val result = either {
-            val wsId = parseWorkspaceId(res.parent.parent.workspaceId).bind()
+            val slug = parseWorkspaceSlug(res.parent.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.findBySlug(slug)
+                ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
             val user = call.telegramUser
 
-            val callerMembership = workspaceRepository.findMembers(wsId)
+            val callerMembership = workspaceRepository.findMembers(ws.id)
                 .find { it.userId == user.id }
             if (callerMembership == null || callerMembership.role != WorkspaceRole.OWNER) {
-                raise(DomainError.WorkspaceAccessDenied(wsId, user.id))
+                raise(DomainError.WorkspaceAccessDenied(ws.id, user.id))
             }
 
             val targetUserId = TelegramUserId(res.userId)
-            if (!workspaceRepository.removeMember(wsId, targetUserId)) {
+            if (!workspaceRepository.removeMember(ws.id, targetUserId)) {
                 raise(DomainError.ValidationError("userId", "User ${res.userId} is not a member"))
             }
         }
         call.respondEither(result, HttpStatusCode.NoContent)
     }
 }
+
+@OptIn(ExperimentalUuidApi::class)
+private fun Workspace.toDto(role: String) = WorkspaceDto(
+    id = id.value.toString(),
+    slug = slug.value,
+    name = name,
+    role = role,
+    createdAt = createdAt.toString(),
+)
+

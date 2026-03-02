@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class WorkspaceDto(
     val id: String,
+    val slug: String,
     val name: String,
     val role: String,
     val createdAt: String,

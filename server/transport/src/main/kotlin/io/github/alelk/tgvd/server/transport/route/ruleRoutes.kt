@@ -13,7 +13,8 @@ import io.github.alelk.tgvd.domain.common.DomainError
 import io.github.alelk.tgvd.domain.common.RuleId
 import io.github.alelk.tgvd.domain.rule.Rule
 import io.github.alelk.tgvd.domain.rule.RuleRepository
-import io.github.alelk.tgvd.server.transport.auth.parseWorkspaceId
+import io.github.alelk.tgvd.domain.workspace.WorkspaceRepository
+import io.github.alelk.tgvd.server.transport.auth.parseWorkspaceSlug
 import io.github.alelk.tgvd.server.transport.util.parseId
 import io.github.alelk.tgvd.server.transport.util.respondEither
 import io.ktor.http.*
@@ -32,11 +33,13 @@ import kotlin.uuid.Uuid
 @OptIn(ExperimentalUuidApi::class)
 fun Route.ruleRoutes() {
     val ruleRepository by inject<RuleRepository>()
+    val workspaceRepository by inject<WorkspaceRepository>()
 
     get<ApiV1.Workspaces.ById.Rules> { res ->
         val result = either<DomainError, RuleListResponseDto> {
-            val wsId = parseWorkspaceId(res.parent.workspaceId).bind()
-            val rules = ruleRepository.findByWorkspace(wsId)
+            val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
+            val rules = ruleRepository.findByWorkspace(ws.id)
             RuleListResponseDto(items = rules.map { it.toDto() })
         }
         call.respondEither(result)
@@ -46,13 +49,14 @@ fun Route.ruleRoutes() {
         val request = call.receive<CreateRuleRequestDto>()
 
         val result = either {
-            val wsId = parseWorkspaceId(res.parent.workspaceId).bind()
+            val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
             val match = request.match.toDomain().bind()
             val now = Clock.System.now()
             val rule = Rule(
                 id = RuleId(Uuid.random()),
                 name = request.name,
-                workspaceId = wsId,
+                workspaceId = ws.id,
                 match = match,
                 metadataTemplate = request.metadataTemplate.toDomain(),
                 storagePolicy = request.storagePolicy.toDomain(),

@@ -9,11 +9,11 @@ import kotlinx.serialization.Serializable
  * All domain resources (jobs, rules, preview) are scoped under a workspace:
  * ```
  * /api/v1/workspaces                              — list user's workspaces
- * /api/v1/workspaces/{id}                          — workspace details
- * /api/v1/workspaces/{id}/members                  — workspace members
- * /api/v1/workspaces/{id}/preview                  — preview a URL
- * /api/v1/workspaces/{id}/jobs                     — jobs within workspace
- * /api/v1/workspaces/{id}/rules                    — rules within workspace
+ * /api/v1/workspaces/{slug}                        — workspace details
+ * /api/v1/workspaces/{slug}/members                — workspace members
+ * /api/v1/workspaces/{slug}/preview                — preview a URL
+ * /api/v1/workspaces/{slug}/jobs                   — jobs within workspace
+ * /api/v1/workspaces/{slug}/rules                  — rules within workspace
  * /api/v1/system/...                               — system-wide (yt-dlp status, update)
  * ```
  */
@@ -26,8 +26,8 @@ class ApiV1 {
     class Workspaces(val parent: ApiV1 = ApiV1()) {
 
         @Serializable
-        @Resource("{workspaceId}")
-        class ById(val parent: Workspaces = Workspaces(), val workspaceId: String) {
+        @Resource("{workspaceSlug}")
+        class ById(val parent: Workspaces = Workspaces(), val workspaceSlug: String) {
 
             // --- Members ---
 

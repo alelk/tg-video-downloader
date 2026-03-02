@@ -15,9 +15,9 @@
 Все доменные ресурсы (jobs, rules, preview) привязаны к workspace:
 
 ```
-/api/v1/workspaces/{workspaceId}/jobs
-/api/v1/workspaces/{workspaceId}/rules
-/api/v1/workspaces/{workspaceId}/preview
+/api/v1/workspaces/{slug}/jobs
+/api/v1/workspaces/{slug}/rules
+/api/v1/workspaces/{slug}/preview
 ```
 
 Управление workspace и системные эндпоинты — на верхнем уровне:
@@ -314,7 +314,7 @@ enum class MetadataSourceDto {
 
 ## 6. Эндпоинты
 
-### 6.1 POST /api/v1/workspaces/{workspaceId}/preview
+### 6.1 POST /api/v1/workspaces/{slug}/preview
 
 Получить preview метаданных для URL.
 
@@ -406,7 +406,7 @@ data class PreviewResponseDto(
 
 ---
 
-### 6.2 POST /api/v1/workspaces/{workspaceId}/jobs
+### 6.2 POST /api/v1/workspaces/{slug}/jobs
 
 Создать job.
 
@@ -488,7 +488,7 @@ data class JobDto(
 
 ---
 
-### 6.3 GET /api/v1/workspaces/{workspaceId}/jobs
+### 6.3 GET /api/v1/workspaces/{slug}/jobs
 
 Список jobs текущего workspace.
 
@@ -516,7 +516,7 @@ data class JobListResponseDto(
 
 ---
 
-### 6.4 GET /api/v1/workspaces/{workspaceId}/jobs/{id}
+### 6.4 GET /api/v1/workspaces/{slug}/jobs/{id}
 
 Получить job по ID.
 
@@ -530,7 +530,7 @@ data class JobListResponseDto(
 
 ---
 
-### 6.5 POST /api/v1/workspaces/{workspaceId}/jobs/{id}/cancel
+### 6.5 POST /api/v1/workspaces/{slug}/jobs/{id}/cancel
 
 Отменить job.
 
@@ -545,7 +545,7 @@ data class JobListResponseDto(
 
 ---
 
-### 6.6 GET /api/v1/workspaces/{workspaceId}/rules
+### 6.6 GET /api/v1/workspaces/{slug}/rules
 
 Список правил.
 
@@ -560,7 +560,7 @@ data class RuleListResponseDto(
 
 ---
 
-### 6.7 POST /api/v1/workspaces/{workspaceId}/rules
+### 6.7 POST /api/v1/workspaces/{slug}/rules
 
 Создать правило.
 
@@ -587,19 +587,19 @@ data class CreateRuleRequestDto(
 
 ---
 
-### 6.8 GET /api/v1/workspaces/{workspaceId}/rules/{id}
+### 6.8 GET /api/v1/workspaces/{slug}/rules/{id}
 
 Получить правило по ID.
 
 ---
 
-### 6.9 PUT /api/v1/workspaces/{workspaceId}/rules/{id}
+### 6.9 PUT /api/v1/workspaces/{slug}/rules/{id}
 
 Обновить правило.
 
 ---
 
-### 6.10 DELETE /api/v1/workspaces/{workspaceId}/rules/{id}
+### 6.10 DELETE /api/v1/workspaces/{slug}/rules/{id}
 
 Удалить (или деактивировать) правило.
 
@@ -1083,7 +1083,7 @@ data class CreateWorkspaceRequestDto(
 
 `WorkspaceDto`
 
-### 10.3 GET /api/v1/workspaces/{workspaceId}/members
+### 10.3 GET /api/v1/workspaces/{slug}/members
 
 Список участников workspace.
 
@@ -1105,7 +1105,7 @@ data class WorkspaceMemberDto(
 )
 ```
 
-### 10.4 POST /api/v1/workspaces/{workspaceId}/members
+### 10.4 POST /api/v1/workspaces/{slug}/members
 
 Добавить участника в workspace. Только OWNER.
 
@@ -1125,7 +1125,7 @@ data class AddMemberRequestDto(
 
 `WorkspaceMemberDto`
 
-### 10.5 DELETE /api/v1/workspaces/{workspaceId}/members/{userId}
+### 10.5 DELETE /api/v1/workspaces/{slug}/members/{userId}
 
 Удалить участника из workspace. Только OWNER.
 

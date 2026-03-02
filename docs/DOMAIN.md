@@ -96,6 +96,21 @@ value class JobId(val value: Uuid)
 @JvmInline
 value class WorkspaceId(val value: Uuid)
 
+/**
+ * Человекочитаемый уникальный идентификатор workspace.
+ * Используется в URL path и конфигурации приложения.
+ * Требования: строчные буквы, цифры, дефис; 3–50 символов; не начинается/не заканчивается дефисом.
+ * Примеры: "personal", "my-team", "project-alpha-2"
+ */
+@JvmInline
+value class WorkspaceSlug(val value: String) {
+    init {
+        require(value.matches(Regex("^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$"))) {
+            "WorkspaceSlug must be 3–50 chars, lowercase letters/digits, hyphens not at start/end"
+        }
+    }
+}
+
 @JvmInline
 value class TelegramUserId(val value: Long) {
     init {
@@ -221,6 +236,8 @@ sealed interface DomainError {
     
     // === Workspace ===
     data class WorkspaceNotFound(val id: WorkspaceId, override val message: String = "Workspace not found: ${id.value}") : DomainError
+    data class WorkspaceNotFoundBySlug(val slug: WorkspaceSlug, override val message: String = "Workspace not found: ${slug.value}") : DomainError
+    data class WorkspaceSlugConflict(val slug: WorkspaceSlug, override val message: String = "Workspace with slug '${slug.value}' already exists") : DomainError
     data class WorkspaceAccessDenied(val workspaceId: WorkspaceId, val userId: TelegramUserId, override val message: String = "User ${userId.value} is not a member of workspace ${workspaceId.value}") : DomainError
 
     // === LLM ===
@@ -252,11 +269,14 @@ Workspace — группа пользователей с общими ресур
 
 ```kotlin
 data class Workspace(
-    val id: WorkspaceId,
+    val id: WorkspaceId,      // UUID — внутренний технический ключ
+    val slug: WorkspaceSlug,  // "my-team" — человекочитаемый, уникальный, используется в URL
     val name: String,
     val createdAt: Instant,
 )
 ```
+
+> `slug` — уникальный строковый идентификатор workspace. Используется в URL (`/api/v1/workspaces/{slug}/...`) и конфигурации приложения. Задаётся при создании workspace, должен быть уникальным в системе.
 
 ### 3.2 WorkspaceMember
 
@@ -287,6 +307,7 @@ enum class WorkspaceRole {
 ```kotlin
 interface WorkspaceRepository {
     suspend fun findById(id: WorkspaceId): Workspace?
+    suspend fun findBySlug(slug: WorkspaceSlug): Workspace?
     suspend fun findByUser(userId: TelegramUserId): List<WorkspaceMember>
     suspend fun findMembers(workspaceId: WorkspaceId): List<WorkspaceMember>
     suspend fun isMember(workspaceId: WorkspaceId, userId: TelegramUserId): Boolean

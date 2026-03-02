@@ -20,7 +20,7 @@ class TgVideoDownloaderClientImpl(
     private val httpClient: HttpClient,
     baseUrl: String,
     private val initDataProvider: () -> String = { "" },
-    var workspaceId: String = "default",
+    var workspaceSlug: String = "default",
 ) : TgVideoDownloaderClient {
 
     private val client = httpClient.config {
@@ -35,7 +35,7 @@ class TgVideoDownloaderClientImpl(
         header("X-Telegram-Init-Data", initDataProvider())
     }
 
-    private fun workspace() = Workspaces.ById(workspaceId = workspaceId)
+    private fun workspace() = Workspaces.ById(workspaceSlug = workspaceSlug)
 
     override suspend fun getWorkspaces(): WorkspaceListResponseDto =
         client.get(Workspaces()) {

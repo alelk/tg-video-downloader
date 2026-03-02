@@ -150,22 +150,22 @@ private fun WorkspaceInitializer(content: @Composable () -> Unit) {
             val ws = if (workspaces.items.isNotEmpty()) {
                 workspaces.items
             } else {
-                val created = client.createWorkspace(CreateWorkspaceRequestDto(name = "Default"))
+                val created = client.createWorkspace(CreateWorkspaceRequestDto(slug = "default", name = "Default"))
                 listOf(created)
             }
             workspaceState.workspaces = ws
             workspaceState.selectedWorkspace = ws.first()
-            (client as TgVideoDownloaderClientImpl).workspaceId = ws.first().id
+            (client as TgVideoDownloaderClientImpl).workspaceSlug = ws.first().slug
             ready = true
         } catch (e: Exception) {
             error = e.message ?: "Failed to initialize workspace"
         }
     }
 
-    // Sync client workspaceId when selection changes
+    // Sync client workspaceSlug when selection changes
     LaunchedEffect(workspaceState.selectedWorkspace) {
         workspaceState.selectedWorkspace?.let { ws ->
-            (client as TgVideoDownloaderClientImpl).workspaceId = ws.id
+            (client as TgVideoDownloaderClientImpl).workspaceSlug = ws.slug
         }
     }
 

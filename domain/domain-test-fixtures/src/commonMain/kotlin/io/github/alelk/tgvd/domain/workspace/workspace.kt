@@ -9,9 +9,10 @@ import kotlin.time.ExperimentalTime
 @OptIn(ExperimentalTime::class)
 fun Arb.Companion.workspace(
     id: Arb<WorkspaceId> = Arb.workspaceId(),
+    slug: Arb<WorkspaceSlug> = Arb.workspaceSlug(),
     name: Arb<String> = Arb.string(3..25, Codepoint.az()),
 ): Arb<Workspace> = arbitrary {
-    Workspace(id = id.bind(), name = name.bind(), createdAt = Clock.System.now())
+    Workspace(id = id.bind(), slug = slug.bind(), name = name.bind(), createdAt = Clock.System.now())
 }
 
 

@@ -15,7 +15,8 @@ import io.github.alelk.tgvd.domain.metadata.category
 import io.github.alelk.tgvd.domain.preview.PreviewUseCase
 import io.github.alelk.tgvd.domain.storage.PathTemplateEngine
 import io.github.alelk.tgvd.domain.video.VideoSource
-import io.github.alelk.tgvd.server.transport.auth.parseWorkspaceId
+import io.github.alelk.tgvd.domain.workspace.WorkspaceRepository
+import io.github.alelk.tgvd.server.transport.auth.parseWorkspaceSlug
 import io.github.alelk.tgvd.server.transport.util.respondEither
 import io.ktor.server.request.*
 import io.ktor.server.resources.post
@@ -27,13 +28,15 @@ import kotlin.uuid.ExperimentalUuidApi
 fun Route.previewRoutes() {
     val previewUseCase by inject<PreviewUseCase>()
     val pathTemplateEngine by inject<PathTemplateEngine>()
+    val workspaceRepository by inject<WorkspaceRepository>()
 
     post<ApiV1.Workspaces.ById.Preview> { res ->
         val request = call.receive<PreviewRequestDto>()
 
         val result = either<DomainError, PreviewResponseDto> {
-            val wsId = parseWorkspaceId(res.parent.workspaceId).bind()
-            val preview = previewUseCase.preview(request.url, wsId).bind()
+            val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
+            val preview = previewUseCase.preview(request.url, ws.id).bind()
             val context = pathTemplateEngine.buildContext(preview.videoInfo, preview.metadata)
             val storagePlan = pathTemplateEngine.buildStoragePlan(preview.storagePolicy, context, preview.videoInfo)
 

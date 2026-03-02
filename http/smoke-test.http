@@ -53,7 +53,7 @@ X-Telegram-Init-Data: {{initData}}
 ###
 
 ### Create rule
-POST {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/rules
+POST {{baseUrl}}/api/v1/workspaces/{{workspaceSlug}}/rules
 Content-Type: application/json
 X-Telegram-Init-Data: {{initData}}
 
@@ -91,7 +91,7 @@ X-Telegram-Init-Data: {{initData}}
 ###
 
 ### List rules
-GET {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/rules
+GET {{baseUrl}}/api/v1/workspaces/{{workspaceSlug}}/rules
 X-Telegram-Init-Data: {{initData}}
 
 > {%
@@ -103,7 +103,7 @@ X-Telegram-Init-Data: {{initData}}
 ###
 
 ### Create job (download video)
-POST {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/jobs
+POST {{baseUrl}}/api/v1/workspaces/{{workspaceSlug}}/jobs
 Content-Type: application/json
 X-Telegram-Init-Data: {{initData}}
 
@@ -148,7 +148,7 @@ X-Telegram-Init-Data: {{initData}}
 ###
 
 ### Get job status (run multiple times to track progress)
-GET {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/jobs/{{jobId}}
+GET {{baseUrl}}/api/v1/workspaces/{{workspaceSlug}}/jobs/{{jobId}}
 X-Telegram-Init-Data: {{initData}}
 
 > {%
@@ -165,7 +165,7 @@ X-Telegram-Init-Data: {{initData}}
 ###
 
 ### List jobs
-GET {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/jobs
+GET {{baseUrl}}/api/v1/workspaces/{{workspaceSlug}}/jobs
 X-Telegram-Init-Data: {{initData}}
 
 > {%
@@ -177,7 +177,7 @@ X-Telegram-Init-Data: {{initData}}
 ###
 
 ### Cancel job
-POST {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/jobs/{{jobId}}/cancel
+POST {{baseUrl}}/api/v1/workspaces/{{workspaceSlug}}/jobs/{{jobId}}/cancel
 X-Telegram-Init-Data: {{initData}}
 
 > {%
@@ -189,7 +189,7 @@ X-Telegram-Init-Data: {{initData}}
 ###
 
 ### Retry failed/cancelled job
-POST {{baseUrl}}/api/v1/workspaces/{{workspaceId}}/jobs/{{jobId}}/retry
+POST {{baseUrl}}/api/v1/workspaces/{{workspaceSlug}}/jobs/{{jobId}}/retry
 X-Telegram-Init-Data: {{initData}}
 
 > {%
