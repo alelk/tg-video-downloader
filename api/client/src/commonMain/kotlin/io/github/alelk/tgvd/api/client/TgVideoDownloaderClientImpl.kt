@@ -5,6 +5,7 @@ import io.github.alelk.tgvd.api.contract.preview.*
 import io.github.alelk.tgvd.api.contract.rule.*
 import io.github.alelk.tgvd.api.contract.system.*
 import io.github.alelk.tgvd.api.contract.resource.ApiV1
+import io.github.alelk.tgvd.api.contract.resource.ApiV1.Workspaces
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.*
@@ -18,6 +19,7 @@ class TgVideoDownloaderClientImpl(
     private val httpClient: HttpClient,
     baseUrl: String,
     private val initDataProvider: () -> String = { "" },
+    private val workspaceId: String = "default",
 ) : TgVideoDownloaderClient {
 
     private val client = httpClient.config {
@@ -32,57 +34,59 @@ class TgVideoDownloaderClientImpl(
         header("X-Telegram-Init-Data", initDataProvider())
     }
 
+    private fun workspace() = Workspaces.ById(workspaceId = workspaceId)
+
     override suspend fun preview(request: PreviewRequestDto): PreviewResponseDto =
-        client.post(ApiV1.Preview()) {
+        client.post(Workspaces.ById.Preview(workspace())) {
             auth()
             setBody(request)
         }.body()
 
     override suspend fun createJob(request: CreateJobRequestDto): JobDto =
-        client.post(ApiV1.Jobs()) {
+        client.post(Workspaces.ById.Jobs(workspace())) {
             auth()
             setBody(request)
         }.body()
 
     override suspend fun getJobs(status: String?, limit: Int, offset: Int): JobListResponseDto =
-        client.get(ApiV1.Jobs(status = status, limit = limit, offset = offset)) {
+        client.get(Workspaces.ById.Jobs(workspace(), status = status, limit = limit, offset = offset)) {
             auth()
         }.body()
 
     override suspend fun getJob(id: String): JobDto =
-        client.get(ApiV1.Jobs.ById(ApiV1.Jobs(), id)) {
+        client.get(Workspaces.ById.Jobs.ById(Workspaces.ById.Jobs(workspace()), id)) {
             auth()
         }.body()
 
     override suspend fun cancelJob(id: String): JobDto =
-        client.post(ApiV1.Jobs.ById.Cancel(ApiV1.Jobs.ById(ApiV1.Jobs(), id))) {
+        client.post(Workspaces.ById.Jobs.ById.Cancel(Workspaces.ById.Jobs.ById(Workspaces.ById.Jobs(workspace()), id))) {
             auth()
         }.body()
 
     override suspend fun getRules(): RuleListResponseDto =
-        client.get(ApiV1.Rules()) {
+        client.get(Workspaces.ById.Rules(workspace())) {
             auth()
         }.body()
 
     override suspend fun createRule(request: CreateRuleRequestDto): RuleDto =
-        client.post(ApiV1.Rules()) {
+        client.post(Workspaces.ById.Rules(workspace())) {
             auth()
             setBody(request)
         }.body()
 
     override suspend fun getRule(id: String): RuleDto =
-        client.get(ApiV1.Rules.ById(ApiV1.Rules(), id)) {
+        client.get(Workspaces.ById.Rules.ById(Workspaces.ById.Rules(workspace()), id)) {
             auth()
         }.body()
 
     override suspend fun updateRule(id: String, request: CreateRuleRequestDto): RuleDto =
-        client.put(ApiV1.Rules.ById(ApiV1.Rules(), id)) {
+        client.put(Workspaces.ById.Rules.ById(Workspaces.ById.Rules(workspace()), id)) {
             auth()
             setBody(request)
         }.body()
 
     override suspend fun deleteRule(id: String) {
-        client.delete(ApiV1.Rules.ById(ApiV1.Rules(), id)) {
+        client.delete(Workspaces.ById.Rules.ById(Workspaces.ById.Rules(workspace()), id)) {
             auth()
         }
     }
@@ -97,4 +101,3 @@ class TgVideoDownloaderClientImpl(
             auth()
         }.body()
 }
-

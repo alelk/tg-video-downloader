@@ -22,30 +22,27 @@ kotlin {
     sourceSets {
         jsMain {
             dependencies {
+                implementation(project(":features"))
                 implementation(project(":api:contract"))
                 implementation(project(":api:client"))
 
-                // Compose
+                // Compose (needed for renderComposable entry point)
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material3)
                 implementation(compose.ui)
 
-                // Lifecycle
-                implementation(libs.androidx.lifecycle.viewmodel.compose)
-                implementation(libs.androidx.lifecycle.runtime.compose)
-
-                // Navigation
-                implementation(libs.bundles.voyager)
-
                 // DI
                 implementation(libs.koin.core)
                 implementation(libs.koin.compose)
+
                 // Telegram Mini App
                 implementation(libs.tg.mini.app)
 
                 // Ktor Client JS
                 implementation(libs.ktor.client.js)
+                implementation(libs.ktor.serialization.kotlinx.json)
+                implementation(libs.ktor.client.content.negotiation)
             }
         }
     }

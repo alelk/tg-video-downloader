@@ -15,6 +15,7 @@
             <option value="$PROJECT_DIR$/api/mapping" />
             <option value="$PROJECT_DIR$/domain" />
             <option value="$PROJECT_DIR$/domain/domain-test-fixtures" />
+            <option value="$PROJECT_DIR$/features" />
             <option value="$PROJECT_DIR$/server" />
             <option value="$PROJECT_DIR$/server/app" />
             <option value="$PROJECT_DIR$/server/di" />

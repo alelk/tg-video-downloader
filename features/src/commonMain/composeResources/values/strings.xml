@@ -1,0 +1,110 @@
+<resources>
+    <!-- App -->
+    <string name="app_name">Video Downloader</string>
+
+    <!-- Navigation tabs -->
+    <string name="tab_download">Download</string>
+    <string name="tab_jobs">Jobs</string>
+    <string name="tab_rules">Rules</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- URL Input Screen -->
+    <string name="url_input_title">Video Downloader</string>
+    <string name="url_input_label">Video URL</string>
+    <string name="url_input_placeholder">https://youtube.com/watch?v=...</string>
+    <string name="url_input_preview_button">Preview</string>
+    <string name="url_input_loading">Loading...</string>
+    <string name="url_input_error_empty">Please enter a URL</string>
+
+    <!-- Preview Screen -->
+    <string name="preview_title">Preview</string>
+    <string name="preview_video_info">Video Info</string>
+    <string name="preview_metadata">Metadata</string>
+    <string name="preview_storage_plan">Storage Plan</string>
+    <string name="preview_matched_rule">Matched Rule</string>
+    <string name="preview_download_button">Download</string>
+    <string name="preview_creating">Creating job...</string>
+    <string name="preview_no_data">No preview data</string>
+    <string name="preview_back">Back</string>
+    <string name="preview_original">Original</string>
+    <string name="preview_additional">Additional</string>
+
+    <!-- Info Labels -->
+    <string name="label_title">Title</string>
+    <string name="label_channel">Channel</string>
+    <string name="label_duration">Duration</string>
+    <string name="label_platform">Platform</string>
+    <string name="label_upload_date">Upload Date</string>
+    <string name="label_category">Category</string>
+    <string name="label_artist">Artist</string>
+    <string name="label_series">Series</string>
+    <string name="label_season">Season</string>
+    <string name="label_episode">Episode</string>
+    <string name="label_tags">Tags</string>
+    <string name="label_rule">Rule</string>
+    <string name="label_source">Source</string>
+    <string name="label_name">Name</string>
+    <string name="label_enabled">Enabled</string>
+    <string name="label_priority">Priority</string>
+    <string name="label_match">Match</string>
+    <string name="label_status">Status</string>
+    <string name="label_progress">Progress</string>
+    <string name="label_created">Created</string>
+
+    <!-- Job List Screen -->
+    <string name="jobs_title">Jobs</string>
+    <string name="jobs_refresh">Refresh</string>
+    <string name="jobs_empty">No jobs yet. Download a video to get started!</string>
+    <string name="jobs_cancel">Cancel</string>
+    <string name="jobs_retry">Retry</string>
+
+    <!-- Job Status -->
+    <string name="status_pending">Pending</string>
+    <string name="status_downloading">Downloading</string>
+    <string name="status_post_processing">Processing</string>
+    <string name="status_completed">Completed</string>
+    <string name="status_failed">Failed</string>
+    <string name="status_cancelled">Cancelled</string>
+
+    <!-- Rules Screen -->
+    <string name="rules_title">Rules</string>
+    <string name="rules_empty">No rules yet. Rules let you automate downloads for specific channels.</string>
+    <string name="rules_add">Add Rule</string>
+    <string name="rules_delete_confirm">Delete this rule?</string>
+    <string name="rules_save">Save</string>
+    <string name="rules_edit">Edit Rule</string>
+    <string name="rules_create">Create Rule</string>
+
+    <!-- Rule Match Types -->
+    <string name="match_channel_id">Channel ID</string>
+    <string name="match_channel_name">Channel Name</string>
+    <string name="match_title_regex">Title Pattern</string>
+    <string name="match_url_regex">URL Pattern</string>
+    <string name="match_all_of">All Of (AND)</string>
+    <string name="match_any_of">Any Of (OR)</string>
+
+    <!-- Categories -->
+    <string name="category_music_video">Music Video</string>
+    <string name="category_series">Series</string>
+    <string name="category_other">Other</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_yt_dlp">yt-dlp</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_update_available">Update Available</string>
+    <string name="settings_update">Update</string>
+    <string name="settings_up_to_date">Up to date</string>
+    <string name="settings_about">About</string>
+
+    <!-- Common -->
+    <string name="error_title">Error</string>
+    <string name="error_generic">Something went wrong</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_save">Save</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_retry">Retry</string>
+</resources>
+

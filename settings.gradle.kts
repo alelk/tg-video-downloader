@@ -35,4 +35,5 @@ include(":server:di")
 include(":server:app")
 
 // === UI ===
+include(":features")
 include(":tgminiapp")

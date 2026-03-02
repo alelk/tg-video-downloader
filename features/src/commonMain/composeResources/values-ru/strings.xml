@@ -1,0 +1,110 @@
+<resources>
+    <!-- App -->
+    <string name="app_name">Загрузчик видео</string>
+
+    <!-- Navigation tabs -->
+    <string name="tab_download">Скачать</string>
+    <string name="tab_jobs">Задачи</string>
+    <string name="tab_rules">Правила</string>
+    <string name="tab_settings">Настройки</string>
+
+    <!-- URL Input Screen -->
+    <string name="url_input_title">Загрузчик видео</string>
+    <string name="url_input_label">Ссылка на видео</string>
+    <string name="url_input_placeholder">https://youtube.com/watch?v=...</string>
+    <string name="url_input_preview_button">Предпросмотр</string>
+    <string name="url_input_loading">Загрузка...</string>
+    <string name="url_input_error_empty">Введите ссылку</string>
+
+    <!-- Preview Screen -->
+    <string name="preview_title">Предпросмотр</string>
+    <string name="preview_video_info">Информация о видео</string>
+    <string name="preview_metadata">Метаданные</string>
+    <string name="preview_storage_plan">План сохранения</string>
+    <string name="preview_matched_rule">Совпавшее правило</string>
+    <string name="preview_download_button">Скачать</string>
+    <string name="preview_creating">Создание задачи...</string>
+    <string name="preview_no_data">Нет данных для предпросмотра</string>
+    <string name="preview_back">Назад</string>
+    <string name="preview_original">Оригинал</string>
+    <string name="preview_additional">Дополнительно</string>
+
+    <!-- Info Labels -->
+    <string name="label_title">Название</string>
+    <string name="label_channel">Канал</string>
+    <string name="label_duration">Длительность</string>
+    <string name="label_platform">Платформа</string>
+    <string name="label_upload_date">Дата загрузки</string>
+    <string name="label_category">Категория</string>
+    <string name="label_artist">Исполнитель</string>
+    <string name="label_series">Сериал</string>
+    <string name="label_season">Сезон</string>
+    <string name="label_episode">Эпизод</string>
+    <string name="label_tags">Теги</string>
+    <string name="label_rule">Правило</string>
+    <string name="label_source">Источник</string>
+    <string name="label_name">Название</string>
+    <string name="label_enabled">Включено</string>
+    <string name="label_priority">Приоритет</string>
+    <string name="label_match">Условие</string>
+    <string name="label_status">Статус</string>
+    <string name="label_progress">Прогресс</string>
+    <string name="label_created">Создано</string>
+
+    <!-- Job List Screen -->
+    <string name="jobs_title">Задачи</string>
+    <string name="jobs_refresh">Обновить</string>
+    <string name="jobs_empty">Задач пока нет. Скачайте видео, чтобы начать!</string>
+    <string name="jobs_cancel">Отменить</string>
+    <string name="jobs_retry">Повторить</string>
+
+    <!-- Job Status -->
+    <string name="status_pending">Ожидание</string>
+    <string name="status_downloading">Скачивание</string>
+    <string name="status_post_processing">Обработка</string>
+    <string name="status_completed">Завершено</string>
+    <string name="status_failed">Ошибка</string>
+    <string name="status_cancelled">Отменено</string>
+
+    <!-- Rules Screen -->
+    <string name="rules_title">Правила</string>
+    <string name="rules_empty">Правил пока нет. Правила позволяют автоматизировать скачивание для определённых каналов.</string>
+    <string name="rules_add">Добавить правило</string>
+    <string name="rules_delete_confirm">Удалить это правило?</string>
+    <string name="rules_save">Сохранить</string>
+    <string name="rules_edit">Редактировать правило</string>
+    <string name="rules_create">Создать правило</string>
+
+    <!-- Rule Match Types -->
+    <string name="match_channel_id">ID канала</string>
+    <string name="match_channel_name">Название канала</string>
+    <string name="match_title_regex">Шаблон названия</string>
+    <string name="match_url_regex">Шаблон URL</string>
+    <string name="match_all_of">Все условия (И)</string>
+    <string name="match_any_of">Любое условие (ИЛИ)</string>
+
+    <!-- Categories -->
+    <string name="category_music_video">Музыкальное видео</string>
+    <string name="category_series">Сериал</string>
+    <string name="category_other">Другое</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Настройки</string>
+    <string name="settings_yt_dlp">yt-dlp</string>
+    <string name="settings_version">Версия</string>
+    <string name="settings_update_available">Доступно обновление</string>
+    <string name="settings_update">Обновить</string>
+    <string name="settings_up_to_date">Актуальная версия</string>
+    <string name="settings_about">О приложении</string>
+
+    <!-- Common -->
+    <string name="error_title">Ошибка</string>
+    <string name="error_generic">Что-то пошло не так</string>
+    <string name="action_delete">Удалить</string>
+    <string name="action_cancel">Отмена</string>
+    <string name="action_confirm">Подтвердить</string>
+    <string name="action_save">Сохранить</string>
+    <string name="action_edit">Редактировать</string>
+    <string name="action_retry">Повторить</string>
+</resources>
+
