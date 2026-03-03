@@ -48,17 +48,16 @@ fun DownloadPolicyDto.toDomain(): DownloadPolicy =
         subtitleLanguages = subtitleLanguages,
     )
 
-fun OutputTemplateDto.toDomain(): OutputTemplate =
-    OutputTemplate(pathTemplate = pathTemplate, format = format.toDomain())
-
-fun StoragePolicyDto.toDomain(): StoragePolicy =
-    StoragePolicy(
-        originalTemplate = originalTemplate,
-        additionalOutputs = additionalOutputs.map { it.toDomain() },
+fun OutputRuleDto.toDomain(): OutputRule =
+    OutputRule(
+        pathTemplate = pathTemplate,
+        format = format.toDomain(),
+        maxQuality = maxQuality?.toDomain(),
+        embedThumbnail = embedThumbnail,
+        embedMetadata = embedMetadata,
+        embedSubtitles = embedSubtitles,
+        normalizeAudio = normalizeAudio,
     )
-
-fun PostProcessPolicyDto.toDomain(): PostProcessPolicy =
-    PostProcessPolicy(embedThumbnail, embedMetadata, normalizeAudio)
 
 fun OutputTargetDto.toDomain(): OutputTarget =
     OutputTarget(path = FilePath(path), format = format.toDomain())

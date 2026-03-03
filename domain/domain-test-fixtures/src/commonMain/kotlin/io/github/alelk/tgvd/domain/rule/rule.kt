@@ -16,9 +16,8 @@ fun Arb.Companion.rule(
     workspaceId: Arb<WorkspaceId> = Arb.workspaceId(),
     match: Arb<RuleMatch> = Arb.ruleMatch(maxDepth = 1),
     metadataTemplate: Arb<MetadataTemplate> = Arb.metadataTemplate(),
-    storagePolicy: Arb<StoragePolicy> = Arb.storagePolicy(),
     downloadPolicy: Arb<DownloadPolicy> = Arb.downloadPolicy(),
-    postProcessPolicy: Arb<PostProcessPolicy> = Arb.postProcessPolicy(),
+    outputs: Arb<List<OutputRule>> = Arb.list(Arb.outputRule(), 1..3),
     enabled: Arb<Boolean> = Arb.boolean(),
     priority: Arb<Int> = Arb.int(0..20),
 ): Arb<Rule> = arbitrary {
@@ -29,13 +28,11 @@ fun Arb.Companion.rule(
         workspaceId = workspaceId.bind(),
         match = match.bind(),
         metadataTemplate = metadataTemplate.bind(),
-        storagePolicy = storagePolicy.bind(),
         downloadPolicy = downloadPolicy.bind(),
-        postProcessPolicy = postProcessPolicy.bind(),
+        outputs = outputs.bind(),
         enabled = enabled.bind(),
         priority = priority.bind(),
         createdAt = now,
         updatedAt = now,
     )
 }
-

@@ -29,9 +29,7 @@ fun Rule.toDto(): RuleDto = RuleDto(
     category = metadataTemplate.category.toDto(),
     metadataTemplate = metadataTemplate.toDto(),
     downloadPolicy = downloadPolicy.toDto(),
-    storagePolicy = storagePolicy.toDto(),
-    postProcessPolicy = postProcessPolicy.toDto(),
+    outputs = outputs.map { it.toDto() },
     createdAt = createdAt.toString(),
     updatedAt = updatedAt.toString(),
 )
-

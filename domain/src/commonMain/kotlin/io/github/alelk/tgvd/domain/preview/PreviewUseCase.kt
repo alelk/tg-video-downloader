@@ -3,7 +3,6 @@ package io.github.alelk.tgvd.domain.preview
 import arrow.core.Either
 import arrow.core.right
 import io.github.alelk.tgvd.domain.common.DomainError
-import io.github.alelk.tgvd.domain.common.Url
 import io.github.alelk.tgvd.domain.common.WorkspaceId
 import io.github.alelk.tgvd.domain.metadata.LlmPort
 import io.github.alelk.tgvd.domain.metadata.MetadataResolver
@@ -13,7 +12,8 @@ import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.metadata.category
 import io.github.alelk.tgvd.domain.rule.Rule
 import io.github.alelk.tgvd.domain.rule.RuleMatchingService
-import io.github.alelk.tgvd.domain.storage.StoragePolicy
+import io.github.alelk.tgvd.domain.storage.OutputDefaults
+import io.github.alelk.tgvd.domain.storage.OutputRule
 import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.github.alelk.tgvd.domain.video.VideoInfoExtractor
 
@@ -22,7 +22,7 @@ data class PreviewResult(
     val metadata: ResolvedMetadata,
     val metadataSource: MetadataSource,
     val matchedRule: Rule?,
-    val storagePolicy: StoragePolicy,
+    val outputs: List<OutputRule>,
 )
 
 class PreviewUseCase(
@@ -41,15 +41,15 @@ class PreviewUseCase(
                 resolveFallback(videoInfo)
             }
 
-            val storagePolicy = matchedRule?.storagePolicy
-                ?: StoragePolicy.defaultFor(metadata.category)
+            val outputs = matchedRule?.outputs
+                ?: OutputDefaults.defaultFor(metadata.category)
 
             PreviewResult(
                 videoInfo = videoInfo,
                 metadata = metadata,
                 metadataSource = source,
                 matchedRule = matchedRule,
-                storagePolicy = storagePolicy,
+                outputs = outputs,
             )
         }
     }

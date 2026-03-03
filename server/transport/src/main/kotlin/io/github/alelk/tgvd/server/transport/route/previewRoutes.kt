@@ -38,7 +38,7 @@ fun Route.previewRoutes() {
             val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
             val preview = previewUseCase.preview(request.url, ws.id).bind()
             val context = pathTemplateEngine.buildContext(preview.videoInfo, preview.metadata)
-            val storagePlan = pathTemplateEngine.buildStoragePlan(preview.storagePolicy, context, preview.videoInfo)
+            val storagePlan = pathTemplateEngine.buildStoragePlan(preview.outputs, context, preview.videoInfo)
 
             PreviewResponseDto(
                 source = VideoSource(

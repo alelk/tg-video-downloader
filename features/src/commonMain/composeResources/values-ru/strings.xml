@@ -83,6 +83,42 @@
     <string name="match_all_of">Все условия (И)</string>
     <string name="match_any_of">Любое условие (ИЛИ)</string>
 
+    <!-- Rule Editor Sections -->
+    <string name="rule_match_conditions">Условия совпадения</string>
+    <string name="rule_match_simple">Простое</string>
+    <string name="rule_match_group">Группа</string>
+    <string name="rule_match_add_condition">Добавить условие</string>
+    <string name="rule_match_all_conditions">Все условия должны совпасть</string>
+    <string name="rule_match_any_condition">Хотя бы одно условие должно совпасть</string>
+    <string name="rule_ignore_case">Игнорировать регистр</string>
+    <string name="rule_storage">Хранение</string>
+    <string name="rule_path_template">Шаблон пути</string>
+    <string name="rule_download_policy">Политика скачивания</string>
+    <string name="rule_max_quality">Макс. качество</string>
+    <string name="rule_quality_best">Лучшее</string>
+    <string name="rule_quality_1080p">1080p</string>
+    <string name="rule_quality_720p">720p</string>
+    <string name="rule_quality_480p">480p</string>
+    <string name="rule_preferred_container">Предпочтительный контейнер</string>
+    <string name="rule_container_auto">Авто</string>
+    <string name="rule_download_subtitles">Скачивать субтитры</string>
+    <string name="rule_subtitle_languages">Языки субтитров</string>
+    <string name="rule_post_processing">Пост-обработка</string>
+    <string name="rule_embed_thumbnail">Встроить обложку</string>
+    <string name="rule_embed_metadata">Встроить метаданные</string>
+    <string name="rule_normalize_audio">Нормализация аудио</string>
+    <string name="rule_metadata_template">Шаблон метаданных</string>
+    <string name="rule_title_override">Переопределение названия</string>
+    <string name="rule_title_pattern">Шаблон названия (regex)</string>
+    <string name="rule_default_tags">Теги по умолчанию</string>
+    <string name="rule_artist_override">Переопределение исполнителя</string>
+    <string name="rule_artist_pattern">Шаблон исполнителя (regex)</string>
+    <string name="rule_series_name_override">Переопределение названия сериала</string>
+    <string name="rule_season_pattern">Шаблон сезона (regex)</string>
+    <string name="rule_episode_pattern">Шаблон эпизода (regex)</string>
+    <string name="rule_expand">Развернуть</string>
+    <string name="rule_collapse">Свернуть</string>
+
     <!-- Categories -->
     <string name="category_music_video">Музыкальное видео</string>
     <string name="category_series">Сериал</string>

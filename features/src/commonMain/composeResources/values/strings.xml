@@ -83,6 +83,42 @@
     <string name="match_all_of">All Of (AND)</string>
     <string name="match_any_of">Any Of (OR)</string>
 
+    <!-- Rule Editor Sections -->
+    <string name="rule_match_conditions">Match Conditions</string>
+    <string name="rule_match_simple">Simple</string>
+    <string name="rule_match_group">Group</string>
+    <string name="rule_match_add_condition">Add Condition</string>
+    <string name="rule_match_all_conditions">All conditions must match</string>
+    <string name="rule_match_any_condition">At least one condition must match</string>
+    <string name="rule_ignore_case">Ignore case</string>
+    <string name="rule_storage">Storage</string>
+    <string name="rule_path_template">Path Template</string>
+    <string name="rule_download_policy">Download Policy</string>
+    <string name="rule_max_quality">Max Quality</string>
+    <string name="rule_quality_best">Best</string>
+    <string name="rule_quality_1080p">1080p</string>
+    <string name="rule_quality_720p">720p</string>
+    <string name="rule_quality_480p">480p</string>
+    <string name="rule_preferred_container">Preferred Container</string>
+    <string name="rule_container_auto">Auto</string>
+    <string name="rule_download_subtitles">Download Subtitles</string>
+    <string name="rule_subtitle_languages">Subtitle Languages</string>
+    <string name="rule_post_processing">Post-Processing</string>
+    <string name="rule_embed_thumbnail">Embed Thumbnail</string>
+    <string name="rule_embed_metadata">Embed Metadata</string>
+    <string name="rule_normalize_audio">Normalize Audio</string>
+    <string name="rule_metadata_template">Metadata Template</string>
+    <string name="rule_title_override">Title Override</string>
+    <string name="rule_title_pattern">Title Pattern (regex)</string>
+    <string name="rule_default_tags">Default Tags</string>
+    <string name="rule_artist_override">Artist Override</string>
+    <string name="rule_artist_pattern">Artist Pattern (regex)</string>
+    <string name="rule_series_name_override">Series Name Override</string>
+    <string name="rule_season_pattern">Season Pattern (regex)</string>
+    <string name="rule_episode_pattern">Episode Pattern (regex)</string>
+    <string name="rule_expand">Expand</string>
+    <string name="rule_collapse">Collapse</string>
+
     <!-- Categories -->
     <string name="category_music_video">Music Video</string>
     <string name="category_series">Series</string>

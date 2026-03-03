@@ -1,0 +1,14 @@
+package io.github.alelk.tgvd.server.infra.db.model
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class OutputRulePm(
+    val pathTemplate: String,
+    val format: String,
+    val maxQuality: String? = null,
+    val embedThumbnail: Boolean = false,
+    val embedMetadata: Boolean = false,
+    val embedSubtitles: Boolean = false,
+    val normalizeAudio: Boolean = false,
+)

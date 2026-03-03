@@ -2,8 +2,11 @@
 CREATE TABLE workspaces (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name       TEXT NOT NULL,
+    slug       TEXT NOT NULL CHECK (slug ~ '^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$'),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX idx_workspaces_slug ON workspaces(slug);
 
 COMMENT ON TABLE workspaces IS 'Workspace — группа пользователей с общими ресурсами';
 
@@ -32,8 +35,7 @@ CREATE TABLE rules (
     category             TEXT NOT NULL,
     metadata_template    JSONB NOT NULL,
     download_policy      JSONB NOT NULL DEFAULT '{}',
-    storage_policy       JSONB NOT NULL,
-    post_process_policy  JSONB NOT NULL DEFAULT '{}',
+    outputs              JSONB NOT NULL DEFAULT '[]',
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );

@@ -75,8 +75,7 @@ class RuleRepositoryImpl(
                 it[category] = rule.metadataTemplate.categoryDbString()
                 it[metadataTemplate] = rule.metadataTemplate.toPm()
                 it[downloadPolicy] = rule.downloadPolicy.toPm()
-                it[storagePolicy] = rule.storagePolicy.toPm()
-                it[postProcessPolicy] = rule.postProcessPolicy.toPm()
+                it[outputs] = rule.outputs.map { o -> o.toPm() }
                 it[updatedAt] = now()
             }
         } else {
@@ -90,8 +89,7 @@ class RuleRepositoryImpl(
                 it[category] = rule.metadataTemplate.categoryDbString()
                 it[metadataTemplate] = rule.metadataTemplate.toPm()
                 it[downloadPolicy] = rule.downloadPolicy.toPm()
-                it[storagePolicy] = rule.storagePolicy.toPm()
-                it[postProcessPolicy] = rule.postProcessPolicy.toPm()
+                it[outputs] = rule.outputs.map { o -> o.toPm() }
             }
         }
         rule.right()
@@ -107,9 +105,8 @@ class RuleRepositoryImpl(
         workspaceId = WorkspaceId(this[RulesTable.workspaceId].value),
         match = this[RulesTable.match].toDomain(),
         metadataTemplate = this[RulesTable.metadataTemplate].toDomain(),
-        storagePolicy = this[RulesTable.storagePolicy].toDomain(),
         downloadPolicy = this[RulesTable.downloadPolicy].toDomain(),
-        postProcessPolicy = this[RulesTable.postProcessPolicy].toDomain(),
+        outputs = this[RulesTable.outputs].map { it.toDomain() },
         enabled = this[RulesTable.enabled],
         priority = this[RulesTable.priority],
         createdAt = this[RulesTable.createdAt],

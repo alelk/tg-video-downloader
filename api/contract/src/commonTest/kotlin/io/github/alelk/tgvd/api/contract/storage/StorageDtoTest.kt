@@ -125,64 +125,62 @@ class StorageDtoTest : FunSpec({
         }
     }
 
-    context("StoragePolicyDto") {
-        test("serializes with additional outputs") {
-            val dto = StoragePolicyDto(
-                originalTemplate = "/media/original/{title}.{ext}",
-                additionalOutputs = listOf(
-                    OutputTemplateDto(
-                        pathTemplate = "/media/converted/{title}.mp4",
-                        format = OutputFormatDto.ConvertedVideo(MediaContainerDto.MP4),
-                    ),
-                ),
+    context("OutputRuleDto") {
+        test("serializes with all fields") {
+            val dto = OutputRuleDto(
+                pathTemplate = "/media/converted/{title}.mp4",
+                format = OutputFormatDto.ConvertedVideo(MediaContainerDto.MP4),
+                maxQuality = VideoQualityDto.HD_1080,
+                embedThumbnail = true,
+                embedMetadata = true,
+                embedSubtitles = false,
+                normalizeAudio = false,
             )
-            val json = apiJson.encodeToString(StoragePolicyDto.serializer(), dto)
+            val json = apiJson.encodeToString(OutputRuleDto.serializer(), dto)
             json shouldEqualJson """
                 {
-                    "originalTemplate": "/media/original/{title}.{ext}",
-                    "additionalOutputs": [
-                        {
-                            "pathTemplate": "/media/converted/{title}.mp4",
-                            "format": "video/mp4"
-                        }
-                    ]
-                }
-            """
-        }
-
-        test("deserializes with empty additional") {
-            val json = """
-                {
-                    "originalTemplate": "/media/{title}.{ext}"
-                }
-            """
-            val dto = apiJson.decodeFromString(StoragePolicyDto.serializer(), json)
-            dto.originalTemplate shouldBe "/media/{title}.{ext}"
-            dto.additionalOutputs shouldBe emptyList()
-        }
-    }
-
-    context("PostProcessPolicyDto") {
-        test("serializes with defaults") {
-            val dto = PostProcessPolicyDto()
-            val json = apiJson.encodeToString(PostProcessPolicyDto.serializer(), dto)
-            json shouldEqualJson """
-                {
+                    "pathTemplate": "/media/converted/{title}.mp4",
+                    "format": "video/mp4",
+                    "maxQuality": "hd_1080",
                     "embedThumbnail": true,
                     "embedMetadata": true,
+                    "embedSubtitles": false,
+                    "normalizeAudio": false
+                }
+            """
+        }
+
+        test("serializes with defaults") {
+            val dto = OutputRuleDto(
+                pathTemplate = "/media/{title}.{ext}",
+                format = OutputFormatDto.OriginalVideo(MediaContainerDto.WEBM),
+            )
+            val json = apiJson.encodeToString(OutputRuleDto.serializer(), dto)
+            json shouldEqualJson """
+                {
+                    "pathTemplate": "/media/{title}.{ext}",
+                    "format": "original/webm",
+                    "maxQuality": null,
+                    "embedThumbnail": false,
+                    "embedMetadata": false,
+                    "embedSubtitles": false,
                     "normalizeAudio": false
                 }
             """
         }
 
         test("round-trip") {
-            val original = PostProcessPolicyDto(
+            val original = OutputRuleDto(
+                pathTemplate = "/media/audio/{artist}/{title}.m4a",
+                format = OutputFormatDto.Audio(AudioFormatDto.M4A),
+                maxQuality = VideoQualityDto.HD_720,
                 embedThumbnail = false,
                 embedMetadata = true,
+                embedSubtitles = false,
                 normalizeAudio = true,
             )
-            val json = apiJson.encodeToString(PostProcessPolicyDto.serializer(), original)
-            val decoded = apiJson.decodeFromString(PostProcessPolicyDto.serializer(), json)
+            val json = apiJson.encodeToString(OutputRuleDto.serializer(), original)
+            val decoded = apiJson.decodeFromString(OutputRuleDto.serializer(), json)
             decoded shouldBe original
         }
     }

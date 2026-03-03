@@ -29,7 +29,7 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 ├── video/              # VideoSource, VideoInfo, VideoInfoExtractor port
 ├── rule/               # Rule, RuleMatch, RuleMatchingService, RuleRepository port
 ├── metadata/           # ResolvedMetadata, MetadataResolver, MetadataTemplate, LlmPort
-├── storage/            # StoragePlan, StoragePolicy, PathTemplateEngine
+├── storage/            # StoragePlan, OutputRule, OutputFormat, PathTemplateEngine
 ├── job/                # Job, JobStatus, CreateJobUseCase, JobRepository port
 └── preview/            # PreviewUseCase (оркестрация video + rule + metadata + storage)
 ```
@@ -464,16 +464,16 @@ data class Rule(
     val category: Category,
     val metadataTemplate: MetadataTemplate,
     val downloadPolicy: DownloadPolicy,
-    val storagePolicy: StoragePolicy,
-    val postProcessPolicy: PostProcessPolicy,
+    val outputs: List<OutputRule>,
     val createdAt: Instant,
     val updatedAt: Instant,
 )
 ```
 
 > `Rule` ссылается на `MetadataTemplate` (из `metadata/`), 
-> `StoragePolicy` (из `storage/`), `DownloadPolicy` и `PostProcessPolicy` (из `storage/`). 
-> Это допустимо: `rule` зависит от `metadata` и `storage`, но не наоборот.
+> `OutputRule` (из `storage/`) и `DownloadPolicy` (из `storage/`).
+> Каждый `OutputRule` — самодостаточная единица: путь + формат + качество + пост-обработка.
+> Первый output = оригинальный файл, остальные = конвертации/копии.
 
 ### 5.3 RuleMatchingService
 
@@ -735,12 +735,10 @@ domain/storage/
 ├── AudioFormat.kt
 ├── ImageFormat.kt
 ├── OutputFormat.kt            # sealed interface
+├── OutputRule.kt              # per-output path + format + quality + post-processing
 ├── OutputTarget.kt
-├── OutputTemplate.kt
 ├── StoragePlan.kt
-├── StoragePolicy.kt
 ├── DownloadPolicy.kt
-├── PostProcessPolicy.kt
 ├── PathTemplateEngine.kt
 └── VideoDownloader.kt         # port
 ```
@@ -886,6 +884,10 @@ data class StoragePlan(
 ### 7.4 DownloadPolicy
 
 ```kotlin
+/**
+ * Политика скачивания. Управляет параметрами yt-dlp.
+ * Определяет максимальное качество, предпочитаемый контейнер и субтитры.
+ */
 data class DownloadPolicy(
     val maxQuality: VideoQuality = VideoQuality.BEST,
     val preferredContainer: MediaContainer? = null,
@@ -896,100 +898,88 @@ data class DownloadPolicy(
 }
 ```
 
-### 7.5 StoragePolicy
+### 7.5 OutputRule
 
 ```kotlin
 /**
- * Шаблон пути для одного выходного файла.
- * Связывает path template с форматом выходного файла.
+ * Описание одного выходного файла правила.
+ *
+ * Каждый OutputRule — самодостаточная единица:
+ * путь + формат + качество + пост-обработка.
+ *
+ * Первый output в Rule.outputs — оригинальный файл (как скачано yt-dlp).
+ * Остальные — конвертации/копии с индивидуальными настройками.
+ *
+ * @param pathTemplate шаблон пути: "/media/Music/{artist}/{title}.{ext}"
+ * @param format формат выходного файла (OriginalVideo, ConvertedVideo, Audio, Thumbnail)
+ * @param maxQuality макс. качество для этого output (null = без понижения)
+ * @param embedThumbnail встраивать обложку в этот файл
+ * @param embedMetadata встраивать теги (title, artist, album) в контейнер
+ * @param embedSubtitles встраивать субтитры в контейнер
+ * @param normalizeAudio нормализация громкости аудио
  */
-data class OutputTemplate(
-    val pathTemplate: String,         // e.g. "/media/Music Videos/converted/{artist}/{title}.mp4"
-    val format: OutputFormat,         // тип + формат выходного файла
-)
-
-/**
- * Политика хранения файлов.
- * 
- * [originalTemplate] — шаблон для исходного файла (как скачано yt-длп).
- * [additionalOutputs] — производные файлы: конвертированное видео, аудио, thumbnail.
- * Каждый [OutputTemplate] привязывает path template к [OutputFormat].
- * 
- * Зеркалит структуру [StoragePlan]: original + additional.
- */
-data class StoragePolicy(
-    val originalTemplate: String,
-    val additionalOutputs: List<OutputTemplate> = emptyList(),
-) {
-    init {
-        require(originalTemplate.isNotBlank()) { "Original template must not be blank" }
-    }
-    
-    companion object {
-        val MUSIC_VIDEO_DEFAULT = StoragePolicy(
-            originalTemplate = "~/Downloads/Media/Music Videos/original/{artist}/{title} [{videoId}].{ext}",
-            additionalOutputs = listOf(
-                OutputTemplate(
-                    pathTemplate = "/media/Music Videos/converted/{artist}/{title}.mp4",
-                    format = OutputFormat.ConvertedVideo(MediaContainer.MP4),
-                ),
-            ),
-        )
-
-        val SERIES_DEFAULT = StoragePolicy(
-            originalTemplate = "~/Downloads/Media/TV Series/{seriesName}/Season {season}/{episode} - {title}.{ext}",
-        )
-
-        // для каналов-серий: сезон = год, файл начинается с даты
-        // пример: /Yt Series/Channel 1/2026/2026-01-12 Video Title.mp4
-        val YT_SERIES_DEFAULT = StoragePolicy(
-            originalTemplate = "~/Downloads/Media/Yt Series/{channelName}/{year}/{date} {title}.{ext}"
-        )
-
-        val OTHER_DEFAULT = StoragePolicy(
-            originalTemplate = "~/Downloads/Media/Videos/{channelName}/{title} [{videoId}].{ext}",
-        )
-
-        fun defaultFor(category: Category): StoragePolicy = when (category) {
-            Category.MUSIC_VIDEO -> MUSIC_VIDEO_DEFAULT
-            Category.SERIES -> SERIES_DEFAULT
-            Category.OTHER -> OTHER_DEFAULT
-        }
-    }
-}
-```
-
-> **Преимущества**:
-> - Формат привязан к шаблону, а не задаётся отдельно в `PostProcessPolicy`
-> - Расширяемо: добавление audio/thumbnail — просто ещё один `OutputTemplate` в списке
-> - Зеркалит `StoragePlan(original, additional)` — маппинг 1:1
-> 
-> **Пример**: музыкальное видео с аудио-извлечением:
-> ```kotlin
-> StoragePolicy(
->     originalTemplate = "/media/Music/original/{artist}/{title} [{videoId}].{ext}",
->     additionalOutputs = listOf(
->         OutputTemplate("/media/Music/video/{artist}/{title}.mp4", OutputFormat.ConvertedVideo(MediaContainer.MP4)),
->         OutputTemplate("/media/Music/audio/{artist}/{title}.m4a", OutputFormat.Audio(AudioFormat.M4A)),
->         OutputTemplate("/media/Music/covers/{artist}/{title}.jpg", OutputFormat.Thumbnail(ImageFormat.JPG)),
->     ),
-> )
-> ```
-
-### 7.6 PostProcessPolicy
-
-```kotlin
-/**
- * Политика пост-обработки.
- * Форматы конвертации задаются в [StoragePolicy] / [OutputTemplate].
- * Здесь — только флаги обработки, применяемые ко всем выходным файлам.
- */
-data class PostProcessPolicy(
-    val embedThumbnail: Boolean = true,
-    val embedMetadata: Boolean = true,
+data class OutputRule(
+    val pathTemplate: String,
+    val format: OutputFormat,
+    val maxQuality: DownloadPolicy.VideoQuality? = null,
+    val embedThumbnail: Boolean = false,
+    val embedMetadata: Boolean = false,
+    val embedSubtitles: Boolean = false,
     val normalizeAudio: Boolean = false,
 )
 ```
+
+> **Ключевые свойства**:
+> - Пост-обработка привязана к конкретному output, а не глобально ко всему правилу
+> - Каждый output может иметь своё качество (оригинал в 4K, конвертация в 1080p)
+> - Расширяемо: добавление audio/thumbnail — ещё один `OutputRule` в списке
+> - `Rule.outputs` зеркалит `StoragePlan(original, additional)` — маппинг 1:1
+>
+> **Пример 1**: музыкальное видео — оригинал без метаданных + конвертация MP4 с тегами:
+> ```kotlin
+> Rule(
+>     downloadPolicy = DownloadPolicy(maxQuality = BEST),
+>     outputs = listOf(
+>         OutputRule(
+>             pathTemplate = "/media/Music Videos/original/{artist}/{title} [{videoId}].{ext}",
+>             format = OutputFormat.OriginalVideo(MediaContainer.WEBM),
+>         ),
+>         OutputRule(
+>             pathTemplate = "/media/Music Videos/converted/{artist}/{title}.mp4",
+>             format = OutputFormat.ConvertedVideo(MediaContainer.MP4),
+>             maxQuality = DownloadPolicy.VideoQuality.HD_1080,
+>             embedThumbnail = true,
+>             embedMetadata = true,
+>         ),
+>     ),
+> )
+> ```
+>
+> **Пример 2**: серия/блог — один output с встроенными субтитрами:
+> ```kotlin
+> Rule(
+>     downloadPolicy = DownloadPolicy(maxQuality = HD_1080, downloadSubtitles = true),
+>     outputs = listOf(
+>         OutputRule(
+>             pathTemplate = "/media/Yt Videos/{seriesName}/Season {year}/{date} {title}.{ext}",
+>             format = OutputFormat.OriginalVideo(MediaContainer.WEBM),
+>             embedThumbnail = true,
+>             embedMetadata = true,
+>             embedSubtitles = true,
+>         ),
+>     ),
+> )
+> ```
+>
+> **Пример 3**: музыкальное видео с извлечением аудио и обложки:
+> ```kotlin
+> outputs = listOf(
+>     OutputRule("/media/Music/original/{artist}/{title} [{videoId}].{ext}", OutputFormat.OriginalVideo(MediaContainer.WEBM)),
+>     OutputRule("/media/Music/video/{artist}/{title}.mp4", OutputFormat.ConvertedVideo(MediaContainer.MP4), embedMetadata = true),
+>     OutputRule("/media/Music/audio/{artist}/{title}.m4a", OutputFormat.Audio(AudioFormat.M4A), embedMetadata = true),
+>     OutputRule("/media/Music/covers/{artist}/{title}.jpg", OutputFormat.Thumbnail(ImageFormat.JPG)),
+> )
+> ```
 
 ### 7.7 PathTemplateEngine
 
@@ -1222,9 +1212,9 @@ class PreviewUseCase(
         
         val (category, metadata, metadataSource) = resolveMetadata(videoInfo, matchedRule).bind()
         
-        val storagePolicy = matchedRule?.storagePolicy ?: StoragePolicy.defaultFor(category)
+        val outputs = matchedRule?.outputs ?: OutputDefaults.defaultFor(category)
         val context = PathTemplateEngine.TemplateContext.from(metadata, videoInfo)
-        val storagePlan = buildStoragePlan(storagePolicy, context).bind()
+        val storagePlan = pathTemplateEngine.buildStoragePlan(outputs, context, videoInfo)
         
         PreviewResult(
             source = VideoSource(Url(url), videoInfo.videoId, videoInfo.extractor),
@@ -1268,27 +1258,8 @@ class PreviewUseCase(
         }
     }
     
-    private fun buildStoragePlan(
-        policy: StoragePolicy, context: PathTemplateEngine.TemplateContext,
-    ): Either<DomainError, StoragePlan> = either {
-        val originalContainer = context.get("ext")
-            ?.let { MediaContainer.fromExtension(it) }
-            ?: MediaContainer.WEBM
-        
-        val original = OutputTarget(
-            path = pathTemplateEngine.render(policy.originalTemplate, context).bind(),
-            format = OutputFormat.OriginalVideo(originalContainer),
-        )
-        
-        val additional = policy.additionalOutputs.map { output ->
-            OutputTarget(
-                path = pathTemplateEngine.render(output.pathTemplate, context).bind(),
-                format = output.format,
-            )
-        }
-        
-        StoragePlan(original = original, additional = additional)
-    }
+    // buildStoragePlan теперь в PathTemplateEngine:
+    // pathTemplateEngine.buildStoragePlan(outputs, context, videoInfo)
     
     data class PreviewResult(
         val source: VideoSource,
@@ -1297,6 +1268,7 @@ class PreviewUseCase(
         val metadataSource: MetadataSource,
         val category: Category,
         val metadata: ResolvedMetadata,
+        val outputs: List<OutputRule>,
         val storagePlan: StoragePlan,
         val warnings: List<String>,
     )

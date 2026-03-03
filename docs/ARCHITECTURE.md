@@ -114,7 +114,7 @@
 - `video/` — `VideoSource`, `VideoInfo`, `VideoInfoExtractor` port
 - `rule/` — `Rule`, `RuleMatch` (sealed), `RuleMatchingService`, `RuleRepository` port
 - `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `MetadataResolver`, `LlmPort`
-- `storage/` — `StoragePlan`, `StoragePolicy`, `OutputFormat` (sealed), `PathTemplateEngine`, `VideoDownloader` port
+- `storage/` — `StoragePlan`, `OutputRule`, `OutputFormat` (sealed), `PathTemplateEngine`, `VideoDownloader` port
 - `job/` — `Job`, `JobStatus`, `CreateJobUseCase`, `JobRepository` port
 - `preview/` — `PreviewUseCase` (оркестратор)
 
@@ -129,7 +129,7 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 ├── video/          # VideoSource, VideoInfo, VideoInfoExtractor port
 ├── rule/           # Rule, RuleMatch (sealed), RuleMatchingService, RuleRepository port
 ├── metadata/       # ResolvedMetadata (sealed), MetadataTemplate (sealed), MetadataResolver, LlmPort
-├── storage/        # StoragePlan, StoragePolicy, OutputFormat (sealed), PathTemplateEngine, VideoDownloader port
+├── storage/        # StoragePlan, OutputRule, OutputFormat (sealed), PathTemplateEngine, VideoDownloader port
 ├── job/            # Job, JobStatus, CreateJobUseCase, JobRepository port
 └── preview/        # PreviewUseCase
 ```
@@ -546,7 +546,8 @@ JobExecutor
        └──▶ JobRepository.updateStatus(DONE)
 ```
 
-> Для `MUSIC_VIDEO`: оригинал (webm) сохраняется, затем каждый additional target обрабатывается по типу `OutputFormat`. Все файлы получают вшитые метаданные и обложку (если `PostProcessPolicy.embedThumbnail/embedMetadata`).
+> Для `MUSIC_VIDEO`: оригинал (webm) сохраняется, затем каждый additional target обрабатывается по типу `OutputFormat`. 
+> Каждый `OutputRule` определяет индивидуальные настройки пост-обработки (`embedThumbnail`, `embedMetadata` и т.д.).
 
 ---
 

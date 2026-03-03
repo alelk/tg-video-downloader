@@ -64,25 +64,29 @@ class PathTemplateEngine {
         }
     }
 
+    /**
+     * Build a [StoragePlan] from a list of [OutputRule]s.
+     * First output → [StoragePlan.original], rest → [StoragePlan.additional].
+     */
     fun buildStoragePlan(
-        policy: StoragePolicy,
+        outputs: List<OutputRule>,
         context: Map<String, String>,
         video: VideoInfo,
     ): StoragePlan {
-        val originalFormat = OutputFormat.OriginalVideo(MediaContainer.WEBM)
-        val originalContext = context + ("ext" to originalFormat.extension)
-        val original = OutputTarget(
-            path = renderTemplate(policy.originalTemplate, originalContext),
-            format = originalFormat,
-        )
-        val additional = policy.additionalOutputs.map { output ->
+        require(outputs.isNotEmpty()) { "At least one output rule is required" }
+
+        val targets = outputs.map { output ->
             val outputContext = context + ("ext" to output.format.extension)
             OutputTarget(
                 path = renderTemplate(output.pathTemplate, outputContext),
                 format = output.format,
             )
         }
-        return StoragePlan(original = original, additional = additional)
+
+        return StoragePlan(
+            original = targets.first(),
+            additional = targets.drop(1),
+        )
     }
 
     private fun renderTemplate(template: String, vars: Map<String, String>): FilePath {

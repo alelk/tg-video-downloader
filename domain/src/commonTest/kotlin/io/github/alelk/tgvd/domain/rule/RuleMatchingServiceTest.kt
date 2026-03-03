@@ -3,7 +3,7 @@ package io.github.alelk.tgvd.domain.rule
 import arrow.core.Either
 import io.github.alelk.tgvd.domain.common.*
 import io.github.alelk.tgvd.domain.metadata.MetadataTemplate
-import io.github.alelk.tgvd.domain.storage.StoragePolicy
+import io.github.alelk.tgvd.domain.storage.OutputDefaults
 import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -46,7 +46,7 @@ class RuleMatchingServiceTest : FunSpec({
             workspaceId = workspaceId,
             match = match,
             metadataTemplate = MetadataTemplate.Other(),
-            storagePolicy = StoragePolicy.OTHER_DEFAULT,
+            outputs = OutputDefaults.OTHER,
             enabled = enabled,
             priority = priority,
             createdAt = now,
