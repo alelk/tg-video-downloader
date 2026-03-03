@@ -29,8 +29,17 @@ class FfmpegRunner(
         maxHeight: Int? = null,
         encodeSettings: VideoEncodeSettings? = null,
     ): Either<DomainError, FilePath> {
-        val needsTranscode = maxHeight != null
         val settings = encodeSettings ?: VideoEncodeSettings()
+
+        // Determine if transcoding is actually needed:
+        // If maxHeight is set, check source resolution — skip transcoding if source is already <= maxHeight
+        val sourceHeight = if (maxHeight != null) probeVideoHeight(input) else null
+        val needsTranscode = maxHeight != null && (sourceHeight == null || sourceHeight > maxHeight)
+        val effectiveMaxHeight = if (needsTranscode) maxHeight else null
+
+        if (maxHeight != null && !needsTranscode) {
+            logger.info { "Source height (${sourceHeight}p) <= max (${maxHeight}p), will remux only" }
+        }
 
         val args = buildList {
             // HW accel init args (must come before -i)
@@ -48,15 +57,14 @@ class FfmpegRunner(
 
             add("-i"); add(input.value)
 
-            if (needsTranscode) {
-                // Video scaling
-                add("-vf"); add("scale=-2:'min($maxHeight,ih)'")
+            if (needsTranscode && effectiveMaxHeight != null) {
+                // Video scaling — use expression without quotes
+                add("-vf"); add("scale=-2:min($effectiveMaxHeight\\,ih)")
                 // Video encoder
                 add("-c:v"); add(settings.resolveEncoder())
-                // Quality (CRF) — not all HW encoders support CRF, but most do via -crf or -qp
+                // Quality
                 val isHw = settings.hwAccel != null
                 if (isHw) {
-                    // HW encoders typically use -q:v or -qp instead of -crf
                     when (settings.hwAccel) {
                         VideoEncodeSettings.HwAccel.VIDEOTOOLBOX -> { add("-q:v"); add("${settings.crf.coerceIn(1, 100)}") }
                         VideoEncodeSettings.HwAccel.NVENC -> { add("-cq"); add("${settings.crf}"); add("-preset"); add("p4") }
@@ -78,14 +86,44 @@ class FfmpegRunner(
             add("-y"); add(output.value)
         }
 
-        val desc = if (needsTranscode) {
+        val desc = if (needsTranscode && effectiveMaxHeight != null) {
             val encoder = settings.resolveEncoder()
-            "convert to ${container.extension} (${maxHeight}p, $encoder, crf=${settings.crf})"
+            "convert to ${container.extension} (${effectiveMaxHeight}p, $encoder, crf=${settings.crf})"
         } else {
-            "remux to ${container.extension}"
+            "remux to ${container.extension}" + if (maxHeight != null) " (source ${sourceHeight}p <= ${maxHeight}p)" else ""
         }
 
         return runFfmpeg(args = args, description = desc).map { output }
+    }
+
+    /**
+     * Probe video height using ffprobe. Returns null if detection fails.
+     */
+    private suspend fun probeVideoHeight(input: FilePath): Int? = withContext(Dispatchers.IO) {
+        try {
+            val ffprobePath = config.path.replace("ffmpeg", "ffprobe")
+            val process = ProcessBuilder(
+                ffprobePath, "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=height",
+                "-of", "csv=p=0",
+                input.value,
+            ).redirectErrorStream(true).start()
+
+            val output = process.inputStream.bufferedReader().use { it.readText().trim() }
+            val exitCode = process.waitFor()
+            if (exitCode == 0) {
+                output.lines().firstOrNull()?.trim()?.toIntOrNull().also {
+                    logger.info { "Probed video height: ${it}p for ${input.fileName}" }
+                }
+            } else {
+                logger.warn { "ffprobe failed (exit=$exitCode): $output" }
+                null
+            }
+        } catch (e: Exception) {
+            logger.warn { "ffprobe not available: ${e.message}" }
+            null
+        }
     }
 
     suspend fun extractAudio(
