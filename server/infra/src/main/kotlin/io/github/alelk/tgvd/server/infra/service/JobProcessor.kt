@@ -10,6 +10,7 @@ import io.github.alelk.tgvd.domain.rule.RuleRepository
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
 import io.github.alelk.tgvd.domain.storage.OutputFormat
 import io.github.alelk.tgvd.domain.storage.OutputTarget
+import io.github.alelk.tgvd.domain.storage.VideoEncodeSettings
 import io.github.alelk.tgvd.server.infra.config.JobsConfig
 import io.github.alelk.tgvd.server.infra.process.FfmpegRunner
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -197,7 +198,7 @@ class JobProcessor(
             }
             is OutputFormat.ConvertedVideo -> {
                 val maxHeight = target.maxQuality?.toMaxHeight()
-                ffmpegRunner.convertVideo(originalPath, target.path, format.container, maxHeight)
+                ffmpegRunner.convertVideo(originalPath, target.path, format.container, maxHeight, target.encodeSettings)
                     .fold(
                         { error ->
                             logger.error { "Conversion failed for ${target.path.value}: $error" }
@@ -391,6 +392,7 @@ private fun DownloadPolicy.VideoQuality.toMaxHeight(): Int? = when (this) {
 private data class ConversionKey(
     val format: OutputFormat,
     val maxQuality: DownloadPolicy.VideoQuality?,
+    val encodeSettings: VideoEncodeSettings?,
     val embedThumbnail: Boolean,
     val embedMetadata: Boolean,
     val embedSubtitles: Boolean,
@@ -400,6 +402,7 @@ private data class ConversionKey(
         fun of(target: OutputTarget) = ConversionKey(
             format = target.format,
             maxQuality = target.maxQuality,
+            encodeSettings = target.encodeSettings,
             embedThumbnail = target.embedThumbnail,
             embedMetadata = target.embedMetadata,
             embedSubtitles = target.embedSubtitles,

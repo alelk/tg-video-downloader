@@ -9,6 +9,7 @@ import io.github.alelk.tgvd.domain.common.JobId
 import io.github.alelk.tgvd.domain.job.JobPhase
 import io.github.alelk.tgvd.domain.storage.AudioFormat
 import io.github.alelk.tgvd.domain.storage.MediaContainer
+import io.github.alelk.tgvd.domain.storage.VideoEncodeSettings
 import io.github.alelk.tgvd.server.infra.config.FfmpegConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
@@ -26,27 +27,65 @@ class FfmpegRunner(
         output: FilePath,
         container: MediaContainer,
         maxHeight: Int? = null,
+        encodeSettings: VideoEncodeSettings? = null,
     ): Either<DomainError, FilePath> {
+        val needsTranscode = maxHeight != null
+        val settings = encodeSettings ?: VideoEncodeSettings()
+
         val args = buildList {
+            // HW accel init args (must come before -i)
+            if (needsTranscode) {
+                settings.hwAccel?.let { hw ->
+                    when (hw) {
+                        VideoEncodeSettings.HwAccel.VIDEOTOOLBOX -> {} // no init flag needed
+                        VideoEncodeSettings.HwAccel.NVENC -> { add("-hwaccel"); add("cuda") }
+                        VideoEncodeSettings.HwAccel.QSV -> { add("-hwaccel"); add("qsv") }
+                        VideoEncodeSettings.HwAccel.VAAPI -> { add("-hwaccel"); add("vaapi"); add("-hwaccel_output_format"); add("vaapi") }
+                        VideoEncodeSettings.HwAccel.AMF -> {} // no init flag needed
+                    }
+                }
+            }
+
             add("-i"); add(input.value)
-            if (maxHeight != null) {
-                // Scale down to maxHeight, preserving aspect ratio; only if source is larger
+
+            if (needsTranscode) {
+                // Video scaling
                 add("-vf"); add("scale=-2:'min($maxHeight,ih)'")
-                add("-c:v"); add("libx264")
-                add("-crf"); add("18")
-                add("-preset"); add("medium")
-                add("-c:a"); add("aac")
-                add("-b:a"); add("192k")
+                // Video encoder
+                add("-c:v"); add(settings.resolveEncoder())
+                // Quality (CRF) — not all HW encoders support CRF, but most do via -crf or -qp
+                val isHw = settings.hwAccel != null
+                if (isHw) {
+                    // HW encoders typically use -q:v or -qp instead of -crf
+                    when (settings.hwAccel) {
+                        VideoEncodeSettings.HwAccel.VIDEOTOOLBOX -> { add("-q:v"); add("${settings.crf.coerceIn(1, 100)}") }
+                        VideoEncodeSettings.HwAccel.NVENC -> { add("-cq"); add("${settings.crf}"); add("-preset"); add("p4") }
+                        VideoEncodeSettings.HwAccel.QSV -> { add("-global_quality"); add("${settings.crf}") }
+                        else -> { add("-crf"); add("${settings.crf}") }
+                    }
+                } else {
+                    add("-crf"); add("${settings.crf}")
+                    add("-preset"); add(settings.preset.ffmpegValue)
+                }
+                // Audio
+                add("-c:a"); add(settings.resolveAudioCodec(container))
+                add("-b:a"); add(settings.audioBitrate)
             } else {
+                // No transcoding — just remux
                 add("-c:v"); add("copy")
                 add("-c:a"); add("copy")
             }
             add("-y"); add(output.value)
         }
-        return runFfmpeg(
-            args = args,
-            description = if (maxHeight != null) "convert to ${container.extension} (max ${maxHeight}p)" else "convert to ${container.extension}",
-        ).map { output }
+
+        val desc = if (needsTranscode) {
+            val encoder = settings.resolveEncoder()
+            "convert to ${container.extension} (${maxHeight}p, $encoder, crf=${settings.crf})"
+        } else {
+            "remux to ${container.extension}"
+        }
+
+        return runFfmpeg(args = args, description = desc).map { output }
     }
 
     suspend fun extractAudio(

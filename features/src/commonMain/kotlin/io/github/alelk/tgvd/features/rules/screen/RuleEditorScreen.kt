@@ -102,6 +102,7 @@ class RuleEditorScreen(
                                 pathTemplate = out.pathTemplate,
                                 format = out.format,
                                 maxQuality = out.maxQuality,
+                                encodeSettings = out.encodeSettings,
                                 embedThumbnail = out.embedThumbnail,
                                 embedMetadata = out.embedMetadata,
                                 embedSubtitles = out.embedSubtitles,
@@ -307,6 +308,7 @@ private data class OutputState(
     var pathTemplate: String = "",
     var format: OutputFormatDto = OutputFormatDto.OriginalVideo(MediaContainerDto.WEBM),
     var maxQuality: VideoQualityDto? = null,
+    var encodeSettings: VideoEncodeSettingsDto? = null,
     var embedThumbnail: Boolean = false,
     var embedMetadata: Boolean = false,
     var embedSubtitles: Boolean = false,
@@ -316,6 +318,7 @@ private data class OutputState(
         pathTemplate = pathTemplate,
         format = format,
         maxQuality = maxQuality,
+        encodeSettings = encodeSettings,
         embedThumbnail = embedThumbnail,
         embedMetadata = embedMetadata,
         embedSubtitles = embedSubtitles,
@@ -387,6 +390,88 @@ private fun OutputsEditor(outputs: SnapshotStateList<OutputState>) {
                                     onClick = { outputs[index] = output.copy(maxQuality = q) },
                                     label = { Text(qualityLabel(q), style = MaterialTheme.typography.bodySmall) },
                                 )
+                            }
+                        }
+
+                        // Encode settings (only shown for ConvertedVideo with maxQuality set = transcoding)
+                        if (output.format is OutputFormatDto.ConvertedVideo && output.maxQuality != null) {
+                            val settings = output.encodeSettings ?: VideoEncodeSettingsDto()
+                            var encodeExpanded by remember { mutableStateOf(output.encodeSettings != null) }
+
+                            ToggleRow("Custom Encode Settings", encodeExpanded) {
+                                encodeExpanded = it
+                                outputs[index] = output.copy(encodeSettings = if (it) settings else null)
+                            }
+
+                            if (encodeExpanded) {
+                                val curSettings = output.encodeSettings ?: VideoEncodeSettingsDto()
+
+                                // Codec
+                                Text("Video Codec", style = MaterialTheme.typography.labelSmall)
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    VideoCodecDto.entries.forEach { c ->
+                                        FilterChip(
+                                            selected = curSettings.codec == c,
+                                            onClick = { outputs[index] = output.copy(encodeSettings = curSettings.copy(codec = c)) },
+                                            label = { Text(c.name, style = MaterialTheme.typography.bodySmall) },
+                                        )
+                                    }
+                                }
+
+                                // HW Accel
+                                Text("Hardware Acceleration", style = MaterialTheme.typography.labelSmall)
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    FilterChip(
+                                        selected = curSettings.hwAccel == null,
+                                        onClick = { outputs[index] = output.copy(encodeSettings = curSettings.copy(hwAccel = null)) },
+                                        label = { Text("Software", style = MaterialTheme.typography.bodySmall) },
+                                    )
+                                    HwAccelDto.entries.forEach { hw ->
+                                        FilterChip(
+                                            selected = curSettings.hwAccel == hw,
+                                            onClick = { outputs[index] = output.copy(encodeSettings = curSettings.copy(hwAccel = hw)) },
+                                            label = { Text(hwAccelLabel(hw), style = MaterialTheme.typography.bodySmall) },
+                                        )
+                                    }
+                                }
+
+                                // Preset
+                                Text("Encode Preset", style = MaterialTheme.typography.labelSmall)
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf(EncodePresetDto.VERYFAST, EncodePresetDto.FAST, EncodePresetDto.MEDIUM, EncodePresetDto.SLOW, EncodePresetDto.VERYSLOW).forEach { p ->
+                                        FilterChip(
+                                            selected = curSettings.preset == p,
+                                            onClick = { outputs[index] = output.copy(encodeSettings = curSettings.copy(preset = p)) },
+                                            label = { Text(p.name.lowercase().replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodySmall) },
+                                        )
+                                    }
+                                }
+
+                                // CRF slider
+                                Text("Quality (CRF: ${curSettings.crf}) — lower = better", style = MaterialTheme.typography.labelSmall)
+                                Slider(
+                                    value = curSettings.crf.toFloat(),
+                                    onValueChange = { outputs[index] = output.copy(encodeSettings = curSettings.copy(crf = it.toInt())) },
+                                    valueRange = 0f..51f,
+                                    steps = 50,
+                                )
+                                Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
+                                    Text("Lossless (0)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("YouTube-like (23)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Low (51)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+
+                                // Audio bitrate
+                                Text("Audio Bitrate", style = MaterialTheme.typography.labelSmall)
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf("96k", "128k", "192k", "256k", "320k").forEach { br ->
+                                        FilterChip(
+                                            selected = curSettings.audioBitrate == br,
+                                            onClick = { outputs[index] = output.copy(encodeSettings = curSettings.copy(audioBitrate = br)) },
+                                            label = { Text(br, style = MaterialTheme.typography.bodySmall) },
+                                        )
+                                    }
+                                }
                             }
                         }
 
@@ -552,6 +637,14 @@ private fun qualityLabel(q: VideoQualityDto) = when (q) {
     VideoQualityDto.HD_1080 -> "1080p"
     VideoQualityDto.HD_720 -> "720p"
     VideoQualityDto.SD_480 -> "480p"
+}
+
+private fun hwAccelLabel(hw: HwAccelDto) = when (hw) {
+    HwAccelDto.VIDEOTOOLBOX -> "VideoToolbox (macOS)"
+    HwAccelDto.NVENC -> "NVENC (NVIDIA)"
+    HwAccelDto.QSV -> "QSV (Intel)"
+    HwAccelDto.VAAPI -> "VA-API (Linux)"
+    HwAccelDto.AMF -> "AMF (AMD)"
 }
 
 private fun buildMetadataTemplate(

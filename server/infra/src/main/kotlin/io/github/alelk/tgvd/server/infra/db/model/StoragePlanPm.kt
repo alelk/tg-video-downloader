@@ -13,6 +13,7 @@ data class OutputTargetPm(
     val path: String,
     val format: String,
     val maxQuality: String? = null,
+    val encodeSettings: VideoEncodeSettingsPm? = null,
     val embedThumbnail: Boolean = false,
     val embedMetadata: Boolean = false,
     val embedSubtitles: Boolean = false,

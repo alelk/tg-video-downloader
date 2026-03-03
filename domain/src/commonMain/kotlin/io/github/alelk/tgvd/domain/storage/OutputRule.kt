@@ -12,6 +12,7 @@ package io.github.alelk.tgvd.domain.storage
  * @param pathTemplate шаблон пути: `/media/Music/{artist}/{title}.{ext}`
  * @param format формат выходного файла (OriginalVideo, ConvertedVideo, Audio, Thumbnail)
  * @param maxQuality макс. качество для этого output (null = оригинальное качество без понижения)
+ * @param encodeSettings настройки кодирования видео (кодек, CRF, preset, HW accel). null = defaults
  * @param embedThumbnail встраивать обложку в этот файл
  * @param embedMetadata встраивать теги (title, artist, album) в контейнер
  * @param embedSubtitles встраивать субтитры в контейнер
@@ -21,6 +22,7 @@ data class OutputRule(
     val pathTemplate: String,
     val format: OutputFormat,
     val maxQuality: DownloadPolicy.VideoQuality? = null,
+    val encodeSettings: VideoEncodeSettings? = null,
     val embedThumbnail: Boolean = false,
     val embedMetadata: Boolean = false,
     val embedSubtitles: Boolean = false,

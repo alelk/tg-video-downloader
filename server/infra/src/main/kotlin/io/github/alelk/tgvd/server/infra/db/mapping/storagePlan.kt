@@ -19,6 +19,7 @@ private fun OutputTarget.toPm(): OutputTargetPm =
         path = path.value,
         format = format.serialized,
         maxQuality = maxQuality?.name?.lowercase(),
+        encodeSettings = encodeSettings?.toPm(),
         embedThumbnail = embedThumbnail,
         embedMetadata = embedMetadata,
         embedSubtitles = embedSubtitles,
@@ -32,6 +33,7 @@ private fun OutputTargetPm.toDomain(): OutputTarget =
         maxQuality = maxQuality?.let { q ->
             DownloadPolicy.VideoQuality.entries.find { it.name.equals(q, ignoreCase = true) }
         },
+        encodeSettings = encodeSettings?.toDomain(),
         embedThumbnail = embedThumbnail,
         embedMetadata = embedMetadata,
         embedSubtitles = embedSubtitles,

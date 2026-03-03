@@ -54,6 +54,7 @@ fun OutputRuleDto.toDomain(): OutputRule =
         pathTemplate = pathTemplate,
         format = format.toDomain(),
         maxQuality = maxQuality?.toDomain(),
+        encodeSettings = encodeSettings?.toDomain(),
         embedThumbnail = embedThumbnail,
         embedMetadata = embedMetadata,
         embedSubtitles = embedSubtitles,
@@ -65,6 +66,7 @@ fun OutputTargetDto.toDomain(): OutputTarget =
         path = FilePath(path),
         format = format.toDomain(),
         maxQuality = maxQuality?.toDomain(),
+        encodeSettings = encodeSettings?.toDomain(),
         embedThumbnail = embedThumbnail,
         embedMetadata = embedMetadata,
         embedSubtitles = embedSubtitles,
@@ -73,3 +75,41 @@ fun OutputTargetDto.toDomain(): OutputTarget =
 
 fun StoragePlanDto.toDomain(): StoragePlan =
     StoragePlan(original = original.toDomain(), additional = additional.map { it.toDomain() })
+
+fun VideoEncodeSettingsDto.toDomain(): VideoEncodeSettings =
+    VideoEncodeSettings(
+        codec = codec.toDomain(),
+        hwAccel = hwAccel?.toDomain(),
+        preset = preset.toDomain(),
+        crf = crf.coerceIn(0, 51),
+        audioBitrate = audioBitrate,
+        audioCodec = audioCodec,
+    )
+
+fun VideoCodecDto.toDomain(): VideoEncodeSettings.VideoCodec = when (this) {
+    VideoCodecDto.H264 -> VideoEncodeSettings.VideoCodec.H264
+    VideoCodecDto.H265 -> VideoEncodeSettings.VideoCodec.H265
+    VideoCodecDto.VP9 -> VideoEncodeSettings.VideoCodec.VP9
+    VideoCodecDto.AV1 -> VideoEncodeSettings.VideoCodec.AV1
+}
+
+fun HwAccelDto.toDomain(): VideoEncodeSettings.HwAccel = when (this) {
+    HwAccelDto.VIDEOTOOLBOX -> VideoEncodeSettings.HwAccel.VIDEOTOOLBOX
+    HwAccelDto.NVENC -> VideoEncodeSettings.HwAccel.NVENC
+    HwAccelDto.QSV -> VideoEncodeSettings.HwAccel.QSV
+    HwAccelDto.VAAPI -> VideoEncodeSettings.HwAccel.VAAPI
+    HwAccelDto.AMF -> VideoEncodeSettings.HwAccel.AMF
+}
+
+fun EncodePresetDto.toDomain(): VideoEncodeSettings.EncodePreset = when (this) {
+    EncodePresetDto.ULTRAFAST -> VideoEncodeSettings.EncodePreset.ULTRAFAST
+    EncodePresetDto.SUPERFAST -> VideoEncodeSettings.EncodePreset.SUPERFAST
+    EncodePresetDto.VERYFAST -> VideoEncodeSettings.EncodePreset.VERYFAST
+    EncodePresetDto.FASTER -> VideoEncodeSettings.EncodePreset.FASTER
+    EncodePresetDto.FAST -> VideoEncodeSettings.EncodePreset.FAST
+    EncodePresetDto.MEDIUM -> VideoEncodeSettings.EncodePreset.MEDIUM
+    EncodePresetDto.SLOW -> VideoEncodeSettings.EncodePreset.SLOW
+    EncodePresetDto.SLOWER -> VideoEncodeSettings.EncodePreset.SLOWER
+    EncodePresetDto.VERYSLOW -> VideoEncodeSettings.EncodePreset.VERYSLOW
+}
+

@@ -85,6 +85,7 @@ class PathTemplateEngine {
                 path = renderTemplate(output.pathTemplate, outputContext),
                 format = output.format,
                 maxQuality = output.maxQuality,
+                encodeSettings = output.encodeSettings,
                 embedThumbnail = output.embedThumbnail,
                 embedMetadata = output.embedMetadata,
                 embedSubtitles = output.embedSubtitles,
