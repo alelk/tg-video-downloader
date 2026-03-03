@@ -134,11 +134,26 @@ class JobProcessor(
             if (job.storagePlan.additional.isNotEmpty()) {
                 jobRepository.updateStatus(job.id, JobStatus.DOWNLOADING, JobPhase.CONVERT, 0)
 
+                // Track completed outputs by conversion signature to reuse results
+                val completedOutputs = mutableMapOf<ConversionKey, FilePath>()
+
                 for ((index, target) in job.storagePlan.additional.withIndex()) {
                     val progress = ((index.toDouble() / job.storagePlan.additional.size) * 100).toInt()
                     jobRepository.updateStatus(job.id, JobStatus.DOWNLOADING, JobPhase.CONVERT, progress)
 
-                    processAdditionalOutput(job, resolvedPath, target)
+                    val key = ConversionKey.of(target)
+                    val existingOutput = completedOutputs[key]
+                    if (existingOutput != null) {
+                        // Identical conversion already done — just copy
+                        File(target.path.parent).mkdirs()
+                        File(existingOutput.value).copyTo(File(target.path.value), overwrite = true)
+                        logger.info { "Copied from identical output '${existingOutput.fileName}' → '${target.path.value}'" }
+                    } else {
+                        processAdditionalOutput(job, resolvedPath, target)
+                        if (File(target.path.value).exists()) {
+                            completedOutputs[key] = target.path
+                        }
+                    }
                 }
             }
 
@@ -366,5 +381,30 @@ private fun DownloadPolicy.VideoQuality.toMaxHeight(): Int? = when (this) {
     DownloadPolicy.VideoQuality.HD_1080 -> 1080
     DownloadPolicy.VideoQuality.HD_720 -> 720
     DownloadPolicy.VideoQuality.SD_480 -> 480
+}
+
+/**
+ * Key that captures all parameters affecting the output file content.
+ * Two outputs with the same [ConversionKey] produce identical files (only the path differs),
+ * so the second one can be a simple file copy instead of a redundant ffmpeg conversion.
+ */
+private data class ConversionKey(
+    val format: OutputFormat,
+    val maxQuality: DownloadPolicy.VideoQuality?,
+    val embedThumbnail: Boolean,
+    val embedMetadata: Boolean,
+    val embedSubtitles: Boolean,
+    val normalizeAudio: Boolean,
+) {
+    companion object {
+        fun of(target: OutputTarget) = ConversionKey(
+            format = target.format,
+            maxQuality = target.maxQuality,
+            embedThumbnail = target.embedThumbnail,
+            embedMetadata = target.embedMetadata,
+            embedSubtitles = target.embedSubtitles,
+            normalizeAudio = target.normalizeAudio,
+        )
+    }
 }
 
