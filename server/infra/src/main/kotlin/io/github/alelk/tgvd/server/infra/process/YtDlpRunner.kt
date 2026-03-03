@@ -179,8 +179,20 @@ class YtDlpRunner(
             add(config.path)
             add("-o"); add(outputPath.value)
             add("--newline")
+            add("--retries"); add(config.retries.toString())
+            add("--fragment-retries"); add(config.fragmentRetries.toString())
             add("--no-playlist")
             addCookiesArgs()
+
+            when (policy.maxQuality) {
+                DownloadPolicy.VideoQuality.BEST -> { add("-f"); add("bestvideo+bestaudio/best") }
+                DownloadPolicy.VideoQuality.HD_1080 -> { add("-f"); add("bestvideo[height<=1080]+bestaudio/best[height<=1080]") }
+                DownloadPolicy.VideoQuality.HD_720 -> { add("-f"); add("bestvideo[height<=720]+bestaudio/best[height<=720]") }
+                DownloadPolicy.VideoQuality.SD_480 -> { add("-f"); add("bestvideo[height<=480]+bestaudio/best[height<=480]") }
+            }
+
+            policy.preferredContainer?.let { add("--merge-output-format"); add(it.extension) }
+
             if (policy.writeThumbnail) {
                 add("--write-thumbnail")
             }

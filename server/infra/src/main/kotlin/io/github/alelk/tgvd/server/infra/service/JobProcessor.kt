@@ -103,14 +103,28 @@ class JobProcessor(
                     )
                 }
 
-            // 5. Verify original file exists
-            if (!File(outputPath.value).exists()) {
+            // 5. Resolve actual file (yt-dlp may add format suffixes like .f313.webm)
+            val actualFile = resolveDownloadedFile(outputPath)
+            if (actualFile == null) {
                 jobRepository.updateStatus(
                     id = job.id,
                     status = JobStatus.FAILED,
-                    errorMessage = "Downloaded file not found: ${outputPath.value}",
+                    errorMessage = "Downloaded file not found: ${outputPath.value} (also checked for yt-dlp format suffixes)",
                 )
                 return
+            }
+            val resolvedPath = if (actualFile.absolutePath != File(outputPath.value).absolutePath) {
+                // Rename to expected path
+                val target = File(outputPath.value)
+                if (actualFile.renameTo(target)) {
+                    logger.info { "Renamed '${actualFile.name}' → '${target.name}'" }
+                    outputPath
+                } else {
+                    logger.warn { "Failed to rename '${actualFile.absolutePath}' → '${target.absolutePath}', using actual path" }
+                    FilePath(actualFile.absolutePath)
+                }
+            } else {
+                outputPath
             }
 
             // 6. Process additional outputs (conversions/copies)
@@ -121,14 +135,14 @@ class JobProcessor(
                     val progress = ((index.toDouble() / job.storagePlan.additional.size) * 100).toInt()
                     jobRepository.updateStatus(job.id, JobStatus.DOWNLOADING, JobPhase.CONVERT, progress)
 
-                    processAdditionalOutput(job, outputPath, target)
+                    processAdditionalOutput(job, resolvedPath, target)
                 }
             }
 
             // 7. Mark completed
             jobRepository.updateStatus(job.id, JobStatus.COMPLETED, progress = 100)
 
-            logger.info { "Job ${job.id.value} completed: ${outputPath.value}" +
+            logger.info { "Job ${job.id.value} completed: ${resolvedPath.value}" +
                 if (job.storagePlan.additional.isNotEmpty()) " (+${job.storagePlan.additional.size} additional outputs)" else ""
             }
         } catch (e: CancellationException) {
@@ -256,14 +270,74 @@ class JobProcessor(
     }
 
     /**
+     * Resolve the actual downloaded file.
+     * yt-dlp may produce files with format suffixes (e.g. "Title.f313.webm" instead of "Title.webm")
+     * or different extensions when merging fails.
+     */
+    private fun resolveDownloadedFile(expectedPath: FilePath): File? {
+        val expectedFile = File(expectedPath.value)
+        if (expectedFile.exists()) return expectedFile
+
+        val dir = expectedFile.parentFile ?: return null
+        if (!dir.exists()) return null
+
+        val expectedName = expectedFile.nameWithoutExtension  // e.g. "East To West (Live at The Ryman)"
+        val expectedExt = expectedFile.extension               // e.g. "webm"
+
+        // Look for files matching: "Title.f<N>.ext" or "Title.<something>.ext"
+        val candidates = dir.listFiles()?.filter { f ->
+            f.isFile && f.name != expectedFile.name &&
+                f.name.startsWith(expectedName) &&
+                f.name.endsWith(".$expectedExt")
+        } ?: emptyList()
+
+        if (candidates.size == 1) {
+            logger.info { "Resolved yt-dlp output: '${candidates[0].name}' (expected: '${expectedFile.name}')" }
+            return candidates[0]
+        }
+
+        // Also check for any file with the same base name but different extension
+        val anyCandidates = dir.listFiles()?.filter { f ->
+            f.isFile && f.nameWithoutExtension.startsWith(expectedName) &&
+                f.extension in listOf("webm", "mkv", "mp4", "avi", "mov", "flv")
+        } ?: emptyList()
+
+        if (anyCandidates.size == 1) {
+            logger.info { "Resolved yt-dlp output (different ext): '${anyCandidates[0].name}' (expected: '${expectedFile.name}')" }
+            return anyCandidates[0]
+        }
+
+        if (anyCandidates.isNotEmpty()) {
+            // Pick the largest file (most likely the merged result)
+            val best = anyCandidates.maxByOrNull { it.length() }!!
+            logger.warn { "Multiple candidates found, picking largest: '${best.name}' (${best.length()} bytes) from ${anyCandidates.map { it.name }}" }
+            return best
+        }
+
+        logger.error { "Could not resolve downloaded file. Expected: '${expectedFile.name}', dir contents: ${dir.listFiles()?.map { it.name }}" }
+        return null
+    }
+
+    /**
      * Find a thumbnail file next to the original download.
      * yt-dlp often saves thumbnails as .jpg/.webp/.png alongside the video.
+     * May also add format suffixes (e.g. "Title.f313.jpg").
      */
     private fun findThumbnailFile(originalPath: FilePath): File? {
         val base = originalPath.value.substringBeforeLast('.')
         val extensions = listOf("jpg", "jpeg", "png", "webp")
-        return extensions.firstNotNullOfOrNull { ext ->
+        // Try exact match first
+        extensions.firstNotNullOfOrNull { ext ->
             File("$base.$ext").takeIf { it.exists() }
+        }?.let { return it }
+
+        // Try fuzzy match (yt-dlp may add format suffixes)
+        val dir = File(originalPath.parent)
+        if (!dir.exists()) return null
+        val baseName = File(originalPath.value).nameWithoutExtension
+        return dir.listFiles()?.firstOrNull { f ->
+            f.isFile && f.nameWithoutExtension.startsWith(baseName) &&
+                f.extension.lowercase() in extensions
         }
     }
 }
