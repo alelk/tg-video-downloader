@@ -3,16 +3,6 @@ package io.github.alelk.tgvd.domain.storage
 import io.github.alelk.tgvd.domain.common.Category
 
 /**
- * Шаблон пути для одного выходного файла.
- * Связывает path template с форматом выходного файла.
- * @deprecated Заменено на [OutputRule].
- */
-data class OutputTemplate(
-    val pathTemplate: String,
-    val format: OutputFormat,
-)
-
-/**
  * Default output rules for each category.
  * Used when no rule is matched or as starting templates.
  */

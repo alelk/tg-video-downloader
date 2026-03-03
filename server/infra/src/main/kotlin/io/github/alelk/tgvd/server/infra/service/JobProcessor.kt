@@ -199,8 +199,9 @@ class JobProcessor(
         if (target.embedMetadata) {
             val metadataMap = buildMetadataMap(job.metadata)
             if (metadataMap.isNotEmpty()) {
-                // ffmpeg embed metadata requires a temp file
-                val tempPath = FilePath(convertedPath.value + ".tmp_meta" + convertedPath.value.substringAfterLast('.', ""))
+                val ext = convertedPath.value.substringAfterLast('.', "")
+                val base = convertedPath.value.substringBeforeLast('.')
+                val tempPath = FilePath("${base}.tmp_meta.${ext}")
                 ffmpegRunner.embedMetadata(convertedPath, tempPath, metadataMap)
                     .fold(
                         { error -> logger.error { "Embed metadata failed: $error" } },
@@ -217,7 +218,9 @@ class JobProcessor(
             // Look for a thumbnail file next to the original (yt-dlp may have downloaded one)
             val thumbnailFile = findThumbnailFile(originalPath)
             if (thumbnailFile != null) {
-                val tempPath = FilePath(convertedPath.value + ".tmp_thumb" + convertedPath.value.substringAfterLast('.', ""))
+                val ext = convertedPath.value.substringAfterLast('.', "")
+                val base = convertedPath.value.substringBeforeLast('.')
+                val tempPath = FilePath("${base}.tmp_thumb.${ext}")
                 ffmpegRunner.embedThumbnail(convertedPath, FilePath(thumbnailFile.absolutePath), tempPath)
                     .fold(
                         { error -> logger.error { "Embed thumbnail failed: $error" } },
@@ -240,6 +243,7 @@ class JobProcessor(
         when (metadata) {
             is ResolvedMetadata.MusicVideo -> {
                 put("artist", metadata.artist)
+                metadata.album?.let { put("album", it) }
             }
             is ResolvedMetadata.SeriesEpisode -> {
                 put("show", metadata.seriesName)

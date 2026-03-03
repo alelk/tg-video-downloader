@@ -19,6 +19,7 @@ sealed interface ResolvedMetadataPm {
     data class MusicVideo(
         val artist: String,
         override val title: String,
+        val album: String? = null,
         override val releaseDate: String? = null,
         override val tags: List<String> = emptyList(),
         override val comment: String? = null,

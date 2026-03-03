@@ -22,6 +22,7 @@ class ResolvedMetadataDtoTest : FunSpec({
                     "type": "music-video",
                     "artist": "Rick Astley",
                     "title": "Never Gonna Give You Up",
+                    "album": null,
                     "releaseDate": "1987-07-27",
                     "tags": ["pop", "80s"],
                     "comment": "Classic"

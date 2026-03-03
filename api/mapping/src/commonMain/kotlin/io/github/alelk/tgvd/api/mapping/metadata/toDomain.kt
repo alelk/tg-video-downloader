@@ -27,7 +27,7 @@ fun ResolvedMetadataDto.toDomain(): Either<DomainError.ValidationError, Resolved
         ensure(artist.isNotBlank()) { DomainError.ValidationError("artist", "Cannot be blank") }
         ensure(title.isNotBlank()) { DomainError.ValidationError("title", "Cannot be blank") }
         ResolvedMetadata.MusicVideo(
-            artist = artist, title = title, releaseDate = releaseDate?.let { LocalDate(it) },
+            artist = artist, title = title, album = album, releaseDate = releaseDate?.let { LocalDate(it) },
             tags = tags, comment = comment,
         )
     }

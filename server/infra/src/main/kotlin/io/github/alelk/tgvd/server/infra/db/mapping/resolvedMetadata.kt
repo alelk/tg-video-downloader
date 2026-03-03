@@ -6,7 +6,7 @@ import io.github.alelk.tgvd.server.infra.db.model.ResolvedMetadataPm
 
 internal fun ResolvedMetadata.toPm(): ResolvedMetadataPm = when (this) {
     is ResolvedMetadata.MusicVideo -> ResolvedMetadataPm.MusicVideo(
-        artist = artist, title = title, releaseDate = releaseDate?.value, tags = tags, comment = comment,
+        artist = artist, title = title, album = album, releaseDate = releaseDate?.value, tags = tags, comment = comment,
     )
     is ResolvedMetadata.SeriesEpisode -> ResolvedMetadataPm.SeriesEpisode(
         seriesName = seriesName, season = season, episode = episode,
@@ -19,7 +19,7 @@ internal fun ResolvedMetadata.toPm(): ResolvedMetadataPm = when (this) {
 
 internal fun ResolvedMetadataPm.toDomain(): ResolvedMetadata = when (this) {
     is ResolvedMetadataPm.MusicVideo -> ResolvedMetadata.MusicVideo(
-        artist = artist, title = title, releaseDate = releaseDate?.let { LocalDate(it) },
+        artist = artist, title = title, album = album, releaseDate = releaseDate?.let { LocalDate(it) },
         tags = tags, comment = comment,
     )
     is ResolvedMetadataPm.SeriesEpisode -> ResolvedMetadata.SeriesEpisode(

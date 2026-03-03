@@ -18,7 +18,7 @@ fun MetadataTemplate.toDto(): MetadataTemplateDto = when (this) {
 
 fun ResolvedMetadata.toDto(): ResolvedMetadataDto = when (this) {
     is ResolvedMetadata.MusicVideo -> ResolvedMetadataDto.MusicVideo(
-        artist = artist, title = title, releaseDate = releaseDate?.value, tags = tags, comment = comment,
+        artist = artist, title = title, album = album, releaseDate = releaseDate?.value, tags = tags, comment = comment,
     )
     is ResolvedMetadata.SeriesEpisode -> ResolvedMetadataDto.SeriesEpisode(
         seriesName = seriesName, season = season, episode = episode,

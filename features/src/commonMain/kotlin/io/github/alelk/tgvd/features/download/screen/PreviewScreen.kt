@@ -58,6 +58,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
         }
         var title by remember { mutableStateOf(preview.metadata.title) }
         var artist by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.MusicVideo)?.artist ?: "") }
+        var album by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.MusicVideo)?.album ?: "") }
         var seriesName by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.SeriesEpisode)?.seriesName ?: "") }
         var season by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.SeriesEpisode)?.season ?: "") }
         var episode by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.SeriesEpisode)?.episode ?: "") }
@@ -83,6 +84,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                 CategoryDto.MUSIC_VIDEO -> ResolvedMetadataDto.MusicVideo(
                     artist = artist,
                     title = title,
+                    album = album.takeIf { it.isNotBlank() },
                     tags = tagList,
                 )
                 CategoryDto.SERIES_EPISODE -> ResolvedMetadataDto.SeriesEpisode(
@@ -174,6 +176,14 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                                 value = artist,
                                 onValueChange = { artist = it },
                                 label = { Text("Artist") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = album,
+                                onValueChange = { album = it },
+                                label = { Text("Album (optional)") },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )

@@ -24,6 +24,7 @@ class PathTemplateEngine {
             when (metadata) {
                 is ResolvedMetadata.MusicVideo -> {
                     put("artist", sanitize(metadata.artist))
+                    metadata.album?.let { put("album", sanitize(it)) }
                 }
                 is ResolvedMetadata.SeriesEpisode -> {
                     put("seriesName", sanitize(metadata.seriesName))
@@ -54,7 +55,10 @@ class PathTemplateEngine {
         put("date", metadata.releaseDate?.value ?: "unknown")
 
         when (metadata) {
-            is ResolvedMetadata.MusicVideo -> put("artist", sanitize(metadata.artist))
+            is ResolvedMetadata.MusicVideo -> {
+                put("artist", sanitize(metadata.artist))
+                metadata.album?.let { put("album", sanitize(it)) }
+            }
             is ResolvedMetadata.SeriesEpisode -> {
                 put("seriesName", sanitize(metadata.seriesName))
                 put("season", metadata.season ?: "01")
