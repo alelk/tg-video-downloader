@@ -573,11 +573,10 @@ data class CreateRuleRequestDto(
     val enabled: Boolean = true,
     val priority: Int = 0,
     val match: RuleMatchDto,
-    val category: String,
+    val category: CategoryDto,
     val metadataTemplate: MetadataTemplateDto,
     val downloadPolicy: DownloadPolicyDto,
-    val storagePolicy: StoragePolicyDto,
-    val postProcessPolicy: PostProcessPolicyDto,
+    val outputs: List<OutputRuleDto>,
 )
 ```
 
@@ -654,12 +653,20 @@ data class StoragePlanDto(
 
 @Serializable
 data class OutputTargetDto(
-    val path: String,
-    val format: String,  // "original/webm", "video/mp4", "audio/m4a", "image/jpg"
+    val path: String,                          // resolved path
+    val format: OutputFormatDto,               // "original/webm", "video/mp4", "audio/m4a", "image/jpg"
+    val maxQuality: VideoQualityDto? = null,   // max height cap; null = no downscale
+    val encodeSettings: VideoEncodeSettingsDto? = null,  // null = defaults (H264, CRF 23, medium)
+    val embedThumbnail: Boolean = false,
+    val embedMetadata: Boolean = false,
+    val embedSubtitles: Boolean = false,
+    val normalizeAudio: Boolean = false,
 )
 ```
 
-> `format` — строка вида `"kind/extension"`. Маппинг в domain: `OutputFormat.parse(format)` / `outputFormat.serialized`.
+> `format` — строка вида `"kind/extension"`. Маппинг: `OutputFormat.parse(format)` / `outputFormat.serialized`.
+>
+> Подробнее о `OutputFormatDto`, `VideoQualityDto`, `VideoEncodeSettingsDto` — см. секцию 7.9.
 
 ### 7.4 JobProgressDto
 
@@ -694,11 +701,10 @@ data class RuleDto(
     val enabled: Boolean,
     val priority: Int,
     val match: RuleMatchDto,
-    val category: String,
+    val category: CategoryDto,
     val metadataTemplate: MetadataTemplateDto,
     val downloadPolicy: DownloadPolicyDto,
-    val storagePolicy: StoragePolicyDto,
-    val postProcessPolicy: PostProcessPolicyDto,
+    val outputs: List<OutputRuleDto>,          // список выходных файлов (первый = оригинал)
     val createdAt: String,
     val updatedAt: String,
 )
@@ -753,30 +759,173 @@ sealed interface MetadataTemplateDto {
 
 @Serializable
 data class DownloadPolicyDto(
-    val maxQuality: String = "best",
-    val preferredContainer: String? = null,   // "mp4", "mkv", "webm", ...
+    val maxQuality: VideoQualityDto = VideoQualityDto.BEST,
+    val preferredContainer: MediaContainerDto? = null,
     val downloadSubtitles: Boolean = false,
     val subtitleLanguages: List<String> = emptyList(),
+    val writeThumbnail: Boolean = false,
 )
 
 @Serializable
-data class OutputTemplateDto(
-    val pathTemplate: String,
-    val format: String,  // "video/mp4", "audio/m4a", "image/jpg"
-)
+enum class VideoQualityDto {
+    @SerialName("best") BEST,
+    @SerialName("hd_1080") HD_1080,
+    @SerialName("hd_720") HD_720,
+    @SerialName("sd_480") SD_480,
+}
 
+/**
+ * Описание одного выходного файла в правиле.
+ * Первый элемент в RuleDto.outputs — оригинальный файл (OriginalVideo).
+ * Остальные — конвертации, аудио, обложки.
+ */
 @Serializable
-data class StoragePolicyDto(
-    val originalTemplate: String,
-    val additionalOutputs: List<OutputTemplateDto> = emptyList(),
-)
-
-@Serializable
-data class PostProcessPolicyDto(
-    val embedThumbnail: Boolean = true,
-    val embedMetadata: Boolean = true,
+data class OutputRuleDto(
+    val pathTemplate: String,                   // "/media/{artist}/{title}.{ext}"
+    val format: OutputFormatDto,                // "original/webm", "video/mp4", ...
+    val maxQuality: VideoQualityDto? = null,    // null = оригинальное разрешение
+    val encodeSettings: VideoEncodeSettingsDto? = null,  // null = дефолты
+    val embedThumbnail: Boolean = false,
+    val embedMetadata: Boolean = false,
+    val embedSubtitles: Boolean = false,
     val normalizeAudio: Boolean = false,
 )
+
+/**
+ * Настройки перекодирования видео.
+ * Применяются только если источник превышает maxQuality (иначе — ремуксинг).
+ */
+@Serializable
+data class VideoEncodeSettingsDto(
+    val codec: VideoCodecDto = VideoCodecDto.H264,
+    val hwAccel: HwAccelDto? = null,
+    val preset: EncodePresetDto = EncodePresetDto.MEDIUM,
+    val crf: Int = 23,             // 0..51; типичные значения: 18 (высокое), 23 (YouTube-like), 28 (экономия)
+    val audioBitrate: String = "192k",
+    val audioCodec: String? = null,  // null = авто (aac для mp4, libopus для webm)
+)
+
+@Serializable
+enum class VideoCodecDto {
+    @SerialName("h264") H264,
+    @SerialName("h265") H265,
+    @SerialName("vp9") VP9,
+    @SerialName("av1") AV1,
+}
+
+@Serializable
+enum class HwAccelDto {
+    @SerialName("videotoolbox") VIDEOTOOLBOX,  // macOS
+    @SerialName("nvenc") NVENC,                // NVIDIA
+    @SerialName("qsv") QSV,                   // Intel Quick Sync
+    @SerialName("vaapi") VAAPI,                // Linux VA-API
+    @SerialName("amf") AMF,                   // AMD
+}
+
+@Serializable
+enum class EncodePresetDto {
+    @SerialName("ultrafast") ULTRAFAST,
+    @SerialName("superfast") SUPERFAST,
+    @SerialName("veryfast") VERYFAST,
+    @SerialName("faster") FASTER,
+    @SerialName("fast") FAST,
+    @SerialName("medium") MEDIUM,
+    @SerialName("slow") SLOW,
+    @SerialName("slower") SLOWER,
+    @SerialName("veryslow") VERYSLOW,
+}
+```
+
+### 7.9 OutputFormatDto
+
+```kotlin
+@Serializable(with = OutputFormatDtoSerializer::class)
+sealed interface OutputFormatDto {
+    @SerialName("original") data class OriginalVideo(val container: MediaContainerDto) : OutputFormatDto
+    @SerialName("video")    data class ConvertedVideo(val container: MediaContainerDto) : OutputFormatDto
+    @SerialName("audio")    data class Audio(val format: AudioFormatDto)               : OutputFormatDto
+    @SerialName("image")    data class Thumbnail(val format: ImageFormatDto)           : OutputFormatDto
+}
+
+@Serializable
+enum class MediaContainerDto { @SerialName("mp4") MP4, @SerialName("mkv") MKV,
+    @SerialName("webm") WEBM, @SerialName("avi") AVI, @SerialName("mov") MOV }
+
+@Serializable
+enum class AudioFormatDto { @SerialName("m4a") M4A, @SerialName("mp3") MP3,
+    @SerialName("opus") OPUS, @SerialName("flac") FLAC, @SerialName("wav") WAV }
+
+@Serializable
+enum class ImageFormatDto { @SerialName("jpg") JPG, @SerialName("png") PNG,
+    @SerialName("webp") WEBP }
+```
+
+> `OutputFormatDto` сериализуется как строка `"kind/extension"` (кастомный сериализатор):
+> `"original/webm"`, `"video/mp4"`, `"audio/m4a"`, `"image/jpg"`.
+
+---
+
+### 7.10 JSON-пример полного правила (music-video)
+
+```json
+{
+  "id": "34a23c97-9d14-4bb9-b221-545a5895e1bd",
+  "name": "Music Videos",
+  "enabled": true,
+  "priority": 0,
+  "match": {
+    "type": "channel-name",
+    "value": "Casting Crowns",
+    "ignoreCase": true
+  },
+  "category": "music-video",
+  "metadataTemplate": {
+    "type": "music-video",
+    "artistOverride": null,
+    "artistPattern": null,
+    "titleOverride": null,
+    "titlePattern": null,
+    "defaultTags": []
+  },
+  "downloadPolicy": {
+    "maxQuality": "best",
+    "preferredContainer": null,
+    "downloadSubtitles": false,
+    "subtitleLanguages": [],
+    "writeThumbnail": false
+  },
+  "outputs": [
+    {
+      "pathTemplate": "/media/Music Videos/original/{artist}/{title}.{ext}",
+      "format": "original/webm",
+      "maxQuality": null,
+      "encodeSettings": null,
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": false
+    },
+    {
+      "pathTemplate": "/media/Music Videos/converted/{artist}/{title}/{title}.{ext}",
+      "format": "video/mp4",
+      "maxQuality": "hd_1080",
+      "encodeSettings": {
+        "codec": "h264",
+        "hwAccel": "videotoolbox",
+        "preset": "medium",
+        "crf": 23,
+        "audioBitrate": "192k",
+        "audioCodec": null
+      },
+      "embedThumbnail": true,
+      "embedMetadata": true,
+      "embedSubtitles": false,
+      "normalizeAudio": false
+    }
+  ],
+  "createdAt": "2026-03-01T10:00:00Z",
+  "updatedAt": "2026-03-04T12:00:00Z"
+}
 ```
 
 ---

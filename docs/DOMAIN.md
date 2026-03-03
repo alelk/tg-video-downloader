@@ -736,6 +736,7 @@ domain/storage/
 ├── ImageFormat.kt
 ├── OutputFormat.kt            # sealed interface
 ├── OutputRule.kt              # per-output path + format + quality + post-processing
+├── VideoEncodeSettings.kt     # кодек, CRF, preset, HW-ускорение для конвертации
 ├── OutputTarget.kt
 ├── StoragePlan.kt
 ├── DownloadPolicy.kt
@@ -861,6 +862,8 @@ sealed interface OutputFormat {
 data class OutputTarget(
     val path: FilePath,
     val format: OutputFormat,
+    val maxQuality: DownloadPolicy.VideoQuality? = null,
+    val encodeSettings: VideoEncodeSettings? = null,
     val embedThumbnail: Boolean = false,
     val embedMetadata: Boolean = false,
     val embedSubtitles: Boolean = false,
@@ -906,7 +909,61 @@ data class DownloadPolicy(
 }
 ```
 
-### 7.5 OutputRule
+### 7.5 VideoEncodeSettings
+
+Настройки перекодирования видео. Применяются при `OutputFormat.ConvertedVideo` **только тогда**,
+когда исходное разрешение превышает `maxQuality`. Если источник уже вписывается в лимит —
+выполняется ремуксинг (`-c copy`) без перекодирования.
+
+```kotlin
+data class VideoEncodeSettings(
+    val codec: VideoCodec = VideoCodec.H264,
+    val hwAccel: HwAccel? = null,         // null = программное кодирование (libx264 и т.д.)
+    val preset: EncodePreset = EncodePreset.MEDIUM,
+    val crf: Int = 23,                    // 0 = lossless, 51 = худшее; YouTube-like ≈ 23
+    val audioBitrate: String = "192k",
+    val audioCodec: String? = null,       // null = авто по контейнеру
+) {
+    enum class VideoCodec { H264, H265, VP9, AV1 }
+
+    enum class HwAccel {
+        VIDEOTOOLBOX,  // macOS (Apple Silicon / Intel)
+        NVENC,         // NVIDIA
+        QSV,           // Intel Quick Sync
+        VAAPI,         // Linux VA-API
+        AMF,           // AMD (Windows)
+    }
+
+    enum class EncodePreset {
+        ULTRAFAST, SUPERFAST, VERYFAST, FASTER, FAST,
+        MEDIUM, SLOW, SLOWER, VERYSLOW
+    }
+
+    companion object {
+        /** YouTube-like: H264, CRF 23, medium preset, 128k audio */
+        val YOUTUBE_LIKE = VideoEncodeSettings(crf = 23, audioBitrate = "128k")
+        /** Высокое качество: H264, CRF 18, slow preset, 192k audio */
+        val HIGH_QUALITY = VideoEncodeSettings(preset = EncodePreset.SLOW, crf = 18)
+    }
+}
+```
+
+> **Логика выбора кодирования** (в `FfmpegRunner`):
+>
+> 1. `ffprobe` определяет высоту исходного видео
+> 2. Если `sourceHeight ≤ maxHeight` → **ремуксинг** (`-c:v copy -c:a copy`), настройки игнорируются
+> 3. Если `sourceHeight > maxHeight` → **перекодирование** с `VideoEncodeSettings`
+>    - Масштабирование: `scale=-2:min(maxHeight,ih)`
+>    - Видеокодек: HW-вариант (если задан и поддерживается) или SW-fallback
+>    - Качество: `-crf` (SW) или `-cq`/`-q:v`/`-global_quality` (HW)
+>    - Preset: только для SW-кодеков
+>    - Аудио: `-c:a aac -b:a 192k` (или по настройкам)
+>
+> Если `ffprobe` недоступен — перекодирование применяется всегда (безопасный fallback).
+
+---
+
+### 7.6 OutputRule
 
 ```kotlin
 /**
@@ -921,6 +978,10 @@ data class DownloadPolicy(
  * @param pathTemplate шаблон пути: "/media/Music/{artist}/{title}.{ext}"
  * @param format формат выходного файла (OriginalVideo, ConvertedVideo, Audio, Thumbnail)
  * @param maxQuality макс. качество для этого output (null = без понижения)
+ * @param encodeSettings настройки перекодирования видео (кодек, CRF, preset, HW-ускорение).
+ *                       null = дефолтные настройки (H264, CRF 23, preset medium, без HW).
+ *                       Применяются только при реальном перекодировании (когда исходное
+ *                       разрешение выше maxQuality). Если источник уже ≤ maxQuality — ремуксинг.
  * @param embedThumbnail встраивать обложку в этот файл
  * @param embedMetadata встраивать теги (title, artist, album) в контейнер
  * @param embedSubtitles встраивать субтитры в контейнер
@@ -930,6 +991,7 @@ data class OutputRule(
     val pathTemplate: String,
     val format: OutputFormat,
     val maxQuality: DownloadPolicy.VideoQuality? = null,
+    val encodeSettings: VideoEncodeSettings? = null,
     val embedThumbnail: Boolean = false,
     val embedMetadata: Boolean = false,
     val embedSubtitles: Boolean = false,
@@ -943,7 +1005,7 @@ data class OutputRule(
 > - Расширяемо: добавление audio/thumbnail — ещё один `OutputRule` в списке
 > - `Rule.outputs` зеркалит `StoragePlan(original, additional)` — маппинг 1:1
 >
-> **Пример 1**: музыкальное видео — оригинал без метаданных + конвертация MP4 с тегами:
+> **Пример 1**: музыкальное видео — оригинал без метаданных + конвертация MP4 с YouTube-качеством:
 > ```kotlin
 > Rule(
 >     downloadPolicy = DownloadPolicy(maxQuality = BEST),
@@ -956,6 +1018,7 @@ data class OutputRule(
 >             pathTemplate = "/media/Music Videos/converted/{artist}/{title}.mp4",
 >             format = OutputFormat.ConvertedVideo(MediaContainer.MP4),
 >             maxQuality = DownloadPolicy.VideoQuality.HD_1080,
+>             encodeSettings = VideoEncodeSettings.YOUTUBE_LIKE,  // H264, CRF 23
 >             embedThumbnail = true,
 >             embedMetadata = true,
 >         ),
@@ -963,7 +1026,24 @@ data class OutputRule(
 > )
 > ```
 >
-> **Пример 2**: серия/блог — один output с встроенными субтитрами:
+> **Пример 2**: то же правило, но с VideoToolbox (macOS hardware encoding):
+> ```kotlin
+> OutputRule(
+>     pathTemplate = "/media/Music Videos/converted/{artist}/{title}.mp4",
+>     format = OutputFormat.ConvertedVideo(MediaContainer.MP4),
+>     maxQuality = DownloadPolicy.VideoQuality.HD_1080,
+>     encodeSettings = VideoEncodeSettings(
+>         codec = VideoEncodeSettings.VideoCodec.H264,
+>         hwAccel = VideoEncodeSettings.HwAccel.VIDEOTOOLBOX,
+>         crf = 23,
+>         audioBitrate = "192k",
+>     ),
+>     embedThumbnail = true,
+>     embedMetadata = true,
+> )
+> ```
+>
+> **Пример 3**: серия/блог — один output, без перекодирования выше 1080p:
 > ```kotlin
 > Rule(
 >     downloadPolicy = DownloadPolicy(maxQuality = HD_1080, downloadSubtitles = true),
@@ -979,17 +1059,18 @@ data class OutputRule(
 > )
 > ```
 >
-> **Пример 3**: музыкальное видео с извлечением аудио и обложки:
+> **Пример 4**: музыкальное видео с извлечением аудио и обложки:
 > ```kotlin
 > outputs = listOf(
 >     OutputRule("/media/Music/original/{artist}/{title} [{videoId}].{ext}", OutputFormat.OriginalVideo(MediaContainer.WEBM)),
->     OutputRule("/media/Music/video/{artist}/{title}.mp4", OutputFormat.ConvertedVideo(MediaContainer.MP4), embedMetadata = true),
+>     OutputRule("/media/Music/video/{artist}/{title}.mp4", OutputFormat.ConvertedVideo(MediaContainer.MP4),
+>         maxQuality = HD_1080, encodeSettings = VideoEncodeSettings.YOUTUBE_LIKE, embedMetadata = true),
 >     OutputRule("/media/Music/audio/{artist}/{title}.m4a", OutputFormat.Audio(AudioFormat.M4A), embedMetadata = true),
 >     OutputRule("/media/Music/covers/{artist}/{title}.jpg", OutputFormat.Thumbnail(ImageFormat.JPG)),
 > )
 > ```
 
-### 7.7 PathTemplateEngine
+### 7.8 PathTemplateEngine
 
 ```kotlin
 class PathTemplateEngine(

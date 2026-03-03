@@ -523,31 +523,50 @@ ksp = { id = "com.google.devtools.ksp", version = "2.3.0-1.0.30" }
 JobScheduler (polls QUEUED)
        │
        ▼
-JobExecutor
+JobProcessor
        │
-       ├──▶ YtDlpDownloader.download()  (+ proxy)
+       ├──▶ YtDlpDownloader.download()  (+ proxy, + thumbnail)
        │         │
        │         ▼
-       │    temp file (webm/mkv — макс. качество)
+       │    downloaded file (webm/mkv — макс. качество)
        │
-       ├──▶ Process original:
-       │         MetadataTagger.tag(temp)          ← вшить метаданные + обложку
-       │         FileStorageService.copy(→ storagePlan.original.path)
+       ├──▶ Process original output (storagePlan.original):
+       │         create directories
+       │         move → original.path (rename, resolving actual filename from yt-dlp)
+       │         embedMetadata? → ffmpeg embed tags (title, artist, album, ...)
+       │         embedThumbnail? → ffmpeg embed cover art
        │
        ├──▶ for each additional in storagePlan.additional:
-       │         when (additional.format) {
-       │           ConvertedVideo → FfmpegConverter.convert(→ container)
-       │           Audio          → FfmpegConverter.extractAudio(→ format)
-       │           Thumbnail      → extract thumbnail
-       │         }
-       │         MetadataTagger.tag(output)
-       │         FileStorageService.move(→ additional.path)
+       │         check ConversionKey (format + maxQuality + encodeSettings + embed flags)
+       │         if same key as previous output → file copy (skip ffmpeg)
+       │         else:
+       │           when (additional.format) {
+       │             OriginalVideo  → copy from original
+       │             ConvertedVideo → ffprobe source height
+       │                              if sourceHeight ≤ maxHeight → remux (-c copy)
+       │                              else → transcode (VideoEncodeSettings: codec, crf, preset, hwAccel)
+       │             Audio          → ffmpeg extract audio
+       │             Thumbnail      → (planned)
+       │           }
+       │           embedMetadata? → ffmpeg embed tags
+       │           embedThumbnail? → ffmpeg embed cover art (mjpeg for MP4)
        │
-       └──▶ JobRepository.updateStatus(DONE)
+       └──▶ JobRepository.updateStatus(COMPLETED)
 ```
 
-> Для `MUSIC_VIDEO`: оригинал (webm) сохраняется, затем каждый additional target обрабатывается по типу `OutputFormat`. 
-> Каждый `OutputRule` определяет индивидуальные настройки пост-обработки (`embedThumbnail`, `embedMetadata` и т.д.).
+> **Оптимизации**:
+> - **ConversionKey deduplication**: если несколько output имеют одинаковые параметры конвертации
+>   (формат, качество, encodeSettings, embed-флаги), первый полностью конвертируется,
+>   последующие — просто копируются. Исключает повторный запуск ffmpeg.
+> - **Smart transcoding**: перед перекодированием `ffprobe` определяет реальное разрешение источника.
+>   Если оно ≤ `maxQuality` — выполняется только ремуксинг (`-c:v copy`), что несравнимо быстрее.
+>
+> **VideoEncodeSettings** (per-output настройки):
+> - `codec`: H264, H265, VP9, AV1
+> - `hwAccel`: VideoToolbox (macOS), NVENC (NVIDIA), QSV (Intel), VA-API, AMF (AMD)
+> - `preset`: ultrafast → veryslow (только для SW кодеков)
+> - `crf`: 0–51 (23 = YouTube-like, 18 = высокое качество)
+> - `audioBitrate`: 96k, 128k, 192k, 256k, 320k
 
 ---
 

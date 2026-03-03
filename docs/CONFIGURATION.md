@@ -57,15 +57,10 @@ ytDlp:
 
 # ffmpeg
 ffmpeg:
-  path: "ffmpeg"
+  path: "ffmpeg"                        # путь к ffmpeg или просто "ffmpeg" если в PATH
   timeout: "60m"
-
-# Post-processing (defaults for rules without explicit PostProcessPolicy)
-postProcess:
-  taggingTool: "FFMPEG"                 # FFMPEG | ATOMICPARSLEY | MP4BOX
-  embedThumbnail: true
-  embedMetadata: true
-  normalizeAudio: false
+  # ffprobe берётся из того же каталога: path.replace("ffmpeg", "ffprobe")
+  # Используется для определения реального разрешения исходного видео перед конвертацией.
 
 # Jobs
 jobs:
@@ -107,7 +102,6 @@ data class AppConfig(
     val storage: StorageConfig,
     val ytDlp: YtDlpConfig,
     val ffmpeg: FfmpegConfig,
-    val postProcess: PostProcessConfig,
     val jobs: JobsConfig,
     val logging: LoggingConfig,
     val llm: LlmConfig = LlmConfig(),
@@ -152,15 +146,9 @@ data class FfmpegConfig(
     val path: String = "ffmpeg",
     val timeout: Duration = 60.minutes,
 )
-
-data class PostProcessConfig(
-    val taggingTool: TaggingTool = TaggingTool.FFMPEG,
-    val embedThumbnail: Boolean = true,
-    val embedMetadata: Boolean = true,
-    val normalizeAudio: Boolean = false,
-) {
-    enum class TaggingTool { FFMPEG, ATOMICPARSLEY, MP4BOX }
-}
+// Примечание: ffprobe берётся из того же каталога автоматически (path.replace("ffmpeg","ffprobe")).
+// Настройки кодирования (кодек, CRF, preset, HW-ускорение) задаются per-output в правиле
+// через VideoEncodeSettings, а не глобально.
 
 data class JobsConfig(
     val maxConcurrentDownloads: Int = 2,
