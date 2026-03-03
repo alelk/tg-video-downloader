@@ -76,6 +76,7 @@ class PreviewResponseDtoTest : FunSpec({
                         "original": {
                             "path": "/tmp/test.webm",
                             "format": "original/webm",
+                            "maxQuality": null,
                             "embedThumbnail": false,
                             "embedMetadata": false,
                             "embedSubtitles": false,

@@ -63,6 +63,7 @@ fun OutputTarget.toDto(): OutputTargetDto =
     OutputTargetDto(
         path = path.value,
         format = format.toDto(),
+        maxQuality = maxQuality?.toDto(),
         embedThumbnail = embedThumbnail,
         embedMetadata = embedMetadata,
         embedSubtitles = embedSubtitles,

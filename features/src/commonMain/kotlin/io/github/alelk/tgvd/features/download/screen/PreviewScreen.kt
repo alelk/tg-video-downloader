@@ -70,6 +70,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                 OutputTargetDto(
                     path = it.path,
                     format = it.format,
+                    maxQuality = it.maxQuality,
                     embedThumbnail = it.embedThumbnail,
                     embedMetadata = it.embedMetadata,
                     embedSubtitles = it.embedSubtitles,
@@ -324,6 +325,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                                     original = OutputTargetDto(
                                         path = originalPath,
                                         format = originalFormat,
+                                        maxQuality = preview.storagePlan.original.maxQuality,
                                         embedThumbnail = preview.storagePlan.original.embedThumbnail,
                                         embedMetadata = preview.storagePlan.original.embedMetadata,
                                         embedSubtitles = preview.storagePlan.original.embedSubtitles,

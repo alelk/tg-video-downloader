@@ -93,6 +93,7 @@ class OutputFormatDtoTest : FunSpec({
                 {
                     "path": "/tmp/video.webm",
                     "format": "original/webm",
+                    "maxQuality": null,
                     "embedThumbnail": false,
                     "embedMetadata": false,
                     "embedSubtitles": false,

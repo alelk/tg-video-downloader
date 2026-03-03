@@ -64,6 +64,7 @@ fun OutputTargetDto.toDomain(): OutputTarget =
     OutputTarget(
         path = FilePath(path),
         format = format.toDomain(),
+        maxQuality = maxQuality?.toDomain(),
         embedThumbnail = embedThumbnail,
         embedMetadata = embedMetadata,
         embedSubtitles = embedSubtitles,

@@ -25,10 +25,29 @@ class FfmpegRunner(
         input: FilePath,
         output: FilePath,
         container: MediaContainer,
-    ): Either<DomainError, FilePath> = runFfmpeg(
-        args = listOf("-i", input.value, "-c:v", "copy", "-c:a", "copy", "-y", output.value),
-        description = "convert to ${container.extension}",
-    ).map { output }
+        maxHeight: Int? = null,
+    ): Either<DomainError, FilePath> {
+        val args = buildList {
+            add("-i"); add(input.value)
+            if (maxHeight != null) {
+                // Scale down to maxHeight, preserving aspect ratio; only if source is larger
+                add("-vf"); add("scale=-2:'min($maxHeight,ih)'")
+                add("-c:v"); add("libx264")
+                add("-crf"); add("18")
+                add("-preset"); add("medium")
+                add("-c:a"); add("aac")
+                add("-b:a"); add("192k")
+            } else {
+                add("-c:v"); add("copy")
+                add("-c:a"); add("copy")
+            }
+            add("-y"); add(output.value)
+        }
+        return runFfmpeg(
+            args = args,
+            description = if (maxHeight != null) "convert to ${container.extension} (max ${maxHeight}p)" else "convert to ${container.extension}",
+        ).map { output }
+    }
 
     suspend fun extractAudio(
         input: FilePath,

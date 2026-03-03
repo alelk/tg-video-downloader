@@ -18,6 +18,7 @@ class StorageDtoTest : FunSpec({
                 {
                     "path": "/tmp/tgvd/media/video.webm",
                     "format": "original/webm",
+                    "maxQuality": null,
                     "embedThumbnail": false,
                     "embedMetadata": false,
                     "embedSubtitles": false,
@@ -54,6 +55,7 @@ class StorageDtoTest : FunSpec({
                     "original": {
                         "path": "/tmp/original.webm",
                         "format": "original/webm",
+                        "maxQuality": null,
                         "embedThumbnail": false,
                         "embedMetadata": false,
                         "embedSubtitles": false,
@@ -63,6 +65,7 @@ class StorageDtoTest : FunSpec({
                         {
                             "path": "/tmp/converted.mp4",
                             "format": "video/mp4",
+                            "maxQuality": null,
                             "embedThumbnail": false,
                             "embedMetadata": false,
                             "embedSubtitles": false,
@@ -71,6 +74,7 @@ class StorageDtoTest : FunSpec({
                         {
                             "path": "/tmp/audio.m4a",
                             "format": "audio/m4a",
+                            "maxQuality": null,
                             "embedThumbnail": false,
                             "embedMetadata": false,
                             "embedSubtitles": false,

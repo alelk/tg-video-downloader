@@ -5,6 +5,7 @@ import io.github.alelk.tgvd.domain.common.FilePath
 data class OutputTarget(
     val path: FilePath,
     val format: OutputFormat,
+    val maxQuality: DownloadPolicy.VideoQuality? = null,
     val embedThumbnail: Boolean = false,
     val embedMetadata: Boolean = false,
     val embedSubtitles: Boolean = false,

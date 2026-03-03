@@ -181,7 +181,8 @@ class JobProcessor(
                 target.path
             }
             is OutputFormat.ConvertedVideo -> {
-                ffmpegRunner.convertVideo(originalPath, target.path, format.container)
+                val maxHeight = target.maxQuality?.toMaxHeight()
+                ffmpegRunner.convertVideo(originalPath, target.path, format.container, maxHeight)
                     .fold(
                         { error ->
                             logger.error { "Conversion failed for ${target.path.value}: $error" }
@@ -358,3 +359,12 @@ class JobProcessor(
         }
     }
 }
+
+/** Map VideoQuality to pixel height for ffmpeg scaling. */
+private fun DownloadPolicy.VideoQuality.toMaxHeight(): Int? = when (this) {
+    DownloadPolicy.VideoQuality.BEST -> null  // no scaling
+    DownloadPolicy.VideoQuality.HD_1080 -> 1080
+    DownloadPolicy.VideoQuality.HD_720 -> 720
+    DownloadPolicy.VideoQuality.SD_480 -> 480
+}
+
