@@ -17,7 +17,11 @@ class StorageDtoTest : FunSpec({
             json shouldEqualJson """
                 {
                     "path": "/tmp/tgvd/media/video.webm",
-                    "format": "original/webm"
+                    "format": "original/webm",
+                    "embedThumbnail": false,
+                    "embedMetadata": false,
+                    "embedSubtitles": false,
+                    "normalizeAudio": false
                 }
             """
         }
@@ -49,16 +53,28 @@ class StorageDtoTest : FunSpec({
                 {
                     "original": {
                         "path": "/tmp/original.webm",
-                        "format": "original/webm"
+                        "format": "original/webm",
+                        "embedThumbnail": false,
+                        "embedMetadata": false,
+                        "embedSubtitles": false,
+                        "normalizeAudio": false
                     },
                     "additional": [
                         {
                             "path": "/tmp/converted.mp4",
-                            "format": "video/mp4"
+                            "format": "video/mp4",
+                            "embedThumbnail": false,
+                            "embedMetadata": false,
+                            "embedSubtitles": false,
+                            "normalizeAudio": false
                         },
                         {
                             "path": "/tmp/audio.m4a",
-                            "format": "audio/m4a"
+                            "format": "audio/m4a",
+                            "embedThumbnail": false,
+                            "embedMetadata": false,
+                            "embedSubtitles": false,
+                            "normalizeAudio": false
                         }
                     ]
                 }
@@ -89,7 +105,8 @@ class StorageDtoTest : FunSpec({
                     "maxQuality": "best",
                     "preferredContainer": null,
                     "downloadSubtitles": false,
-                    "subtitleLanguages": []
+                    "subtitleLanguages": [],
+                    "writeThumbnail": false
                 }
             """
         }
@@ -107,7 +124,8 @@ class StorageDtoTest : FunSpec({
                     "maxQuality": "hd_1080",
                     "preferredContainer": "mp4",
                     "downloadSubtitles": true,
-                    "subtitleLanguages": ["en", "ru"]
+                    "subtitleLanguages": ["en", "ru"],
+                    "writeThumbnail": false
                 }
             """
         }

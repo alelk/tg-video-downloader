@@ -10,6 +10,7 @@ internal fun DownloadPolicy.toPm(): DownloadPolicyPm =
         preferredContainer = preferredContainer?.extension,
         downloadSubtitles = downloadSubtitles,
         subtitleLanguages = subtitleLanguages,
+        writeThumbnail = writeThumbnail,
     )
 
 internal fun DownloadPolicyPm.toDomain(): DownloadPolicy =
@@ -20,5 +21,6 @@ internal fun DownloadPolicyPm.toDomain(): DownloadPolicy =
         preferredContainer = preferredContainer?.let { MediaContainer.fromExtension(it) },
         downloadSubtitles = downloadSubtitles,
         subtitleLanguages = subtitleLanguages,
+        writeThumbnail = writeThumbnail,
     )
 

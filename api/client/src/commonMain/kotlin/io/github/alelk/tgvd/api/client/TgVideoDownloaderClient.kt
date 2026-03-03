@@ -35,5 +35,9 @@ interface TgVideoDownloaderClient {
     suspend fun getYtDlpStatus(): YtDlpStatusDto
 
     suspend fun updateYtDlp(): YtDlpUpdateResponseDto
+
+    suspend fun getSettings(): SystemSettingsDto
+
+    suspend fun updateSettings(request: SystemSettingsDto): SystemSettingsDto
 }
 

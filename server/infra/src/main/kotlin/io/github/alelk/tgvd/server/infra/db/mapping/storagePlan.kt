@@ -14,8 +14,22 @@ internal fun StoragePlanPm.toDomain(): StoragePlan =
     StoragePlan(original = original.toDomain(), additional = additional.map { it.toDomain() })
 
 private fun OutputTarget.toPm(): OutputTargetPm =
-    OutputTargetPm(path = path.value, format = format.serialized)
+    OutputTargetPm(
+        path = path.value,
+        format = format.serialized,
+        embedThumbnail = embedThumbnail,
+        embedMetadata = embedMetadata,
+        embedSubtitles = embedSubtitles,
+        normalizeAudio = normalizeAudio,
+    )
 
 private fun OutputTargetPm.toDomain(): OutputTarget =
-    OutputTarget(path = FilePath(path), format = OutputFormat.parse(format))
+    OutputTarget(
+        path = FilePath(path),
+        format = OutputFormat.parse(format),
+        embedThumbnail = embedThumbnail,
+        embedMetadata = embedMetadata,
+        embedSubtitles = embedSubtitles,
+        normalizeAudio = normalizeAudio,
+    )
 

@@ -20,6 +20,7 @@ import io.github.alelk.tgvd.server.infra.process.YtDlpBootstrap
 import io.github.alelk.tgvd.server.infra.process.YtDlpRunner
 import io.github.alelk.tgvd.server.infra.process.YtDlpServiceImpl
 import io.github.alelk.tgvd.server.infra.service.JobProcessor
+import io.github.alelk.tgvd.server.infra.service.SystemSettingsHolder
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.dsl.module
 
@@ -28,13 +29,16 @@ internal fun infraModule() = module {
     single { DatabaseFactory(get<DbConfig>()) }
     single { get<DatabaseFactory>().create() }
 
+    // Mutable settings holder (initial values from config, overridable via API)
+    single { SystemSettingsHolder(get<YtDlpConfig>(), get<ProxyConfig>()) }
+
     // Repositories (domain port → infra adapter)
     single<WorkspaceRepository> { WorkspaceRepositoryImpl(get<Database>()) }
     single<RuleRepository> { RuleRepositoryImpl(get<Database>()) }
     single<JobRepository> { JobRepositoryImpl(get<Database>()) }
 
     // External process runners
-    single { YtDlpRunner(get<YtDlpConfig>(), get<ProxyConfig>()) }
+    single { YtDlpRunner(get<SystemSettingsHolder>()) }
     single<VideoInfoExtractor> { get<YtDlpRunner>() }
     single<VideoDownloader> { get<YtDlpRunner>() }
     single { FfmpegRunner(get<FfmpegConfig>()) }
@@ -49,6 +53,7 @@ internal fun infraModule() = module {
             jobRepository = get<JobRepository>(),
             ruleRepository = get<RuleRepository>(),
             videoDownloader = get<VideoDownloader>(),
+            ffmpegRunner = get<FfmpegRunner>(),
             config = get<JobsConfig>(),
         )
     }

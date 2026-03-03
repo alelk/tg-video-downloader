@@ -11,6 +11,7 @@ import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.github.alelk.tgvd.domain.video.VideoInfoExtractor
 import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
+import io.github.alelk.tgvd.server.infra.service.SystemSettingsHolder
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -25,9 +26,35 @@ import kotlin.uuid.ExperimentalUuidApi
 private val logger = KotlinLogging.logger {}
 
 class YtDlpRunner(
-    private val config: YtDlpConfig,
-    private val proxyConfig: ProxyConfig = ProxyConfig(),
+    private val settingsHolder: SystemSettingsHolder,
 ) : VideoInfoExtractor, VideoDownloader {
+
+    private val config: YtDlpConfig get() = settingsHolder.ytDlpConfig
+    private val proxyConfig: ProxyConfig get() = settingsHolder.proxyConfig
+
+    /**
+     * Enrich ProcessBuilder PATH with common binary locations
+     * (homebrew, deno, user-local) that JVM may not inherit.
+     */
+    private fun ProcessBuilder.enrichPath(): ProcessBuilder = apply {
+        val env = environment()
+        val currentPath = env["PATH"] ?: ""
+        val extraPaths = listOf(
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            System.getProperty("user.home") + "/.deno/bin",
+        ).filter { java.io.File(it).isDirectory }
+        val missing = extraPaths.filter { it !in currentPath }
+        if (missing.isNotEmpty()) {
+            env["PATH"] = (missing + currentPath).joinToString(":")
+        }
+    }
+
+    /** Append cookies arguments from config (--cookies-from-browser or --cookies). */
+    private fun MutableList<String>.addCookiesArgs() {
+        config.cookiesFromBrowser?.takeIf { it.isNotBlank() }?.let { add("--cookies-from-browser"); add(it) }
+        config.cookiesFile?.takeIf { it.isNotBlank() }?.let { add("--cookies"); add(it) }
+    }
 
     override suspend fun extract(url: String): Either<DomainError, VideoInfo> = withContext(Dispatchers.IO) {
         try {
@@ -36,6 +63,7 @@ class YtDlpRunner(
                 add("--dump-json")
                 add("--no-download")
                 add("--no-playlist")
+                addCookiesArgs()
                 proxyConfig.toUrl()?.let { add("--proxy"); add(it) }
                 add(url)
             }
@@ -43,6 +71,7 @@ class YtDlpRunner(
             logger.info { "Extracting video info: yt-dlp --dump-json $url" }
             val process = ProcessBuilder(args)
                 .redirectErrorStream(false)
+                .enrichPath()
                 .start()
 
             val stdoutDeferred = async { process.inputStream.bufferedReader().use { it.readText() } }
@@ -53,7 +82,7 @@ class YtDlpRunner(
 
             if (exitCode != 0) {
                 logger.error { "yt-dlp extract failed (exit=$exitCode): $stderr" }
-                return@withContext DomainError.VideoExtractionFailed(Url(url), stderr.take(500)).left()
+                return@withContext DomainError.VideoExtractionFailed(Url(url), stderr.takeLast(2000)).left()
             }
 
             val json = Json { ignoreUnknownKeys = true }
@@ -99,6 +128,7 @@ class YtDlpRunner(
                 add("--retries"); add(config.retries.toString())
                 add("--fragment-retries"); add(config.fragmentRetries.toString())
                 add("--no-playlist")
+                addCookiesArgs()
 
                 when (policy.maxQuality) {
                     DownloadPolicy.VideoQuality.BEST -> { add("-f"); add("bestvideo+bestaudio/best") }
@@ -116,16 +146,17 @@ class YtDlpRunner(
             logger.info { "Downloading: yt-dlp -o ${outputPath.value} ${url.value}" }
             val process = ProcessBuilder(args)
                 .redirectErrorStream(true)
+                .enrichPath()
                 .start()
 
             val output = process.inputStream.bufferedReader().use { it.readText() }
             val exitCode = process.waitFor()
 
             if (exitCode != 0) {
-                logger.error { "yt-dlp download failed (exit=$exitCode): ${output.takeLast(500)}" }
+                logger.error { "yt-dlp download failed (exit=$exitCode): ${output.takeLast(2000)}" }
                 return@withContext DomainError.DownloadFailed(
                     JobId(kotlin.uuid.Uuid.random()),
-                    output.takeLast(500),
+                    output.takeLast(2000),
                 ).left()
             }
 
@@ -149,12 +180,17 @@ class YtDlpRunner(
             add("-o"); add(outputPath.value)
             add("--newline")
             add("--no-playlist")
+            addCookiesArgs()
+            if (policy.writeThumbnail) {
+                add("--write-thumbnail")
+            }
             proxyConfig.toUrl()?.let { add("--proxy"); add(it) }
             add(url.value)
         }
 
         val process = ProcessBuilder(args)
             .redirectErrorStream(true)
+            .enrichPath()
             .start()
 
         process.inputStream.bufferedReader().useLines { lines ->

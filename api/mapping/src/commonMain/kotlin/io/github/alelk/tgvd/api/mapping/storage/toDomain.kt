@@ -46,6 +46,7 @@ fun DownloadPolicyDto.toDomain(): DownloadPolicy =
         preferredContainer = preferredContainer?.toDomain(),
         downloadSubtitles = downloadSubtitles,
         subtitleLanguages = subtitleLanguages,
+        writeThumbnail = writeThumbnail,
     )
 
 fun OutputRuleDto.toDomain(): OutputRule =
@@ -60,7 +61,14 @@ fun OutputRuleDto.toDomain(): OutputRule =
     )
 
 fun OutputTargetDto.toDomain(): OutputTarget =
-    OutputTarget(path = FilePath(path), format = format.toDomain())
+    OutputTarget(
+        path = FilePath(path),
+        format = format.toDomain(),
+        embedThumbnail = embedThumbnail,
+        embedMetadata = embedMetadata,
+        embedSubtitles = embedSubtitles,
+        normalizeAudio = normalizeAudio,
+    )
 
 fun StoragePlanDto.toDomain(): StoragePlan =
     StoragePlan(original = original.toDomain(), additional = additional.map { it.toDomain() })

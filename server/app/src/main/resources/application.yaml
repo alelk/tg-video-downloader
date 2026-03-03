@@ -28,6 +28,8 @@ ytDlp:
   allowUpdate: true
   updateChannel: "stable"
   autoDownload: true
+  cookiesFromBrowser: "${YTDLP_COOKIES_FROM_BROWSER:-}"
+  cookiesFile: "${YTDLP_COOKIES_FILE:-}"
 
 ffmpeg:
   path: "ffmpeg"

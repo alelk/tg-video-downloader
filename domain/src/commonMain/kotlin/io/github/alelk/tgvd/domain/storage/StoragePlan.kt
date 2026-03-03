@@ -5,6 +5,10 @@ import io.github.alelk.tgvd.domain.common.FilePath
 data class OutputTarget(
     val path: FilePath,
     val format: OutputFormat,
+    val embedThumbnail: Boolean = false,
+    val embedMetadata: Boolean = false,
+    val embedSubtitles: Boolean = false,
+    val normalizeAudio: Boolean = false,
 )
 
 data class StoragePlan(

@@ -8,5 +8,6 @@ data class DownloadPolicyPm(
     val preferredContainer: String? = null,
     val downloadSubtitles: Boolean = false,
     val subtitleLanguages: List<String> = emptyList(),
+    val writeThumbnail: Boolean = false,
 )
 

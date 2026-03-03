@@ -84,6 +84,10 @@ class ApiV1 {
     @Resource("system")
     class System(val parent: ApiV1 = ApiV1()) {
         @Serializable
+        @Resource("settings")
+        class Settings(val parent: System = System())
+
+        @Serializable
         @Resource("yt-dlp")
         class YtDlp(val parent: System) {
             @Serializable

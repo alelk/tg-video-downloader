@@ -45,6 +45,7 @@ fun DownloadPolicy.toDto(): DownloadPolicyDto =
         preferredContainer = preferredContainer?.toDto(),
         downloadSubtitles = downloadSubtitles,
         subtitleLanguages = subtitleLanguages,
+        writeThumbnail = writeThumbnail,
     )
 
 fun OutputRule.toDto(): OutputRuleDto =
@@ -59,7 +60,14 @@ fun OutputRule.toDto(): OutputRuleDto =
     )
 
 fun OutputTarget.toDto(): OutputTargetDto =
-    OutputTargetDto(path = path.value, format = format.toDto())
+    OutputTargetDto(
+        path = path.value,
+        format = format.toDto(),
+        embedThumbnail = embedThumbnail,
+        embedMetadata = embedMetadata,
+        embedSubtitles = embedSubtitles,
+        normalizeAudio = normalizeAudio,
+    )
 
 fun StoragePlan.toDto(): StoragePlanDto =
     StoragePlanDto(original = original.toDto(), additional = additional.map { it.toDto() })

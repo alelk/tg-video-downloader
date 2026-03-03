@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
@@ -63,6 +64,18 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
         var tags by remember { mutableStateOf(preview.metadata.tags.joinToString(", ")) }
         var originalPath by remember { mutableStateOf(preview.storagePlan.original.path) }
         var originalFormat by remember { mutableStateOf(preview.storagePlan.original.format) }
+        val additionalOutputs = remember {
+            mutableStateListOf(*preview.storagePlan.additional.map {
+                OutputTargetDto(
+                    path = it.path,
+                    format = it.format,
+                    embedThumbnail = it.embedThumbnail,
+                    embedMetadata = it.embedMetadata,
+                    embedSubtitles = it.embedSubtitles,
+                    normalizeAudio = it.normalizeAudio,
+                )
+            }.toTypedArray())
+        }
 
         fun buildMetadata(): ResolvedMetadataDto {
             val tagList = tags.split(",").map { it.trim() }.filter { it.isNotBlank() }
@@ -207,8 +220,11 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Storage Plan (editable path)
+                // Storage Plan (editable paths for all outputs)
                 SectionCard(title = "Storage Plan", icon = TgvdIcons.Folder) {
+                    // Original output
+                    Text("Original", style = MaterialTheme.typography.labelMedium)
+                    Spacer(modifier = Modifier.height(4.dp))
                     OutlinedTextField(
                         value = originalPath,
                         onValueChange = { originalPath = it },
@@ -222,6 +238,37 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                         selectedFormat = originalFormat,
                         onFormatSelected = { originalFormat = it },
                     )
+
+                    // Additional outputs
+                    additionalOutputs.forEachIndexed { index, target ->
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "Output #${index + 2}",
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                            Text(
+                                target.format.serialized,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = target.path,
+                            onValueChange = { newPath ->
+                                additionalOutputs[index] = target.copy(path = newPath)
+                            },
+                            label = { Text("Output Path") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = false,
+                            minLines = 2,
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -264,8 +311,15 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                             try {
                                 val metadata = buildMetadata()
                                 val storagePlan = StoragePlanDto(
-                                    original = OutputTargetDto(path = originalPath, format = originalFormat),
-                                    additional = preview.storagePlan.additional,
+                                    original = OutputTargetDto(
+                                        path = originalPath,
+                                        format = originalFormat,
+                                        embedThumbnail = preview.storagePlan.original.embedThumbnail,
+                                        embedMetadata = preview.storagePlan.original.embedMetadata,
+                                        embedSubtitles = preview.storagePlan.original.embedSubtitles,
+                                        normalizeAudio = preview.storagePlan.original.normalizeAudio,
+                                    ),
+                                    additional = additionalOutputs.toList(),
                                 )
                                 client.createJob(
                                     CreateJobRequestDto(

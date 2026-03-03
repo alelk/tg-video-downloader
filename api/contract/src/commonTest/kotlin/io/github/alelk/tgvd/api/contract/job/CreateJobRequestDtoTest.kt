@@ -71,7 +71,11 @@ class CreateJobRequestDtoTest : FunSpec({
                     "storagePlan": {
                         "original": {
                             "path": "/tmp/test.webm",
-                            "format": "original/webm"
+                            "format": "original/webm",
+                            "embedThumbnail": false,
+                            "embedMetadata": false,
+                            "embedSubtitles": false,
+                            "normalizeAudio": false
                         },
                         "additional": []
                     },

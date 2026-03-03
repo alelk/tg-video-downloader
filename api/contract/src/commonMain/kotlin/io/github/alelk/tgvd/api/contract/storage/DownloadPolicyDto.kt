@@ -8,4 +8,5 @@ data class DownloadPolicyDto(
     val preferredContainer: MediaContainerDto? = null,
     val downloadSubtitles: Boolean = false,
     val subtitleLanguages: List<String> = emptyList(),
+    val writeThumbnail: Boolean = false,
 )

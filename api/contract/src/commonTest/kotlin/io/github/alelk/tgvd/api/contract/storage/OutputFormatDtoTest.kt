@@ -92,7 +92,11 @@ class OutputFormatDtoTest : FunSpec({
             json shouldEqualJson """
                 {
                     "path": "/tmp/video.webm",
-                    "format": "original/webm"
+                    "format": "original/webm",
+                    "embedThumbnail": false,
+                    "embedMetadata": false,
+                    "embedSubtitles": false,
+                    "normalizeAudio": false
                 }
             """
         }

@@ -12,5 +12,9 @@ data class StoragePlanPm(
 data class OutputTargetPm(
     val path: String,
     val format: String,
+    val embedThumbnail: Boolean = false,
+    val embedMetadata: Boolean = false,
+    val embedSubtitles: Boolean = false,
+    val normalizeAudio: Boolean = false,
 )
 

@@ -854,9 +854,17 @@ sealed interface OutputFormat {
 ### 7.3 StoragePlan & OutputTarget
 
 ```kotlin
+/**
+ * Конкретный выходной файл с resolved-путём и флагами пост-обработки.
+ * Создаётся из [OutputRule] через [PathTemplateEngine.buildStoragePlan].
+ */
 data class OutputTarget(
     val path: FilePath,
     val format: OutputFormat,
+    val embedThumbnail: Boolean = false,
+    val embedMetadata: Boolean = false,
+    val embedSubtitles: Boolean = false,
+    val normalizeAudio: Boolean = false,
 )
 
 /**
@@ -864,13 +872,13 @@ data class OutputTarget(
  * 
  * [original] — исходное видео (как скачано yt-dlp). Всегда один.
  * [additional] — производные: конвертированное видео, аудио-дорожка, обложка и т.д.
- * Тип каждого определяется через [OutputFormat] (sealed).
+ * Каждый [OutputTarget] содержит resolved-путь, формат и индивидуальные настройки пост-обработки.
  *
  * Пример для MUSIC_VIDEO:
  *   original  = .../original/Artist/Title.webm       (OriginalVideo)
  *   additional = [
- *     .../converted/Artist/Title.mp4                  (ConvertedVideo)
- *     .../audio/Artist/Title.m4a                      (Audio)
+ *     .../converted/Artist/Title.mp4                  (ConvertedVideo, embedMetadata=true, embedThumbnail=true)
+ *     .../audio/Artist/Title.m4a                      (Audio, embedMetadata=true)
  *   ]
  */
 data class StoragePlan(

@@ -5,6 +5,7 @@ data class DownloadPolicy(
     val preferredContainer: MediaContainer? = null,
     val downloadSubtitles: Boolean = false,
     val subtitleLanguages: List<String> = emptyList(),
+    val writeThumbnail: Boolean = false,
 ) {
     enum class VideoQuality { BEST, HD_1080, HD_720, SD_480 }
 }

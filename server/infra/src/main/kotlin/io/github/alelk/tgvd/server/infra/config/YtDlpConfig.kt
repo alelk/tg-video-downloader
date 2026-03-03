@@ -11,5 +11,9 @@ data class YtDlpConfig(
     val allowUpdate: Boolean = true,
     val updateChannel: String = "stable",
     val autoDownload: Boolean = true,
+    /** Browser name for --cookies-from-browser (e.g. "chrome", "firefox", "safari", "brave") */
+    val cookiesFromBrowser: String? = null,
+    /** Path to Netscape-format cookies file for --cookies */
+    val cookiesFile: String? = null,
 )
 
