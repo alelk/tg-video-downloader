@@ -55,17 +55,35 @@ class FfmpegRunner(
         input: FilePath,
         thumbnail: FilePath,
         output: FilePath,
-    ): Either<DomainError, FilePath> = runFfmpeg(
-        args = listOf(
-            "-i", input.value,
-            "-i", thumbnail.value,
-            "-map", "0", "-map", "1",
-            "-c", "copy",
-            "-disposition:v:1", "attached_pic",
-            "-y", output.value,
-        ),
-        description = "embed thumbnail",
-    ).map { output }
+    ): Either<DomainError, FilePath> {
+        val thumbExt = thumbnail.extension.lowercase()
+        val outputExt = output.extension.lowercase()
+        val isMp4 = outputExt == "mp4" || outputExt == "m4a" || outputExt == "m4v"
+
+        // For MP4: webp thumbnails must be converted; use mjpeg codec for the cover art stream
+        val args = buildList {
+            add("-i"); add(input.value)
+            add("-i"); add(thumbnail.value)
+            add("-map"); add("0")
+            add("-map"); add("1")
+            add("-c"); add("copy")
+            if (isMp4) {
+                // MP4 doesn't support webp covers; transcode thumbnail to mjpeg
+                if (thumbExt == "webp" || thumbExt == "png") {
+                    add("-c:v:1"); add("mjpeg")
+                    add("-q:v:1"); add("2")  // high quality jpeg
+                } else {
+                    add("-c:v:1"); add("copy")
+                }
+                add("-disposition:v:1"); add("attached_pic")
+            } else {
+                add("-disposition:v:1"); add("attached_pic")
+            }
+            add("-y"); add(output.value)
+        }
+
+        return runFfmpeg(args = args, description = "embed thumbnail").map { output }
+    }
 
     @OptIn(ExperimentalUuidApi::class)
     private suspend fun runFfmpeg(

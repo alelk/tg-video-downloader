@@ -16,6 +16,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Semaphore
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import kotlin.uuid.ExperimentalUuidApi
 import io.github.alelk.tgvd.domain.job.Job as DomainJob
 
@@ -116,11 +118,12 @@ class JobProcessor(
             val resolvedPath = if (actualFile.absolutePath != File(outputPath.value).absolutePath) {
                 // Rename to expected path
                 val target = File(outputPath.value)
-                if (actualFile.renameTo(target)) {
+                try {
+                    Files.move(actualFile.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
                     logger.info { "Renamed '${actualFile.name}' → '${target.name}'" }
                     outputPath
-                } else {
-                    logger.warn { "Failed to rename '${actualFile.absolutePath}' → '${target.absolutePath}', using actual path" }
+                } catch (e: Exception) {
+                    logger.warn { "Failed to rename '${actualFile.absolutePath}' → '${target.absolutePath}': ${e.message}, using actual path" }
                     FilePath(actualFile.absolutePath)
                 }
             } else {
@@ -218,9 +221,16 @@ class JobProcessor(
                 val tempPath = FilePath("${base}.tmp_meta.${ext}")
                 ffmpegRunner.embedMetadata(convertedPath, tempPath, metadataMap)
                     .fold(
-                        { error -> logger.error { "Embed metadata failed: $error" } },
+                        { error ->
+                            logger.error { "Embed metadata failed: $error" }
+                            File(tempPath.value).delete()
+                        },
                         {
-                            File(tempPath.value).renameTo(File(convertedPath.value))
+                            Files.move(
+                                File(tempPath.value).toPath(),
+                                File(convertedPath.value).toPath(),
+                                StandardCopyOption.REPLACE_EXISTING,
+                            )
                             logger.info { "Embedded metadata into: ${convertedPath.value}" }
                         },
                     )
@@ -237,9 +247,16 @@ class JobProcessor(
                 val tempPath = FilePath("${base}.tmp_thumb.${ext}")
                 ffmpegRunner.embedThumbnail(convertedPath, FilePath(thumbnailFile.absolutePath), tempPath)
                     .fold(
-                        { error -> logger.error { "Embed thumbnail failed: $error" } },
+                        { error ->
+                            logger.error { "Embed thumbnail failed: $error" }
+                            File(tempPath.value).delete()
+                        },
                         {
-                            File(tempPath.value).renameTo(File(convertedPath.value))
+                            Files.move(
+                                File(tempPath.value).toPath(),
+                                File(convertedPath.value).toPath(),
+                                StandardCopyOption.REPLACE_EXISTING,
+                            )
                             logger.info { "Embedded thumbnail into: ${convertedPath.value}" }
                         },
                     )
