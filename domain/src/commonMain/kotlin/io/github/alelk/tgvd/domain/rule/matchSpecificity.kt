@@ -7,4 +7,5 @@ fun RuleMatch.matchSpecificity(): Int = when (this) {
     is RuleMatch.ChannelName -> 80
     is RuleMatch.UrlRegex -> 60
     is RuleMatch.TitleRegex -> 40
+    is RuleMatch.CategoryEquals -> 20
 }

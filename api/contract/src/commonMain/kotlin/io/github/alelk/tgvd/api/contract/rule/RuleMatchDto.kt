@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.api.contract.rule
 
+import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -45,6 +46,12 @@ sealed interface RuleMatchDto {
     @SerialName("url-regex")
     data class UrlRegex(
         val pattern: String,
+    ) : RuleMatchDto
+
+    @Serializable
+    @SerialName("category-equals")
+    data class CategoryEquals(
+        val category: CategoryDto,
     ) : RuleMatchDto
 }
 

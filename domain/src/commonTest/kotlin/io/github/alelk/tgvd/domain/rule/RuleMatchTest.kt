@@ -33,14 +33,14 @@ class RuleMatchTest : FunSpec({
             val match = RuleMatch.ChannelId("UC123")
             val video = videoInfo(channelId = "UC123")
 
-            match.matchesVideo(video) shouldBe true
+            match.matches(MatchContext(video)) shouldBe true
         }
 
         test("does not match different channel id") {
             val match = RuleMatch.ChannelId("UC123")
             val video = videoInfo(channelId = "UC456")
 
-            match.matchesVideo(video) shouldBe false
+            match.matches(MatchContext(video)) shouldBe false
         }
     }
 
@@ -49,21 +49,21 @@ class RuleMatchTest : FunSpec({
             val match = RuleMatch.ChannelName("test channel")
             val video = videoInfo(channelName = "Test Channel")
 
-            match.matchesVideo(video) shouldBe true
+            match.matches(MatchContext(video)) shouldBe true
         }
 
         test("case-sensitive mismatch when ignoreCase=false") {
             val match = RuleMatch.ChannelName("test channel", ignoreCase = false)
             val video = videoInfo(channelName = "Test Channel")
 
-            match.matchesVideo(video) shouldBe false
+            match.matches(MatchContext(video)) shouldBe false
         }
 
         test("case-sensitive exact match") {
             val match = RuleMatch.ChannelName("Test Channel", ignoreCase = false)
             val video = videoInfo(channelName = "Test Channel")
 
-            match.matchesVideo(video) shouldBe true
+            match.matches(MatchContext(video)) shouldBe true
         }
     }
 
@@ -72,14 +72,14 @@ class RuleMatchTest : FunSpec({
             val match = RuleMatch.TitleRegex("S\\d{2}E\\d{2}")
             val video = videoInfo(title = "My Show S01E05 - Episode Title")
 
-            match.matchesVideo(video) shouldBe true
+            match.matches(MatchContext(video)) shouldBe true
         }
 
         test("does not match when pattern absent") {
             val match = RuleMatch.TitleRegex("^Season \\d+")
             val video = videoInfo(title = "Episode 5 - Title")
 
-            match.matchesVideo(video) shouldBe false
+            match.matches(MatchContext(video)) shouldBe false
         }
 
         test("throws on invalid regex") {
@@ -94,14 +94,14 @@ class RuleMatchTest : FunSpec({
             val match = RuleMatch.UrlRegex("youtube\\.com")
             val video = videoInfo(webpageUrl = "https://youtube.com/watch?v=x")
 
-            match.matchesVideo(video) shouldBe true
+            match.matches(MatchContext(video)) shouldBe true
         }
 
         test("does not match different url") {
             val match = RuleMatch.UrlRegex("rutube\\.ru")
             val video = videoInfo(webpageUrl = "https://youtube.com/watch?v=x")
 
-            match.matchesVideo(video) shouldBe false
+            match.matches(MatchContext(video)) shouldBe false
         }
     }
 
@@ -115,7 +115,7 @@ class RuleMatchTest : FunSpec({
             )
             val video = videoInfo(channelName = "Rick Astley", title = "Never Gonna Give You Up")
 
-            match.matchesVideo(video) shouldBe true
+            match.matches(MatchContext(video)) shouldBe true
         }
 
         test("does not match when one condition fails") {
@@ -127,7 +127,7 @@ class RuleMatchTest : FunSpec({
             )
             val video = videoInfo(channelName = "Rick Astley", title = "Never Gonna Give You Up")
 
-            match.matchesVideo(video) shouldBe false
+            match.matches(MatchContext(video)) shouldBe false
         }
 
         test("throws on empty list") {
@@ -147,7 +147,7 @@ class RuleMatchTest : FunSpec({
             )
             val video = videoInfo(channelId = "UC123")
 
-            match.matchesVideo(video) shouldBe true
+            match.matches(MatchContext(video)) shouldBe true
         }
 
         test("does not match when no condition matches") {
@@ -159,7 +159,7 @@ class RuleMatchTest : FunSpec({
             )
             val video = videoInfo()
 
-            match.matchesVideo(video) shouldBe false
+            match.matches(MatchContext(video)) shouldBe false
         }
 
         test("throws on empty list") {
@@ -222,7 +222,7 @@ class RuleMatchTest : FunSpec({
         test("same match + same video = same result") {
             checkAll(Arb.ruleMatch(maxDepth = 2)) { match ->
                 val video = videoInfo()
-                match.matchesVideo(video) shouldBe match.matchesVideo(video)
+                match.matches(MatchContext(video)) shouldBe match.matches(MatchContext(video))
             }
         }
     }

@@ -7,6 +7,8 @@ import io.github.alelk.tgvd.api.contract.resource.ApiV1
 import io.github.alelk.tgvd.api.contract.rule.RuleSummaryDto
 import io.github.alelk.tgvd.api.mapping.common.toDto
 import io.github.alelk.tgvd.api.mapping.metadata.toDto
+import io.github.alelk.tgvd.api.mapping.preview.toDomain
+import io.github.alelk.tgvd.api.mapping.preview.toDto
 import io.github.alelk.tgvd.api.mapping.storage.toDto
 import io.github.alelk.tgvd.api.mapping.video.toDto
 import io.github.alelk.tgvd.domain.common.DomainError
@@ -36,7 +38,8 @@ fun Route.previewRoutes() {
         val result = either<DomainError, PreviewResponseDto> {
             val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
             val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
-            val preview = previewUseCase.preview(request.url, ws.id).bind()
+            val overrides = request.overrides?.toDomain()
+            val preview = previewUseCase.preview(request.url, ws.id, overrides).bind()
             val context = pathTemplateEngine.buildContext(preview.videoInfo, preview.metadata)
             val storagePlan = pathTemplateEngine.buildStoragePlan(preview.outputs, context, preview.videoInfo)
 
@@ -54,6 +57,7 @@ fun Route.previewRoutes() {
                 category = preview.metadata.category.toDto(),
                 metadata = preview.metadata.toDto(),
                 storagePlan = storagePlan.toDto(),
+                appliedOverrides = overrides?.toDto(),
             )
         }
 

@@ -4,6 +4,7 @@ import io.github.alelk.tgvd.domain.job.JobRepository
 import io.github.alelk.tgvd.domain.job.VideoDownloader
 import io.github.alelk.tgvd.domain.rule.RuleRepository
 import io.github.alelk.tgvd.domain.system.YtDlpService
+import io.github.alelk.tgvd.domain.video.VideoInfoCache
 import io.github.alelk.tgvd.domain.video.VideoInfoExtractor
 import io.github.alelk.tgvd.domain.workspace.WorkspaceRepository
 import io.github.alelk.tgvd.server.infra.config.DbConfig
@@ -14,6 +15,7 @@ import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
 import io.github.alelk.tgvd.server.infra.db.DatabaseFactory
 import io.github.alelk.tgvd.server.infra.db.repository.JobRepositoryImpl
 import io.github.alelk.tgvd.server.infra.db.repository.RuleRepositoryImpl
+import io.github.alelk.tgvd.server.infra.db.repository.VideoInfoCacheImpl
 import io.github.alelk.tgvd.server.infra.db.repository.WorkspaceRepositoryImpl
 import io.github.alelk.tgvd.server.infra.process.FfmpegRunner
 import io.github.alelk.tgvd.server.infra.process.YtDlpBootstrap
@@ -36,6 +38,7 @@ internal fun infraModule() = module {
     single<WorkspaceRepository> { WorkspaceRepositoryImpl(get<Database>()) }
     single<RuleRepository> { RuleRepositoryImpl(get<Database>()) }
     single<JobRepository> { JobRepositoryImpl(get<Database>()) }
+    single<VideoInfoCache> { VideoInfoCacheImpl(get<Database>()) }
 
     // External process runners
     single { YtDlpRunner(get<SystemSettingsHolder>()) }

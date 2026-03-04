@@ -9,9 +9,10 @@
 ## Контекст
 
 В доменной модели есть полиморфные типы:
-- **RuleMatch**: критерии матчинга (ChannelId, ChannelName, TitleRegex, AllOf, AnyOf)
+- **RuleMatch**: критерии матчинга (ChannelId, ChannelName, TitleRegex, UrlRegex, CategoryEquals, AllOf, AnyOf)
 - **ResolvedMetadata**: метаданные разных категорий (MusicVideo, SeriesEpisode, Other)
 - **MetadataTemplate**: шаблоны извлечения метаданных, зеркалит ResolvedMetadata (MusicVideo, SeriesEpisode, Other)
+- **UserOverrides**: пользовательские уточнения, зеркалит ResolvedMetadata по категории (MusicVideo, SeriesEpisode, Other)
 - **OutputFormat**: тип и формат выходного файла (OriginalVideo, ConvertedVideo, Audio, Thumbnail)
 - **DomainError**: различные типы ошибок
 

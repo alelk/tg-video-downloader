@@ -33,5 +33,9 @@ sealed interface RuleMatchPm {
     @Serializable
     @SerialName("url-regex")
     data class UrlRegex(val pattern: String) : RuleMatchPm
+
+    @Serializable
+    @SerialName("category-equals")
+    data class CategoryEquals(val category: String) : RuleMatchPm
 }
 

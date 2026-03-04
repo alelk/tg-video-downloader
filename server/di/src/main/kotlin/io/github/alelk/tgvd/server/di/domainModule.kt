@@ -8,6 +8,7 @@ import io.github.alelk.tgvd.domain.preview.PreviewUseCase
 import io.github.alelk.tgvd.domain.rule.RuleMatchingService
 import io.github.alelk.tgvd.domain.rule.RuleRepository
 import io.github.alelk.tgvd.domain.storage.PathTemplateEngine
+import io.github.alelk.tgvd.domain.video.VideoInfoCache
 import io.github.alelk.tgvd.domain.video.VideoInfoExtractor
 import io.github.alelk.tgvd.server.infra.config.LlmConfig
 import org.koin.dsl.module
@@ -21,6 +22,7 @@ internal fun domainModule() = module {
     single {
         PreviewUseCase(
             videoInfoExtractor = get<VideoInfoExtractor>(),
+            videoInfoCache = get<VideoInfoCache>(),
             ruleMatchingService = get<RuleMatchingService>(),
             metadataResolver = get<MetadataResolver>(),
             llmPort = resolveLlmPort(get<LlmConfig>()),

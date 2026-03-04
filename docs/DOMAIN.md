@@ -50,6 +50,8 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
               workspace ──▶ common
 
               job ──▶ video, storage, common
+
+              rule ──▶ preview (для UserOverrides в MatchContext)
 ```
 
 > Стрелки = зависит от. Циклов нет. Каждый пакет при необходимости может быть извлечён в Gradle-модуль.
@@ -329,7 +331,8 @@ interface WorkspaceRepository {
 domain/video/
 ├── VideoSource.kt
 ├── VideoInfo.kt
-└── VideoInfoExtractor.kt    # port
+├── VideoInfoExtractor.kt    # port
+└── VideoInfoCache.kt        # port
 ```
 
 ### 4.1 VideoSource
@@ -372,16 +375,33 @@ interface VideoInfoExtractor {
 }
 ```
 
+### 4.4 VideoInfoCache (port)
+
+```kotlin
+interface VideoInfoCache {
+    suspend fun get(url: String): VideoInfo?
+    suspend fun put(url: String, videoInfo: VideoInfo)
+}
+```
+
+> Кэш VideoInfo в PostgreSQL. Вызов yt-dlp — дорогая операция (3-10 сек).
+> При интерактивном preview пользователь может менять overrides многократно для одного URL.
+> Кэш гарантирует что yt-dlp вызывается однократно.
+> Реализация: `VideoInfoCacheImpl` в `server:infra/db/repository/`.
+
 ---
 
 ## 5. `rule` — Правила
 
-Зависимости: `common`, `video`
+Зависимости: `common`, `video`, `preview`
 
 ```
 domain/rule/
 ├── Rule.kt
 ├── RuleMatch.kt               # sealed interface
+├── MatchContext.kt
+├── matches.kt                 # extension fun RuleMatch.matches(ctx)
+├── matchSpecificity.kt        # extension fun RuleMatch.matchSpecificity()
 ├── RuleMatchingService.kt
 └── RuleRepository.kt          # port
 ```
@@ -426,30 +446,43 @@ sealed interface RuleMatch {
             }
         }
     }
+    
+    /** Матчит по категории из user overrides. Если overrides == null — не матчит. */
+    data class CategoryEquals(val category: Category) : RuleMatch
 }
 ```
 
-**Матчинг и специфичность**:
+**MatchContext и матчинг**:
 
 ```kotlin
-fun RuleMatch.matches(video: VideoInfo): Boolean = when (this) {
-    is RuleMatch.AllOf -> matches.all { it.matches(video) }
-    is RuleMatch.AnyOf -> matches.any { it.matches(video) }
-    is RuleMatch.ChannelId -> video.channelId.value == value
-    is RuleMatch.ChannelName -> video.channelName.equals(value, ignoreCase = ignoreCase)
-    is RuleMatch.TitleRegex -> regex.containsMatchIn(video.title)
-    is RuleMatch.UrlRegex -> regex.containsMatchIn(video.webpageUrl.value)
+data class MatchContext(
+    val video: VideoInfo,
+    val overrides: UserOverrides? = null,
+)
+
+fun RuleMatch.matches(ctx: MatchContext): Boolean = when (this) {
+    is RuleMatch.AllOf -> matches.all { it.matches(ctx) }
+    is RuleMatch.AnyOf -> matches.any { it.matches(ctx) }
+    is RuleMatch.ChannelId -> ctx.video.channelId.value == value
+    is RuleMatch.ChannelName -> ctx.video.channelName.equals(value, ignoreCase = ignoreCase)
+    is RuleMatch.TitleRegex -> regex.containsMatchIn(ctx.video.title)
+    is RuleMatch.UrlRegex -> regex.containsMatchIn(ctx.video.webpageUrl.value)
+    is RuleMatch.CategoryEquals -> ctx.overrides != null && ctx.overrides.category == category
 }
 
-fun RuleMatch.specificity(): Int = when (this) {
+fun RuleMatch.matchSpecificity(): Int = when (this) {
     is RuleMatch.ChannelId -> 100
     is RuleMatch.ChannelName -> 80
     is RuleMatch.UrlRegex -> 60
     is RuleMatch.TitleRegex -> 40
-    is RuleMatch.AllOf -> matches.maxOfOrNull { it.specificity() } ?: 0
-    is RuleMatch.AnyOf -> matches.minOfOrNull { it.specificity() } ?: 0
+    is RuleMatch.CategoryEquals -> 20
+    is RuleMatch.AllOf -> matches.maxOfOrNull { it.matchSpecificity() } ?: 0
+    is RuleMatch.AnyOf -> matches.minOfOrNull { it.matchSpecificity() } ?: 0
 }
 ```
+
+> `CategoryEquals` матчит **только** когда overrides != null и категория совпадает.
+> Если overrides не предоставлены (первый запрос) — не матчит.
 
 ### 5.2 Rule
 
@@ -458,18 +491,23 @@ data class Rule(
     val id: RuleId,
     val name: String,
     val workspaceId: WorkspaceId,
-    val enabled: Boolean,
-    val priority: Int,
     val match: RuleMatch,
-    val category: Category,
     val metadataTemplate: MetadataTemplate,
-    val downloadPolicy: DownloadPolicy,
+    val downloadPolicy: DownloadPolicy = DownloadPolicy(),
     val outputs: List<OutputRule>,
+    val enabled: Boolean = true,
+    val priority: Int = 0,
     val createdAt: Instant,
     val updatedAt: Instant,
-)
+) {
+    init {
+        require(name.isNotBlank()) { "Rule name cannot be blank" }
+        require(outputs.isNotEmpty()) { "Rule must have at least one output" }
+    }
+}
 ```
 
+> `Rule` не содержит `category` — категория определяется из `metadataTemplate.category` (sealed).
 > `Rule` ссылается на `MetadataTemplate` (из `metadata/`), 
 > `OutputRule` (из `storage/`) и `DownloadPolicy` (из `storage/`).
 > Каждый `OutputRule` — самодостаточная единица: путь + формат + качество + пост-обработка.
@@ -481,11 +519,16 @@ data class Rule(
 class RuleMatchingService(
     private val ruleRepository: RuleRepository,
 ) {
-    suspend fun findMatchingRule(video: VideoInfo, workspaceId: WorkspaceId): Rule? {
+    suspend fun findMatchingRule(
+        video: VideoInfo,
+        workspaceId: WorkspaceId,
+        overrides: UserOverrides? = null,
+    ): Rule? {
         val rules = ruleRepository.findEnabledByWorkspace(workspaceId)
+        val ctx = MatchContext(video, overrides)
         return rules
-            .filter { it.match.matches(video) }
-            .maxByOrNull { it.priority * 1000 + it.match.specificity() }
+            .filter { it.match.matches(ctx) }
+            .maxByOrNull { it.priority * 1000 + it.match.matchSpecificity() }
     }
 }
 ```
@@ -1280,95 +1323,118 @@ interface JobRepository {
 
 ```
 domain/preview/
+├── UserOverrides.kt
 └── PreviewUseCase.kt
 ```
 
-### 9.1 PreviewUseCase
+### 9.1 UserOverrides (sealed)
 
-`PreviewUseCase` — оркестратор, который связывает все фичи:
+Пользователь может уточнить категорию и поля метаданных. Overrides — sealed по категории
+(зеркалит `ResolvedMetadata`), потому что набор доступных полей зависит от категории.
+
+```kotlin
+sealed interface UserOverrides {
+    
+    data class MusicVideo(
+        val artist: String? = null,
+        val title: String? = null,
+        val album: String? = null,
+    ) : UserOverrides
+    
+    data class SeriesEpisode(
+        val seriesName: String? = null,
+        val season: String? = null,
+        val episode: String? = null,
+        val title: String? = null,
+    ) : UserOverrides
+    
+    data class Other(
+        val title: String? = null,
+    ) : UserOverrides
+}
+
+val UserOverrides.category: Category get() = when (this) {
+    is UserOverrides.MusicVideo -> Category.MUSIC_VIDEO
+    is UserOverrides.SeriesEpisode -> Category.SERIES
+    is UserOverrides.Other -> Category.OTHER
+}
+```
+
+> Категория **не передаётся отдельным полем** — она определяется по типу sealed.
+> Если overrides == null — пользователь ничего не уточнял.
+
+### 9.2 PreviewUseCase
+
+`PreviewUseCase` — оркестратор, который связывает все фичи.
+Preview — это **диалог**: пользователь уточняет данные, сервер переоценивает правила.
 
 ```kotlin
 class PreviewUseCase(
     private val videoInfoExtractor: VideoInfoExtractor,
+    private val videoInfoCache: VideoInfoCache,
     private val ruleMatchingService: RuleMatchingService,
     private val metadataResolver: MetadataResolver,
-    private val pathTemplateEngine: PathTemplateEngine,
-    private val llmPort: LlmPort?,  // nullable: если LLM не настроен
+    private val llmPort: LlmPort?,
 ) {
-    suspend fun execute(url: String, workspaceId: WorkspaceId): Either<DomainError, PreviewResult> = either {
-        val videoInfo = videoInfoExtractor.extract(url).bind()
-        val matchedRule = ruleMatchingService.findMatchingRule(videoInfo, workspaceId)
-        
-        val (category, metadata, metadataSource) = resolveMetadata(videoInfo, matchedRule).bind()
-        
-        val outputs = matchedRule?.outputs ?: OutputDefaults.defaultFor(category)
-        val context = PathTemplateEngine.TemplateContext.from(metadata, videoInfo)
-        val storagePlan = pathTemplateEngine.buildStoragePlan(outputs, context, videoInfo)
-        
+    suspend fun preview(
+        url: String,
+        workspaceId: WorkspaceId,
+        overrides: UserOverrides? = null,
+    ): Either<DomainError, PreviewResult> = either {
+        // 1. VideoInfo: кэш (PostgreSQL) или yt-dlp
+        val videoInfo = videoInfoCache.get(url)
+            ?: videoInfoExtractor.extract(url).bind().also { videoInfoCache.put(url, it) }
+
+        // 2. Rule matching с учётом overrides
+        val matchedRule = ruleMatchingService.findMatchingRule(videoInfo, workspaceId, overrides)
+
+        // 3. Resolve metadata (rule → LLM → fallback)
+        val (metadata, source) = resolveMetadata(videoInfo, matchedRule)
+
+        // 4. Apply user overrides поверх resolved metadata
+        val finalMetadata = applyOverrides(metadata, overrides)
+
+        // 5. Outputs
+        val outputs = matchedRule?.outputs ?: OutputDefaults.defaultFor(finalMetadata.category)
+
         PreviewResult(
-            source = VideoSource(Url(url), videoInfo.videoId, videoInfo.extractor),
             videoInfo = videoInfo,
+            metadata = finalMetadata,
+            metadataSource = source,
             matchedRule = matchedRule,
-            metadataSource = metadataSource,
-            category = category,
-            metadata = metadata,
-            storagePlan = storagePlan,
-            warnings = emptyList(),
+            outputs = outputs,
         )
     }
-    
-    /**
-     * Три пути определения метаданных:
-     * 1. Rule → MetadataResolver (если правило найдено)
-     * 2. LLM → LlmPort (если правила нет, но LLM настроен)
-     * 3. Fallback → MetadataResolver с MetadataTemplate.Other()
-     */
-    private suspend fun resolveMetadata(
-        video: VideoInfo, rule: Rule?,
-    ): Either<DomainError, Triple<Category, ResolvedMetadata, MetadataSource>> = either {
-        when {
-            rule != null -> {
-                val metadata = metadataResolver.resolve(video, rule.metadataTemplate)
-                Triple(rule.category, metadata, MetadataSource.RULE)
-            }
-            llmPort != null -> {
-                val suggestion = llmPort.suggestMetadata(video).getOrNull()
-                if (suggestion != null) {
-                    Triple(suggestion.category, suggestion.metadata, MetadataSource.LLM)
-                } else {
-                    val metadata = metadataResolver.resolve(video, MetadataTemplate.Other())
-                    Triple(Category.OTHER, metadata, MetadataSource.FALLBACK)
-                }
-            }
-            else -> {
-                val metadata = metadataResolver.resolve(video, MetadataTemplate.Other())
-                Triple(Category.OTHER, metadata, MetadataSource.FALLBACK)
-            }
-        }
-    }
-    
-    // buildStoragePlan теперь в PathTemplateEngine:
-    // pathTemplateEngine.buildStoragePlan(outputs, context, videoInfo)
-    
-    data class PreviewResult(
-        val source: VideoSource,
-        val videoInfo: VideoInfo,
-        val matchedRule: Rule?,
-        val metadataSource: MetadataSource,
-        val category: Category,
-        val metadata: ResolvedMetadata,
-        val outputs: List<OutputRule>,
-        val storagePlan: StoragePlan,
-        val warnings: List<String>,
-    )
 }
+
+data class PreviewResult(
+    val videoInfo: VideoInfo,
+    val metadata: ResolvedMetadata,
+    val metadataSource: MetadataSource,
+    val matchedRule: Rule?,
+    val outputs: List<OutputRule>,
+)
 ```
+
+**Порядок приоритетов метаданных:**
+
+```
+1. UserOverrides (ручной ввод пользователя)          ← наивысший
+2. Rule MetadataTemplate (если правило найдено)
+3. LLM suggestion (если LLM настроен, правило не найдено)
+4. Fallback (парсинг title по разделителям)           ← наименьший
+```
+
+`applyOverrides()` перезаписывает только те поля, которые пользователь явно задал (не null).
+Тип sealed overrides определяет целевую категорию `ResolvedMetadata`.
+
+Подробнее: [ADR/007-interactive-preview-refinement.md](./ADR/007-interactive-preview-refinement.md)
 
 ---
 
 ## 10. Инварианты и валидация
 
-### 9.1 Общие правила
+### 10.1 Общие правила
 
 | Поле                            | Правило                                   |
 |---------------------------------|-------------------------------------------|
@@ -1379,11 +1445,11 @@ class PreviewUseCase(
 | `percent` (progress)            | 0-100                                     |
 | Path templates                  | Минимум `{title}` или `{videoId}`         |
 
-### 9.2 Валидация при создании
+### 10.2 Валидация при создании
 
 Все инварианты проверяются в `init {}` блоках data/value классов.
 При нарушении — `IllegalArgumentException`.
 
-### 9.3 Валидация бизнес-правил
+### 10.3 Валидация бизнес-правил
 
 Бизнес-валидация (например, "job с таким videoId уже существует") — через `Either<DomainError, T>` в use cases.

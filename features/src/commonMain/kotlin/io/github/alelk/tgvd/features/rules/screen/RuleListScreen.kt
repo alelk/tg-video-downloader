@@ -183,6 +183,7 @@ private fun describeMatch(match: RuleMatchDto): String = when (match) {
     is RuleMatchDto.ChannelName -> "Channel: ${match.value}"
     is RuleMatchDto.TitleRegex -> "Title: /${match.pattern}/"
     is RuleMatchDto.UrlRegex -> "URL: /${match.pattern}/"
+    is RuleMatchDto.CategoryEquals -> "Category: ${match.category}"
     is RuleMatchDto.AllOf -> "All of: ${match.matches.size} conditions"
     is RuleMatchDto.AnyOf -> "Any of: ${match.matches.size} conditions"
 }

@@ -18,6 +18,7 @@ data class PreviewResponseDto(
     val category: CategoryDto,
     val metadata: ResolvedMetadataDto,
     val storagePlan: StoragePlanDto,
+    val appliedOverrides: UserOverridesDto? = null,
     val warnings: List<String> = emptyList(),
 )
 

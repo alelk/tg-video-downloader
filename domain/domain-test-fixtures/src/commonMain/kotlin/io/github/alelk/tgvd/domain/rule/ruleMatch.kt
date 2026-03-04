@@ -1,14 +1,16 @@
 package io.github.alelk.tgvd.domain.rule
 
+import io.github.alelk.tgvd.domain.common.Category
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.*
 
 private fun Arb.Companion.ruleMatchLeaf(): Arb<RuleMatch> = arbitrary {
-    when (Arb.int(0..3).bind()) {
+    when (Arb.int(0..4).bind()) {
         0 -> RuleMatch.ChannelId(Arb.string(3..20, Codepoint.az()).bind())
         1 -> RuleMatch.ChannelName(Arb.string(3..20, Codepoint.az()).bind(), Arb.boolean().bind())
         2 -> RuleMatch.TitleRegex(Arb.element(".*test.*", "^Episode\\s+\\d+", ".*music.*", "Part \\d+").bind())
-        else -> RuleMatch.UrlRegex(Arb.element(".*youtube\\.com.*", ".*rutu\\.be.*", ".*/video/.*").bind())
+        3 -> RuleMatch.UrlRegex(Arb.element(".*youtube\\.com.*", ".*rutu\\.be.*", ".*/video/.*").bind())
+        else -> RuleMatch.CategoryEquals(Arb.element(Category.MUSIC_VIDEO, Category.SERIES, Category.OTHER).bind())
     }
 }
 

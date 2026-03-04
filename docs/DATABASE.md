@@ -53,8 +53,7 @@ CREATE TABLE rules (
     category             TEXT NOT NULL,
     metadata_template    JSONB NOT NULL,
     download_policy      JSONB NOT NULL DEFAULT '{}',
-    storage_policy       JSONB NOT NULL,
-    post_process_policy  JSONB NOT NULL DEFAULT '{}',
+    outputs              JSONB NOT NULL DEFAULT '[]',
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -132,6 +131,24 @@ COMMENT ON TABLE job_outputs IS 'Выходные файлы job';
 COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, audio/ext, image/ext';
 ```
 
+### 2.6 Таблица `video_info_cache`
+
+Кэш VideoInfo из yt-dlp для избежания повторных вызовов при интерактивном preview.
+
+```sql
+CREATE TABLE video_info_cache (
+    url         TEXT PRIMARY KEY,
+    video_info  JSONB NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE video_info_cache IS 'Кэш VideoInfo из yt-dlp для избежания повторных вызовов';
+COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
+```
+
+> PK по `url` — простой текстовый ключ. `video_info` хранит `VideoInfoPm` (та же модель что `jobs.raw_info`).
+> Без TTL — записи хранятся бессрочно.
+
 ---
 
 ## 3. JSONB структуры
@@ -154,6 +171,15 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
     { "type": "channel-name", "value": "Rick Astley" },
     { "type": "title-regex", "pattern": "Official" }
   ]
+}
+```
+
+или (матч по user override категории):
+
+```json
+{
+  "type": "category-equals",
+  "category": "music-video"
 }
 ```
 
@@ -208,31 +234,34 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 }
 ```
 
-### 3.4 rules.storage_policy
+### 3.4 rules.outputs
 
 ```json
-{
-  "originalTemplate": "/media/Music Videos/original/{artist}/{title} [{videoId}].{ext}",
-  "additionalOutputs": [
-    {
-      "pathTemplate": "/media/Music Videos/converted/{artist}/{title}.mp4",
-      "format": "video/mp4"
-    }
-  ]
-}
+[
+  {
+    "pathTemplate": "/media/Music Videos/original/{artist}/{title} [{videoId}].{ext}",
+    "format": "original/webm",
+    "maxQuality": null,
+    "encodeSettings": null,
+    "embedThumbnail": false,
+    "embedMetadata": false,
+    "embedSubtitles": false,
+    "normalizeAudio": false
+  },
+  {
+    "pathTemplate": "/media/Music Videos/converted/{artist}/{title}.mp4",
+    "format": "video/mp4",
+    "maxQuality": "hd_1080",
+    "encodeSettings": { "codec": "h264", "crf": 23, "preset": "medium", "audioBitrate": "192k" },
+    "embedThumbnail": true,
+    "embedMetadata": true,
+    "embedSubtitles": false,
+    "normalizeAudio": false
+  }
+]
 ```
 
-### 3.5 rules.post_process_policy
-
-```json
-{
-  "embedThumbnail": true,
-  "embedMetadata": true,
-  "normalizeAudio": false
-}
-```
-
-### 3.6 jobs.metadata
+### 3.5 jobs.metadata
 
 > Sealed тип (полиморфный): discriminator `"type"` определяет подтип (`music-video`, `series-episode`, `other`).
 
@@ -247,7 +276,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 }
 ```
 
-### 3.7 jobs.storage_plan
+### 3.6 jobs.storage_plan
 
 ```json
 {
@@ -264,7 +293,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 }
 ```
 
-### 3.8 jobs.progress
+### 3.7 jobs.progress
 
 ```json
 {
@@ -274,7 +303,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 }
 ```
 
-### 3.9 jobs.error
+### 3.8 jobs.error
 
 ```json
 {
@@ -298,6 +327,7 @@ COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, 
 | `RulesTable.kt`            | `UuidTable("rules")`, JSONB-колонки        |
 | `JobsTable.kt`             | `UuidTable("jobs")`, JSONB-колонки         |
 | `JobOutputsTable.kt`       | `UuidTable("job_outputs")`                 |
+| `VideoInfoCacheTable.kt`   | `Table("video_info_cache")`, text PK       |
 
 **Подход к маппингу DB ↔ Domain:**
 - Колонки хранят примитивные типы (`String`, `Long`, `Boolean`)
@@ -323,7 +353,7 @@ server/infra/src/main/resources/db/migration/
 ### 5.2 V1__initial_schema.sql
 
 > Актуальная версия: `server/infra/src/main/resources/db/migration/V1__initial_schema.sql`.
-> Создаёт таблицы: `workspaces`, `workspace_members`, `rules`, `jobs`, `job_outputs` с индексами.
+> Создаёт таблицы: `workspaces`, `workspace_members`, `rules`, `jobs`, `job_outputs`, `video_info_cache` с индексами.
 
 ### 5.3 Flyway конфигурация
 
@@ -352,6 +382,7 @@ class DatabaseFactory(private val config: DbConfig) {
 - **`WorkspaceRepositoryImpl`** — CRUD для workspace и workspace_members
 - **`RuleRepositoryImpl`** — CRUD для правил с фильтрацией по workspace
 - **`JobRepositoryImpl`** — CRUD для задач с фильтрацией по workspace, обновление статусов
+- **`VideoInfoCacheImpl`** — кэш VideoInfo из yt-dlp (port `VideoInfoCache`)
 
 Общая утилита `dbQuery(database) { ... }` (файл `db/dbQuery.kt`) оборачивает блок в `suspendTransaction` с `Dispatchers.IO`.
 

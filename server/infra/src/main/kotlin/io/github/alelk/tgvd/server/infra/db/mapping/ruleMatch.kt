@@ -10,6 +10,7 @@ internal fun RuleMatch.toPm(): RuleMatchPm = when (this) {
     is RuleMatch.ChannelName -> RuleMatchPm.ChannelName(value, ignoreCase)
     is RuleMatch.TitleRegex -> RuleMatchPm.TitleRegex(pattern)
     is RuleMatch.UrlRegex -> RuleMatchPm.UrlRegex(pattern)
+    is RuleMatch.CategoryEquals -> RuleMatchPm.CategoryEquals(category.toDbString())
 }
 
 internal fun RuleMatchPm.toDomain(): RuleMatch = when (this) {
@@ -19,5 +20,6 @@ internal fun RuleMatchPm.toDomain(): RuleMatch = when (this) {
     is RuleMatchPm.ChannelName -> RuleMatch.ChannelName(value, ignoreCase)
     is RuleMatchPm.TitleRegex -> RuleMatch.TitleRegex(pattern)
     is RuleMatchPm.UrlRegex -> RuleMatch.UrlRegex(pattern)
+    is RuleMatchPm.CategoryEquals -> RuleMatch.CategoryEquals(category.toCategory())
 }
 

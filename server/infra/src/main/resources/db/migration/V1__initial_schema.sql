@@ -98,3 +98,14 @@ CREATE TABLE job_outputs (
 );
 
 CREATE INDEX idx_job_outputs_job_id ON job_outputs(job_id);
+
+-- Video info cache table
+CREATE TABLE video_info_cache (
+    url         TEXT PRIMARY KEY,
+    video_info  JSONB NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE video_info_cache IS 'Кэш VideoInfo из yt-dlp для избежания повторных вызовов';
+COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
+

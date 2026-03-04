@@ -46,7 +46,7 @@
 
 ### 1.3 Kotlin-идиоматичность
 
-- **Sealed classes/interfaces** для полиморфных типов (RuleMatch, ResolvedMetadata, MetadataTemplate, OutputFormat, DomainError)
+- **Sealed classes/interfaces** для полиморфных типов (RuleMatch, ResolvedMetadata, MetadataTemplate, UserOverrides, OutputFormat, DomainError)
 - **Data classes** для DTO и value objects
 - **Value classes** для typesafe идентификаторов и доменных примитивов (KMP-совместимые с Kotlin 2.1+)
 - **Extension properties** для cheap computed values (например, `ResolvedMetadata.category`)
@@ -111,12 +111,12 @@
 **Содержит**:
 - `common/` — Value objects (`VideoId`, `RuleId`, `JobId`, `WorkspaceId`, `Url`, `FilePath`, `LocalDate`, `Extractor`), `Category`, `DomainError`
 - `workspace/` — `Workspace`, `WorkspaceMember`, `WorkspaceRole`, `WorkspaceRepository` port
-- `video/` — `VideoSource`, `VideoInfo`, `VideoInfoExtractor` port
-- `rule/` — `Rule`, `RuleMatch` (sealed), `RuleMatchingService`, `RuleRepository` port
+- `video/` — `VideoSource`, `VideoInfo`, `VideoInfoExtractor` port, `VideoInfoCache` port
+- `rule/` — `Rule`, `RuleMatch` (sealed, вкл. `CategoryEquals`), `MatchContext`, `RuleMatchingService`, `RuleRepository` port
 - `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `MetadataResolver`, `LlmPort`
 - `storage/` — `StoragePlan`, `OutputRule`, `OutputFormat` (sealed), `PathTemplateEngine`, `VideoDownloader` port
 - `job/` — `Job`, `JobStatus`, `CreateJobUseCase`, `JobRepository` port
-- `preview/` — `PreviewUseCase` (оркестратор)
+- `preview/` — `UserOverrides` (sealed), `PreviewUseCase` (оркестратор)
 
 **Зависимости**: Kotlin stdlib (`kotlin.time.Instant`, `kotlin.time.Duration`, `kotlin.uuid.Uuid`), Arrow (Either), kotlinx-coroutines.
 
@@ -126,12 +126,12 @@
 domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 ├── common/         # Value objects (VideoId, WorkspaceId, Url, FilePath, LocalDate, Extractor...), Category, DomainError
 ├── workspace/      # Workspace, WorkspaceMember, WorkspaceRole, WorkspaceRepository port
-├── video/          # VideoSource, VideoInfo, VideoInfoExtractor port
-├── rule/           # Rule, RuleMatch (sealed), RuleMatchingService, RuleRepository port
+├── video/          # VideoSource, VideoInfo, VideoInfoExtractor port, VideoInfoCache port
+├── rule/           # Rule, RuleMatch (sealed), MatchContext, matches.kt, RuleMatchingService, RuleRepository port
 ├── metadata/       # ResolvedMetadata (sealed), MetadataTemplate (sealed), MetadataResolver, LlmPort
 ├── storage/        # StoragePlan, OutputRule, OutputFormat (sealed), PathTemplateEngine, VideoDownloader port
 ├── job/            # Job, JobStatus, CreateJobUseCase, JobRepository port
-└── preview/        # PreviewUseCase
+└── preview/        # UserOverrides (sealed), PreviewUseCase
 ```
 
 > Пакеты организованы без циклических зависимостей. Каждый пакет при росте проекта может быть извлечён в отдельный Gradle-модуль.
@@ -432,7 +432,6 @@ plugins {
 
 dependencies {
     implementation(projects.domain)
-    implementation(projects.api.contract)
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)
     implementation(libs.exposed.json)
@@ -493,29 +492,36 @@ ksp = { id = "com.google.devtools.ksp", version = "2.3.0-1.0.30" }
 
 ### 5.1 Preview flow
 
+Preview — это **диалог** между фронтом и бекендом. Пользователь может уточнять категорию и поля —
+каждое уточнение повторно вызывает `POST /preview` с `overrides`.
+VideoInfo кэшируется в PostgreSQL — yt-dlp вызывается однократно.
+
 ```
-┌─────────┐  POST /api/v1/workspaces/{id}/preview   ┌─────────────────┐
+┌─────────┐  POST /api/v1/workspaces/{slug}/preview  ┌─────────────────┐
 │  Mini   │ ──────────────────────────────────────▶ │ server:transport│
-│   App   │                                         │  (Ktor route)   │
+│   App   │  { url, overrides? }                    │  (Ktor route)   │
 └─────────┘                                         └────────┬────────┘
-                                                │
-                                                ▼
-                                       ┌────────────────┐
-                                       │ PreviewUseCase │
-                                       │    (domain)    │
-                                       └────────┬───────┘
-                                                │
-                    ┌───────────────────────────┼──────────────────────┐
-                    │                           │                      │
-                    ▼                           ▼                      ▼
-           ┌────────────────┐          ┌────────────────┐     ┌──────────────┐
-           │VideoInfoExtract│          │ RuleRepository │     │RuleMatching  │
-           │  tor.extract   │          │   .findAll     │     │  Service     │
-           └────────┬───────┘          └────────┬───────┘     └──────┬───────┘
-                    ▼                           ▼                    ▼
-              yt-dlp (+ proxy)           PostgreSQL          MetadataResolver
-                                                              (+ LlmPort)
+                                                             │
+                                                             ▼
+                                                    ┌────────────────┐
+                                                    │ PreviewUseCase │
+                                                    │    (domain)    │
+                                                    └────────┬───────┘
+                                                             │
+                    ┌────────────────────────────────────────┼──────────────────┐
+                    │                                        │                  │
+                    ▼                                        ▼                  ▼
+           ┌────────────────┐                       ┌──────────────┐   ┌──────────────┐
+           │ VideoInfoCache │                       │RuleMatching  │   │MetadataResolv│
+           │  (PostgreSQL)  │                       │  Service     │   │ + LlmPort    │
+           │ cache hit →    │                       │ (overrides)  │   │              │
+           │ skip yt-dlp    │                       └──────────────┘   └──────────────┘
+           │ cache miss →   │
+           │ yt-dlp extract │
+           └────────────────┘
 ```
+
+Подробнее: [ADR/007-interactive-preview-refinement.md](./ADR/007-interactive-preview-refinement.md)
 
 ### 5.2 Job execution flow
 
@@ -593,7 +599,10 @@ JobProcessor
 ### 6.3 Добавление нового типа матчинга
 
 1. Добавить sealed subclass в `RuleMatch` (domain)
-2. Добавить sealed subclass в `RuleMatchDto` (api:contract)
-3. Добавить маппинг (api:mapping)
-4. Реализовать логику в `RuleMatchingService` (domain)
-5. Обновить UI rule editor (features)
+2. Обновить `matches(ctx: MatchContext)` (domain)
+3. Обновить `matchSpecificity()` (domain)
+4. Добавить sealed subclass в `RuleMatchDto` (api:contract)
+5. Добавить sealed subclass в `RuleMatchPm` (server:infra)
+6. Добавить маппинг domain ↔ DTO ↔ Pm (api:mapping + server:infra)
+7. Обновить Arb.ruleMatch() генератор (domain-test-fixtures)
+8. Обновить UI rule editor (features)

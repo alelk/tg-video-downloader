@@ -175,6 +175,12 @@ sealed interface RuleMatchDto {
     data class UrlRegex(
         val pattern: String,
     ) : RuleMatchDto
+    
+    @Serializable
+    @SerialName("category-equals")
+    data class CategoryEquals(
+        val category: CategoryDto,
+    ) : RuleMatchDto
 }
 ```
 
@@ -207,6 +213,14 @@ sealed interface RuleMatchDto {
     { "type": "channel-id", "value": "UC123" },
     { "type": "channel-id", "value": "UC456" }
   ]
+}
+```
+
+**CategoryEquals** (матчит по user override категории):
+```json
+{
+  "type": "category-equals",
+  "category": "music-video"
 }
 ```
 
@@ -326,6 +340,7 @@ enum class MetadataSourceDto {
 @Serializable
 data class PreviewRequestDto(
     val url: String,
+    val overrides: UserOverridesDto? = null,
 )
 ```
 
@@ -335,6 +350,22 @@ data class PreviewRequestDto(
 }
 ```
 
+С user overrides (повторный вызов после уточнения категории):
+```json
+{
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "overrides": {
+    "type": "music-video",
+    "artist": "Rick Astley",
+    "title": null,
+    "album": null
+  }
+}
+```
+
+> `UserOverridesDto` — sealed по категории. Тип sealed определяет целевую категорию.
+> Если overrides == null — первый запрос, без уточнений.
+
 #### Response
 
 ```kotlin
@@ -342,12 +373,13 @@ data class PreviewRequestDto(
 data class PreviewResponseDto(
     val source: VideoSourceDto,
     val videoInfo: VideoInfoDto,
-    val matchedRule: RuleSummaryDto?,
-    val metadataSource: MetadataSourceDto, // RULE | LLM | FALLBACK
-    val category: String,
+    val matchedRule: RuleSummaryDto? = null,
+    val metadataSource: MetadataSourceDto,
+    val category: CategoryDto,
     val metadata: ResolvedMetadataDto,
     val storagePlan: StoragePlanDto,
-    val warnings: List<String>,
+    val appliedOverrides: UserOverridesDto? = null,
+    val warnings: List<String> = emptyList(),
 )
 ```
 
@@ -940,17 +972,20 @@ enum class ImageFormatDto { @SerialName("jpg") JPG, @SerialName("png") PNG,
 
 ```
 api/mapping/src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/
-├── RuleMatchToDto.kt
-├── RuleMatchToDomain.kt
-├── ResolvedMetadataToDto.kt
-├── ResolvedMetadataToDomain.kt
-├── MetadataTemplateToDto.kt
-├── MetadataTemplateToDomain.kt
-├── VideoInfoToDto.kt
-├── VideoInfoToDomain.kt
-├── StoragePlanToDto.kt
-├── StoragePlanToDomain.kt
-└── DomainErrorToApiError.kt
+├── common/
+│   └── CategoryMapping.kt
+├── rule/
+│   ├── toDto.kt
+│   └── toDomain.kt
+├── metadata/
+│   ├── ...
+├── video/
+│   ├── ...
+├── storage/
+│   ├── ...
+├── preview/
+│   └── UserOverridesMapping.kt
+└── ...
 ```
 
 ### 8.3 RuleMatchToDto.kt
@@ -985,6 +1020,7 @@ fun RuleMatch.toDto(): RuleMatchDto = when (this) {
     is RuleMatch.ChannelName -> toDto()
     is RuleMatch.TitleRegex -> toDto()
     is RuleMatch.UrlRegex -> toDto()
+    is RuleMatch.CategoryEquals -> RuleMatchDto.CategoryEquals(category.toDto())
 }
 ```
 
@@ -1026,6 +1062,7 @@ fun RuleMatchDto.toDomain(): Either<DomainError.ValidationError, RuleMatch> = wh
     is RuleMatchDto.ChannelName -> toDomain()
     is RuleMatchDto.TitleRegex -> toDomain()
     is RuleMatchDto.UrlRegex -> toDomain()
+    is RuleMatchDto.CategoryEquals -> RuleMatch.CategoryEquals(category.toDomain()).right()
 }
 ```
 

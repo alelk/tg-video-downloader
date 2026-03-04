@@ -5,5 +5,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class PreviewRequestDto(
     val url: String,
+    val overrides: UserOverridesDto? = null,
 )
 

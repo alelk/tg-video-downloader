@@ -17,6 +17,7 @@ fun RuleMatch.toDto(): RuleMatchDto = when (this) {
     is RuleMatch.ChannelName -> RuleMatchDto.ChannelName(value, ignoreCase)
     is RuleMatch.TitleRegex -> RuleMatchDto.TitleRegex(pattern)
     is RuleMatch.UrlRegex -> RuleMatchDto.UrlRegex(pattern)
+    is RuleMatch.CategoryEquals -> RuleMatchDto.CategoryEquals(category.toDto())
 }
 
 @OptIn(ExperimentalUuidApi::class)

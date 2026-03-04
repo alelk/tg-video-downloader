@@ -2,6 +2,7 @@ package io.github.alelk.tgvd.features.rules.model
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.api.contract.rule.RuleMatchDto
 
 /** Mutable UI state model for editing match conditions (including recursive AllOf/AnyOf). */
@@ -27,6 +28,7 @@ fun RuleMatchDto.toState(): MatchConditionState = when (this) {
     is RuleMatchDto.ChannelName -> MatchConditionState.Simple("channel-name", value, ignoreCase)
     is RuleMatchDto.TitleRegex -> MatchConditionState.Simple("title-regex", pattern)
     is RuleMatchDto.UrlRegex -> MatchConditionState.Simple("url-regex", pattern)
+    is RuleMatchDto.CategoryEquals -> MatchConditionState.Simple("category-equals", category.name)
     is RuleMatchDto.AllOf -> MatchConditionState.Composite(
         operator = CompositeOperator.ALL_OF,
         children = mutableStateListOf<MatchConditionState>().also { list -> matches.forEach { list.add(it.toState()) } },
@@ -44,6 +46,9 @@ fun MatchConditionState.toDto(): RuleMatchDto = when (this) {
         "channel-name" -> RuleMatchDto.ChannelName(value, ignoreCase)
         "title-regex" -> RuleMatchDto.TitleRegex(value)
         "url-regex" -> RuleMatchDto.UrlRegex(value)
+        "category-equals" -> RuleMatchDto.CategoryEquals(
+            CategoryDto.entries.firstOrNull { it.name == value } ?: CategoryDto.OTHER
+        )
         else -> RuleMatchDto.ChannelName(value, ignoreCase)
     }
     is MatchConditionState.Composite -> when (operator) {

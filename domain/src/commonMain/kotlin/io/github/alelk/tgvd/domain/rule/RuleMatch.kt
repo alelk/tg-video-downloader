@@ -1,6 +1,6 @@
 package io.github.alelk.tgvd.domain.rule
 
-import io.github.alelk.tgvd.domain.video.VideoInfo
+import io.github.alelk.tgvd.domain.common.Category
 
 sealed interface RuleMatch {
 
@@ -49,4 +49,7 @@ sealed interface RuleMatch {
             }
         }
     }
+
+    /** Матчит по категории из user overrides. Если overrides == null — не матчит. */
+    data class CategoryEquals(val category: Category) : RuleMatch
 }
