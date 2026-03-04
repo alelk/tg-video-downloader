@@ -15,7 +15,9 @@ import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.api.contract.job.CreateJobRequestDto
 import io.github.alelk.tgvd.api.contract.metadata.ResolvedMetadataDto
+import io.github.alelk.tgvd.api.contract.preview.PreviewRequestDto
 import io.github.alelk.tgvd.api.contract.preview.PreviewResponseDto
+import io.github.alelk.tgvd.api.contract.preview.UserOverridesDto
 import io.github.alelk.tgvd.api.contract.storage.OutputFormatDto
 import io.github.alelk.tgvd.api.contract.storage.OutputTargetDto
 import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
@@ -27,13 +29,15 @@ import io.github.alelk.tgvd.features.common.util.categoryLabel
 import io.github.alelk.tgvd.features.common.util.formatDuration
 import io.github.alelk.tgvd.features.generated.resources.Res
 import io.github.alelk.tgvd.features.generated.resources.*
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 
 private val metadataTypes = CategoryDto.entries.toList()
 
-class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
+class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
@@ -42,8 +46,15 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
         val navigator = LocalNavigator.currentOrThrow
 
         var isCreating by remember { mutableStateOf(false) }
+        var isRefreshing by remember { mutableStateOf(false) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
+
+        // Current server response
+        var preview by remember { mutableStateOf(initialPreview) }
+
+        // Track which fields the user has manually edited
+        val userEdits = remember { mutableStateSetOf<String>() }
 
         // --- Editable state initialized from preview ---
         var category by remember { mutableStateOf(preview.category) }
@@ -80,6 +91,85 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
             }.toTypedArray())
         }
 
+        // In-flight re-preview job (for cancellation)
+        var rePreviewJob by remember { mutableStateOf<Job?>(null) }
+
+        /** Build UserOverridesDto from current user edits */
+        fun buildOverrides(): UserOverridesDto? {
+            // Always send overrides when category changed, or any field was user-edited
+            if ("category" !in userEdits && userEdits.isEmpty()) return null
+
+            return when (metadataType) {
+                CategoryDto.MUSIC_VIDEO -> UserOverridesDto.MusicVideo(
+                    artist = artist.takeIf { "artist" in userEdits },
+                    title = title.takeIf { "title" in userEdits },
+                    album = album.takeIf { "album" in userEdits },
+                )
+                CategoryDto.SERIES_EPISODE -> UserOverridesDto.SeriesEpisode(
+                    seriesName = seriesName.takeIf { "seriesName" in userEdits },
+                    season = season.takeIf { "season" in userEdits },
+                    episode = episode.takeIf { "episode" in userEdits },
+                    title = title.takeIf { "title" in userEdits },
+                )
+                CategoryDto.OTHER -> UserOverridesDto.Other(
+                    title = title.takeIf { "title" in userEdits },
+                )
+            }
+        }
+
+        /** Apply server response: update fields NOT in userEdits */
+        fun applyServerResponse(response: PreviewResponseDto) {
+            preview = response
+
+            // Update category only if user didn't manually change it
+            if ("category" !in userEdits) {
+                category = response.category
+                metadataType = when (response.metadata) {
+                    is ResolvedMetadataDto.MusicVideo -> CategoryDto.MUSIC_VIDEO
+                    is ResolvedMetadataDto.SeriesEpisode -> CategoryDto.SERIES_EPISODE
+                    is ResolvedMetadataDto.Other -> CategoryDto.OTHER
+                }
+            }
+
+            // Update metadata fields not in userEdits
+            if ("title" !in userEdits) title = response.metadata.title
+            if ("artist" !in userEdits) artist = (response.metadata as? ResolvedMetadataDto.MusicVideo)?.artist ?: ""
+            if ("album" !in userEdits) album = (response.metadata as? ResolvedMetadataDto.MusicVideo)?.album ?: ""
+            if ("seriesName" !in userEdits) seriesName = (response.metadata as? ResolvedMetadataDto.SeriesEpisode)?.seriesName ?: ""
+            if ("season" !in userEdits) season = (response.metadata as? ResolvedMetadataDto.SeriesEpisode)?.season ?: ""
+            if ("episode" !in userEdits) episode = (response.metadata as? ResolvedMetadataDto.SeriesEpisode)?.episode ?: ""
+            if ("tags" !in userEdits) tags = response.metadata.tags.joinToString(", ")
+
+            // Always update storage plan from server
+            originalPath = response.storagePlan.original.path
+            originalFormat = response.storagePlan.original.format
+            additionalOutputs.clear()
+            response.storagePlan.additional.forEach { additionalOutputs.add(it) }
+        }
+
+        /** Trigger re-preview with debounce */
+        fun triggerRePreview(debounceMs: Long = 0L) {
+            rePreviewJob?.cancel()
+            rePreviewJob = scope.launch {
+                if (debounceMs > 0) delay(debounceMs)
+                val overrides = buildOverrides() ?: return@launch
+                isRefreshing = true
+                try {
+                    val response = client.preview(
+                        PreviewRequestDto(url = preview.source.url, overrides = overrides)
+                    )
+                    // Verify response matches our current overrides (race condition guard)
+                    applyServerResponse(response)
+                    errorMessage = null
+                } catch (e: Exception) {
+                    // Don't overwrite form on error — just show warning
+                    errorMessage = "Re-preview failed: ${e.message}"
+                } finally {
+                    isRefreshing = false
+                }
+            }
+        }
+
         fun buildMetadata(): ResolvedMetadataDto {
             val tagList = tags.split(",").map { it.trim() }.filter { it.isNotBlank() }
             return when (metadataType) {
@@ -106,7 +196,18 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Preview") },
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Preview")
+                            if (isRefreshing) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            }
+                        }
+                    },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
                             Icon(TgvdIcons.ArrowBack, contentDescription = "Back")
@@ -135,7 +236,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
 
                 // Metadata (editable)
                 SectionCard(
-                    title = if (preview.matchedRule != null) "Metadata (rule)" else "Metadata",
+                    title = if (preview.matchedRule != null) "Metadata (rule: ${preview.matchedRule?.name ?: ""})" else "Metadata",
                     icon = TgvdIcons.Label,
                 ) {
                     // Category / Metadata type selector (unified)
@@ -148,6 +249,9 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                                 onClick = {
                                     metadataType = type
                                     category = type
+                                    userEdits.add("category")
+                                    // Category change → immediate re-preview (0ms debounce)
+                                    triggerRePreview(debounceMs = 0)
                                 },
                                 shape = SegmentedButtonDefaults.itemShape(index, metadataTypes.size),
                             ) {
@@ -164,7 +268,11 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                     // Title (always visible)
                     OutlinedTextField(
                         value = title,
-                        onValueChange = { title = it },
+                        onValueChange = {
+                            title = it
+                            userEdits.add("title")
+                            triggerRePreview(debounceMs = 700)
+                        },
                         label = { Text("Title") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -176,7 +284,11 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(
                                 value = artist,
-                                onValueChange = { artist = it },
+                                onValueChange = {
+                                    artist = it
+                                    userEdits.add("artist")
+                                    triggerRePreview(debounceMs = 700)
+                                },
                                 label = { Text("Artist") },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
@@ -184,7 +296,11 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(
                                 value = album,
-                                onValueChange = { album = it },
+                                onValueChange = {
+                                    album = it
+                                    userEdits.add("album")
+                                    triggerRePreview(debounceMs = 700)
+                                },
                                 label = { Text("Album (optional)") },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
@@ -194,7 +310,11 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(
                                 value = seriesName,
-                                onValueChange = { seriesName = it },
+                                onValueChange = {
+                                    seriesName = it
+                                    userEdits.add("seriesName")
+                                    triggerRePreview(debounceMs = 700)
+                                },
                                 label = { Text("Series Name") },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
@@ -203,14 +323,22 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(
                                     value = season,
-                                    onValueChange = { season = it },
+                                    onValueChange = {
+                                        season = it
+                                        userEdits.add("season")
+                                        triggerRePreview(debounceMs = 700)
+                                    },
                                     label = { Text("Season") },
                                     singleLine = true,
                                     modifier = Modifier.weight(1f),
                                 )
                                 OutlinedTextField(
                                     value = episode,
-                                    onValueChange = { episode = it },
+                                    onValueChange = {
+                                        episode = it
+                                        userEdits.add("episode")
+                                        triggerRePreview(debounceMs = 700)
+                                    },
                                     label = { Text("Episode") },
                                     singleLine = true,
                                     modifier = Modifier.weight(1f),
@@ -223,7 +351,10 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = tags,
-                        onValueChange = { tags = it },
+                        onValueChange = {
+                            tags = it
+                            userEdits.add("tags")
+                        },
                         label = { Text("Tags (comma-separated)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -293,6 +424,12 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
+                // Metadata source
+                SectionCard(title = "Source", icon = TgvdIcons.Label) {
+                    InfoRow("Metadata source", preview.metadataSource.name)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+
                 // Warnings
                 if (preview.warnings.isNotEmpty()) {
                     Card(
@@ -353,7 +490,7 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
                             }
                         }
                     },
-                    enabled = !isCreating,
+                    enabled = !isCreating && !isRefreshing,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     if (isCreating) {
@@ -367,6 +504,12 @@ class PreviewScreen(private val preview: PreviewResponseDto) : Screen {
             }
         }
     }
+}
+
+@Composable
+private fun mutableStateSetOf(vararg elements: String): MutableSet<String> {
+    // Simple mutable set backed by mutableStateListOf for compose recomposition
+    return remember { mutableSetOf(*elements) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -409,4 +552,3 @@ private fun FormatDropdown(
         }
     }
 }
-

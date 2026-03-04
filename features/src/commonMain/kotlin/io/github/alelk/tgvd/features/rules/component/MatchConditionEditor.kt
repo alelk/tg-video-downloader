@@ -7,7 +7,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.features.common.icon.TgvdIcons
+import io.github.alelk.tgvd.features.common.util.categoryLabel
 import io.github.alelk.tgvd.features.rules.model.CompositeOperator
 import io.github.alelk.tgvd.features.rules.model.MatchConditionState
 
@@ -16,6 +18,7 @@ private val MATCH_TYPES = listOf(
     "channel-name" to "Channel Name",
     "title-regex" to "Title Pattern",
     "url-regex" to "URL Pattern",
+    "category-equals" to "Category",
 )
 
 /**
@@ -136,18 +139,28 @@ private fun SimpleMatchEditor(
         }
     }
 
-    // Value input
-    OutlinedTextField(
-        value = value,
-        onValueChange = {
-            value = it
-            onChanged(MatchConditionState.Simple(type = type, value = it, ignoreCase = ignoreCase))
-        },
-        label = { Text(MATCH_TYPES.find { it.first == type }?.second ?: "Value") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        isError = value.isBlank(),
-    )
+    // Value input — category dropdown for category-equals, text field for others
+    if (type == "category-equals") {
+        CategoryDropdown(
+            selectedValue = value,
+            onSelected = { categoryName ->
+                value = categoryName
+                onChanged(MatchConditionState.Simple(type = type, value = categoryName, ignoreCase = ignoreCase))
+            },
+        )
+    } else {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {
+                value = it
+                onChanged(MatchConditionState.Simple(type = type, value = it, ignoreCase = ignoreCase))
+            },
+            label = { Text(MATCH_TYPES.find { it.first == type }?.second ?: "Value") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            isError = value.isBlank(),
+        )
+    }
 
     // Ignore case checkbox for channel-name
     if (type == "channel-name") {
@@ -235,6 +248,49 @@ private fun CompositeMatchEditor(
         Icon(TgvdIcons.Add, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(4.dp))
         Text("Add Condition")
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoryDropdown(
+    selectedValue: String,
+    onSelected: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val categories = CategoryDto.entries
+    val selectedCategory = categories.firstOrNull { it.name == selectedValue }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        OutlinedTextField(
+            value = selectedCategory?.let { categoryLabel(it) } ?: "Select category",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Category") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            singleLine = true,
+            isError = selectedValue.isBlank(),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            categories.forEach { cat ->
+                DropdownMenuItem(
+                    text = { Text(categoryLabel(cat)) },
+                    onClick = {
+                        onSelected(cat.name)
+                        expanded = false
+                    },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                )
+            }
+        }
     }
 }
 
