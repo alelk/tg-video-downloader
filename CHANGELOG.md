@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.7.0](https://github.com/alelk/tg-video-downloader/compare/v1.6.0...v1.7.0) (2026-03-05)
+
+
+### Features
+
+* add support for allowed usernames in Telegram configuration ([7af5e78](https://github.com/alelk/tg-video-downloader/commit/7af5e78d55386507a89c6c721eaf1e1cf2db83bc))
+
 # [1.6.0](https://github.com/alelk/tg-video-downloader/compare/v1.5.0...v1.6.0) (2026-03-05)
 
 
