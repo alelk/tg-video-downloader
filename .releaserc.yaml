@@ -1,0 +1,37 @@
+# semantic-release configuration for tg-video-downloader
+# Profile: docker-app (no package registry publishing)
+
+branches:
+  - main
+  - name: next
+    prerelease: rc
+
+plugins:
+  # 1. Analyse commits (Conventional Commits)
+  - "@semantic-release/commit-analyzer"
+
+  # 2. Generate release notes
+  - "@semantic-release/release-notes-generator"
+
+  # 3. Update CHANGELOG.md
+  - - "@semantic-release/changelog"
+    - changelogFile: CHANGELOG.md
+      changelogTitle: "# TGVD CHANGELOG"
+
+  # 4. Write app.version and run publish hook
+  - - "@semantic-release/exec"
+    - verifyReleaseCmd: |
+        echo "${nextRelease.version}" > .nextRelease.txt
+        bash prepare.sh
+      publishCmd: bash publish.sh
+
+  # 5. Commit updated files back to the repo
+  - - "@semantic-release/git"
+    - assets:
+        - CHANGELOG.md
+        - app.version
+      message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+
+  # 6. Create GitHub Release
+  - "@semantic-release/github"
+

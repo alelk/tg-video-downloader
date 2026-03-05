@@ -1,8 +1,8 @@
 # ============================================================
-# Multi-stage Dockerfile — tgminiapp (Compose/JS → nginx)
+# Multi-stage Dockerfile — tgvd-server (JVM fat JAR)
 # ============================================================
 
-# ---- Stage 1: Build JS bundle ----
+# ---- Stage 1: Build ----
 FROM gradle:8.14-jdk21-alpine AS builder
 
 # Build arguments for private registry authentication (GitHub Packages)
@@ -19,6 +19,7 @@ COPY gradle.properties settings.gradle.kts build.gradle.kts ./
 COPY gradle ./gradle
 COPY app.version ./
 
+# Sub-project build files (one per module — cached separately)
 COPY domain/build.gradle.kts              ./domain/
 COPY domain/domain-test-fixtures/build.gradle.kts ./domain/domain-test-fixtures/
 COPY api/contract/build.gradle.kts        ./api/contract/
@@ -34,36 +35,52 @@ COPY tgminiapp/build.gradle.kts           ./tgminiapp/
 RUN gradle dependencies --no-daemon || true
 
 # ── Layer 2: source + build ──
+COPY domain/src          ./domain/src
 COPY api/contract/src    ./api/contract/src
 COPY api/mapping/src     ./api/mapping/src
 COPY api/client/src      ./api/client/src
-COPY features/src        ./features/src
-COPY tgminiapp/src       ./tgminiapp/src
+COPY server/app/src      ./server/app/src
+COPY server/infra/src    ./server/infra/src
+COPY server/transport/src ./server/transport/src
+COPY server/di/src       ./server/di/src
 
-RUN gradle :tgminiapp:jsBrowserProductionWebpack --no-daemon
+RUN gradle :server:app:shadowJar --no-daemon
 
-# ---- Stage 2: Serve with nginx ----
-FROM nginx:1.27-alpine
+# ---- Stage 2: Runtime ----
+FROM eclipse-temurin:21-jre-alpine
 
 LABEL org.opencontainers.image.source="https://github.com/alelk/tg-video-downloader"
-LABEL org.opencontainers.image.description="TG Video Downloader — Telegram Mini App (Web UI)"
+LABEL org.opencontainers.image.description="TG Video Downloader — Ktor HTTP Server"
 LABEL org.opencontainers.image.licenses="MIT"
 
-COPY --from=builder /build/tgminiapp/build/dist/js/productionExecutable/ /usr/share/nginx/html/
-COPY tgminiapp/docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+# Non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser  -u 1001 -S appuser -G appgroup
 
-# Runtime configuration via environment variables:
-#   API_BASE_URL — backend API base URL (default: uses window.location.origin)
-#
-# Example:
-#   docker run -e API_BASE_URL=http://server:8080 -p 80:80 tgminiapp
+WORKDIR /app
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
+# Copy fat JAR
+COPY --from=builder /build/server/app/build/libs/tgvd-server.jar ./app.jar
 
-EXPOSE 80
+# Data directories (mounted as volumes in docker-compose)
+RUN mkdir -p /data/media /data/temp && \
+    chown -R appuser:appgroup /app /data
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["nginx", "-g", "daemon off;"]
+USER appuser
+
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+
+# JVM container-aware flags
+ENV JAVA_OPTS="\
+  -XX:+UseContainerSupport \
+  -XX:MaxRAMPercentage=75.0 \
+  -XX:+UseG1GC \
+  -XX:+UseStringDeduplication \
+  -Djava.security.egd=file:/dev/./urandom"
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
 

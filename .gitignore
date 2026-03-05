@@ -53,6 +53,11 @@ bin/
 ### Mac OS ###
 .DS_Store
 
+### Environment (секреты — не коммитить) ###
+.env
+.env.local
+.env.*.local
+
 /yt-downloader-example
 
 /server/app/yt-dlp

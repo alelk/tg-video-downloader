@@ -1,0 +1,42 @@
+# ── Exclude from Docker build context ──
+# Keeps the context small → faster builds, no secret leaks.
+
+.git
+.gitignore
+.github
+.idea
+*.md
+LICENSE
+
+# Gradle build output
+build/
+**/build/
+.gradle/
+**/.gradle/
+
+# Kotlin JS store
+kotlin-js-store/
+
+# Node (semantic-release)
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker artefacts (don't send back to context)
+docker-compose*.yaml
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Environment files (never bake into image)
+.env
+.env.*
+
+# yt-dlp binary at repo root (downloaded at runtime)
+yt-dlp
+
+# Downloads folder
+~/
+

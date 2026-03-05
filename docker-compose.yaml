@@ -1,0 +1,129 @@
+# docker-compose for LOCAL DEVELOPMENT.
+#
+# Usage:
+#   docker compose up --build -d
+#   docker compose logs -f server
+#   docker compose down
+#
+# Secrets (required):
+#   TELEGRAM_BOT_TOKEN — Telegram bot token
+#   GITHUB_USER / GITHUB_TOKEN — для аутентификации в GitHub Packages при сборке
+#
+# Опциональные переменные для кук yt-dlp:
+#   YTDLP_COOKIES_FILE — путь к файлу cookies (Netscape-формат)
+
+services:
+
+  # ── PostgreSQL ──
+  db:
+    image: postgres:16-alpine
+    container_name: tgvd-db
+    environment:
+      POSTGRES_USER: tgvd
+      POSTGRES_PASSWORD: tgvd
+      POSTGRES_DB: tgvd
+    ports:
+      - "5433:5432"   # 5433 на хосте — не конфликтует с локальным Postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tgvd -d tgvd"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - tgvd-network
+    restart: unless-stopped
+
+  # ── Ktor Backend Server ──
+  server:
+    build:
+      context: .
+      dockerfile: server/app/Dockerfile
+      args:
+        GITHUB_USER: ${GITHUB_USER:-}
+        GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    container_name: tgvd-server
+    ports:
+      - "8080:8080"
+    environment:
+      # ── Server ──
+      SERVER__PORT: "8080"
+      SERVER__HOST: "0.0.0.0"
+      SERVER__BASE_URL: "http://localhost:8080"
+
+      # ── Database (Hoplite maps DB__URL → db.url) ──
+      DB__URL: "jdbc:postgresql://db:5432/tgvd"
+      DB__USER: "tgvd"
+      DB__PASSWORD: "tgvd"
+      DB__POOL_SIZE: "10"
+      DB__MIN_IDLE: "2"
+
+      # ── Telegram ──
+      TELEGRAM__BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-dev-token}"
+      TELEGRAM__ALLOWED_USER_IDS: "${TELEGRAM_ALLOWED_USER_IDS:-}"
+      TELEGRAM__DEV_MODE: "${TELEGRAM_DEV_MODE:-true}"
+
+      # ── Storage (volume tgvd-media смонтирован в /data/media) ──
+      STORAGE__BASE_DIRECTORIES: "/data/media"
+      STORAGE__TEMP_DIRECTORY: "/data/temp"
+
+      # ── yt-dlp ──
+      YT_DLP__PATH: "/usr/local/bin/yt-dlp"
+      YT_DLP__ALLOW_UPDATE: "true"
+      YT_DLP__AUTO_DOWNLOAD: "true"
+      YT_DLP__UPDATE_CHANNEL: "stable"
+      YT_DLP__COOKIES_FILE: "${YTDLP_COOKIES_FILE:-}"
+
+      # ── Jobs ──
+      JOBS__MAX_CONCURRENT_DOWNLOADS: "2"
+      JOBS__MAX_ATTEMPTS: "3"
+      JOBS__POLL_INTERVAL_MS: "5000"
+      JOBS__RETRY_DELAY_MS: "30000"
+
+      # ── Logging ──
+      LOGGING__LEVEL: "INFO"
+      LOGGING__FORMAT: "TEXT"
+
+      # ── App profile ──
+      APP_PROFILE: "docker"
+    volumes:
+      - ${TGVD_MEDIA_DIR:-~/Downloads/tgvd/media}:/data/media
+      - ${TGVD_TEMP_DIR:-~/Downloads/tgvd/temp}:/data/temp
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - tgvd-network
+    restart: unless-stopped
+
+  # ── Telegram Mini App (nginx) ──
+  webapp:
+    build:
+      context: .
+      dockerfile: tgminiapp/Dockerfile
+      args:
+        GITHUB_USER: ${GITHUB_USER:-}
+        GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    container_name: tgvd-webapp
+    ports:
+      - "3000:80"
+    environment:
+      # URL бэкенда — виден из браузера, не из контейнера!
+      API_BASE_URL: "${API_BASE_URL:-http://localhost:8080}"
+    depends_on:
+      - server
+    networks:
+      - tgvd-network
+    restart: unless-stopped
+
+volumes:
+  db-data:
+    name: tgvd-db-data
+
+networks:
+  tgvd-network:
+    driver: bridge
+
+
+

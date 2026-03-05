@@ -11,7 +11,15 @@ plugins {
 }
 
 group = "io.github.alelk.tgvd"
-version = "0.1.0-SNAPSHOT"
+
+// ─── app.version as single source of truth ───
+val appVersionFile = rootProject.file("app.version")
+val appVersion: String = if (appVersionFile.exists()) {
+    appVersionFile.readText().trim().ifBlank { "0.0.1-SNAPSHOT" }
+} else {
+    "0.0.1-SNAPSHOT"
+}
+version = appVersion
 
 subprojects {
     group = rootProject.group

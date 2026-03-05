@@ -47,5 +47,20 @@ tasks.shadowJar {
     archiveBaseName.set("tgvd-server")
     archiveClassifier.set("")
     archiveVersion.set("")
+
+    // Merge META-INF/services — required for Ktor plugins, SLF4J providers, Flyway, etc.
+    mergeServiceFiles {
+        include("META-INF/services/**")
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    }
+
+    manifest {
+        attributes["Main-Class"] = "io.github.alelk.tgvd.server.ApplicationKt"
+    }
+}
+
+// Ensure `gradle build` produces the fat JAR
+tasks.build {
+    dependsOn(tasks.shadowJar)
 }
 
