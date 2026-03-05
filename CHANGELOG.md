@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.3.0](https://github.com/alelk/tg-video-downloader/compare/v1.2.0...v1.3.0) (2026-03-05)
+
+
+### Features
+
+* update Docker configurations; add runtime dependencies and adjust paths for yt-dlp ([9467452](https://github.com/alelk/tg-video-downloader/commit/946745217900999f1daeb15525fcb796f4c8f742))
+
 # [1.2.0](https://github.com/alelk/tg-video-downloader/compare/v1.1.0...v1.2.0) (2026-03-05)
 
 
