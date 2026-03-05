@@ -53,5 +53,11 @@ sealed interface RuleMatchDto {
     data class CategoryEquals(
         val category: CategoryDto,
     ) : RuleMatchDto
+
+    @Serializable
+    @SerialName("has-tag")
+    data class HasTag(
+        val tag: String,
+    ) : RuleMatchDto
 }
 

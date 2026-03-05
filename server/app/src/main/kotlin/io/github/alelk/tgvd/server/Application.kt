@@ -10,6 +10,7 @@ import io.github.alelk.tgvd.server.infra.config.TelegramConfig
 import io.github.alelk.tgvd.server.transport.auth.TelegramAuthPlugin
 import io.github.alelk.tgvd.server.transport.auth.TelegramAuthValidator
 import io.github.alelk.tgvd.server.transport.error.configureDomainErrorHandling
+import io.github.alelk.tgvd.server.transport.route.channelRoutes
 import io.github.alelk.tgvd.server.transport.route.jobRoutes
 import io.github.alelk.tgvd.server.transport.route.previewRoutes
 import io.github.alelk.tgvd.server.transport.route.ruleRoutes
@@ -137,6 +138,7 @@ private fun Application.configureRouting() {
             previewRoutes()
             jobRoutes()
             ruleRoutes()
+            channelRoutes()
             systemRoutes()
         }
     }

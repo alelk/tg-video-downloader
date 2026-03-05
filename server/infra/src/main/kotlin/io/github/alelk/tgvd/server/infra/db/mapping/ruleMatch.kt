@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.server.infra.db.mapping
 
+import io.github.alelk.tgvd.domain.common.Tag
 import io.github.alelk.tgvd.domain.rule.RuleMatch
 import io.github.alelk.tgvd.server.infra.db.model.RuleMatchPm
 
@@ -11,6 +12,7 @@ internal fun RuleMatch.toPm(): RuleMatchPm = when (this) {
     is RuleMatch.TitleRegex -> RuleMatchPm.TitleRegex(pattern)
     is RuleMatch.UrlRegex -> RuleMatchPm.UrlRegex(pattern)
     is RuleMatch.CategoryEquals -> RuleMatchPm.CategoryEquals(category.toDbString())
+    is RuleMatch.HasTag -> RuleMatchPm.HasTag(tag.value)
 }
 
 internal fun RuleMatchPm.toDomain(): RuleMatch = when (this) {
@@ -21,5 +23,6 @@ internal fun RuleMatchPm.toDomain(): RuleMatch = when (this) {
     is RuleMatchPm.TitleRegex -> RuleMatch.TitleRegex(pattern)
     is RuleMatchPm.UrlRegex -> RuleMatch.UrlRegex(pattern)
     is RuleMatchPm.CategoryEquals -> RuleMatch.CategoryEquals(category.toCategory())
+    is RuleMatchPm.HasTag -> RuleMatch.HasTag(Tag(tag))
 }
 

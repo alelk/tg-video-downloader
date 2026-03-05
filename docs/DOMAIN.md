@@ -24,14 +24,15 @@
 
 ```
 domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
-├── common/             # Общие типы: Category, DomainError, value objects (WorkspaceId, JobId, etc.)
+├── common/             # Общие типы: Category, DomainError, Tag, value objects (WorkspaceId, JobId, etc.)
 ├── workspace/          # Workspace, WorkspaceMember, WorkspaceRole, WorkspaceRepository port
+├── channel/            # Channel (справочник каналов), ChannelRepository port
 ├── video/              # VideoSource, VideoInfo, VideoInfoExtractor port
-├── rule/               # Rule, RuleMatch, RuleMatchingService, RuleRepository port
-├── metadata/           # ResolvedMetadata, MetadataResolver, MetadataTemplate, LlmPort
+├── rule/               # Rule, RuleMatch, MatchResult, RuleMatchingService, RuleRepository port
+├── metadata/           # ResolvedMetadata, MetadataResolver, MetadataTemplate, MetadataTemplateMerger, LlmPort
 ├── storage/            # StoragePlan, OutputRule, OutputFormat, PathTemplateEngine
 ├── job/                # Job, JobStatus, CreateJobUseCase, JobRepository port
-└── preview/            # PreviewUseCase (оркестрация video + rule + metadata + storage)
+└── preview/            # PreviewUseCase (оркестрация video + rule + channel + metadata + storage)
 ```
 
 ### Граф зависимостей между пакетами
@@ -41,17 +42,20 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
                    ╱   │   ╲
                   ╱    │    ╲
               rule  metadata  storage
-                ╲      │      ╱
-                 ╲     │     ╱
-                   video
-                     │
-                   common
+              │  ╲     │      ╱
+              │   ╲    │     ╱
+              │    video
+              │      │
+              channel │
+                ╲    │
+                 common
                      │
               workspace ──▶ common
 
               job ──▶ video, storage, common
 
               rule ──▶ preview (для UserOverrides в MatchContext)
+              rule ──▶ channel (для Channel в MatchContext)
 ```
 
 > Стрелки = зависит от. Циклов нет. Каждый пакет при необходимости может быть извлечён в Gradle-модуль.
@@ -97,6 +101,25 @@ value class JobId(val value: Uuid)
 
 @JvmInline
 value class WorkspaceId(val value: Uuid)
+
+@JvmInline
+value class ChannelDirectoryEntryId(val value: Uuid)
+
+/**
+ * Тег для группировки каналов в справочнике.
+ * Lowercase alphanumeric with hyphens. Примеры: "music-video", "lofi", "tech-review".
+ */
+@JvmInline
+value class Tag(val value: String) {
+    init {
+        require(value.isNotBlank()) { "Tag cannot be blank" }
+        require(value.length <= 50) { "Tag too long (max 50)" }
+        require(value.matches(TAG_REGEX)) { "Tag must be lowercase alphanumeric with hyphens: $value" }
+    }
+    companion object {
+        private val TAG_REGEX = Regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+    }
+}
 
 /**
  * Человекочитаемый уникальный идентификатор workspace.
@@ -216,6 +239,7 @@ sealed interface DomainError {
     
     // === Not Found ===
     data class RuleNotFound(val id: RuleId, override val message: String = "Rule not found: ${id.value}") : DomainError
+    data class ChannelNotFound(val id: ChannelDirectoryEntryId, override val message: String = "Channel not found: ${id.value}") : DomainError
     data class JobNotFound(val id: JobId, override val message: String = "Job not found: ${id.value}") : DomainError
     
     // === Video ===
@@ -391,15 +415,72 @@ interface VideoInfoCache {
 
 ---
 
+## 4a. `channel` — Справочник каналов
+
+Зависимости: `common`
+
+```
+domain/channel/
+├── Channel.kt
+└── ChannelRepository.kt       # port
+```
+
+Справочник каналов позволяет регистрировать каналы с тегами и переопределениями метаданных.
+Используется для тег-матчинга в правилах (`RuleMatch.HasTag`) и для per-channel metadata overrides.
+
+Подробнее: [ADR/008-channel-directory.md](./ADR/008-channel-directory.md)
+
+### 4a.1 Channel
+
+```kotlin
+data class Channel(
+    val id: ChannelDirectoryEntryId,
+    val workspaceId: WorkspaceId,
+    val channelId: ChannelId,          // ID канала на платформе
+    val extractor: Extractor,          // Платформа (youtube, rutube, ...)
+    val name: String,                  // Человекочитаемое имя
+    val tags: Set<Tag>,                // Теги для группировки
+    val metadataOverrides: MetadataTemplate? = null,  // Per-channel metadata overrides
+    val notes: String? = null,
+    val createdAt: Instant,
+    val updatedAt: Instant,
+) {
+    init {
+        require(name.isNotBlank()) { "Channel name cannot be blank" }
+    }
+}
+```
+
+> Уникальный ключ на платформе: `channelId + extractor` (+ workspace).
+> `metadataOverrides` мержатся поверх `Rule.metadataTemplate` при матчинге.
+
+### 4a.2 ChannelRepository (port)
+
+```kotlin
+interface ChannelRepository {
+    suspend fun findById(id: ChannelDirectoryEntryId): Channel?
+    suspend fun findByWorkspace(workspaceId: WorkspaceId): List<Channel>
+    suspend fun findByChannelId(workspaceId: WorkspaceId, channelId: ChannelId, extractor: Extractor): Channel?
+    suspend fun findByTag(workspaceId: WorkspaceId, tag: Tag): List<Channel>
+    suspend fun findByTags(workspaceId: WorkspaceId, tags: Set<Tag>, matchAll: Boolean = false): List<Channel>
+    suspend fun save(channel: Channel): Either<DomainError, Channel>
+    suspend fun delete(id: ChannelDirectoryEntryId): Boolean
+    suspend fun findAllTags(workspaceId: WorkspaceId): Set<Tag>
+}
+```
+
+---
+
 ## 5. `rule` — Правила
 
-Зависимости: `common`, `video`, `preview`
+Зависимости: `common`, `video`, `preview`, `channel`
 
 ```
 domain/rule/
 ├── Rule.kt
 ├── RuleMatch.kt               # sealed interface
 ├── MatchContext.kt
+├── MatchResult.kt             # result of rule matching (rule + channel)
 ├── matches.kt                 # extension fun RuleMatch.matches(ctx)
 ├── matchSpecificity.kt        # extension fun RuleMatch.matchSpecificity()
 ├── RuleMatchingService.kt
@@ -449,6 +530,12 @@ sealed interface RuleMatch {
     
     /** Матчит по категории из user overrides. Если overrides == null — не матчит. */
     data class CategoryEquals(val category: Category) : RuleMatch
+    
+    /**
+     * Матчит если канал видео зарегистрирован в справочнике и имеет указанный тег.
+     * Требует channel != null в MatchContext.
+     */
+    data class HasTag(val tag: Tag) : RuleMatch
 }
 ```
 
@@ -458,6 +545,7 @@ sealed interface RuleMatch {
 data class MatchContext(
     val video: VideoInfo,
     val overrides: UserOverrides? = null,
+    val channel: Channel? = null,        // из справочника каналов (загружается один раз)
 )
 
 fun RuleMatch.matches(ctx: MatchContext): Boolean = when (this) {
@@ -468,11 +556,13 @@ fun RuleMatch.matches(ctx: MatchContext): Boolean = when (this) {
     is RuleMatch.TitleRegex -> regex.containsMatchIn(ctx.video.title)
     is RuleMatch.UrlRegex -> regex.containsMatchIn(ctx.video.webpageUrl.value)
     is RuleMatch.CategoryEquals -> ctx.overrides != null && ctx.overrides.category == category
+    is RuleMatch.HasTag -> ctx.channel != null && tag in ctx.channel.tags
 }
 
 fun RuleMatch.matchSpecificity(): Int = when (this) {
     is RuleMatch.ChannelId -> 100
     is RuleMatch.ChannelName -> 80
+    is RuleMatch.HasTag -> 70
     is RuleMatch.UrlRegex -> 60
     is RuleMatch.TitleRegex -> 40
     is RuleMatch.CategoryEquals -> 20
@@ -482,7 +572,20 @@ fun RuleMatch.matchSpecificity(): Int = when (this) {
 ```
 
 > `CategoryEquals` матчит **только** когда overrides != null и категория совпадает.
-> Если overrides не предоставлены (первый запрос) — не матчит.
+> `HasTag` матчит когда канал видео найден в справочнике и имеет нужный тег.
+
+### 5.1a MatchResult
+
+```kotlin
+/**
+ * Результат матчинга — правило + опционально канал из справочника.
+ * Канал нужен для применения channel-level metadata overrides.
+ */
+data class MatchResult(
+    val rule: Rule,
+    val channel: Channel?,
+)
+```
 
 ### 5.2 Rule
 
@@ -518,20 +621,27 @@ data class Rule(
 ```kotlin
 class RuleMatchingService(
     private val ruleRepository: RuleRepository,
+    private val channelRepository: ChannelRepository,
 ) {
     suspend fun findMatchingRule(
         video: VideoInfo,
         workspaceId: WorkspaceId,
         overrides: UserOverrides? = null,
-    ): Rule? {
+    ): MatchResult? {
         val rules = ruleRepository.findEnabledByWorkspace(workspaceId)
-        val ctx = MatchContext(video, overrides)
-        return rules
+        val channel = channelRepository.findByChannelId(workspaceId, video.channelId, video.extractor)
+        val ctx = MatchContext(video, overrides, channel)
+        val rule = rules
             .filter { it.match.matches(ctx) }
             .maxByOrNull { it.priority * 1000 + it.match.matchSpecificity() }
+            ?: return null
+        return MatchResult(rule, channel)
     }
 }
 ```
+
+> Канал загружается один раз per matching request (не на каждый `matches()` вызов).
+> Возвращает `MatchResult?` вместо `Rule?`, чтобы пробросить канал в pipeline метаданных.
 
 ### 5.4 RuleRepository (port)
 
@@ -556,6 +666,7 @@ domain/metadata/
 ├── ResolvedMetadata.kt        # sealed interface
 ├── MetadataSource.kt          # enum
 ├── MetadataTemplate.kt
+├── MetadataTemplateMerger.kt  # mergeTemplates(base, overlay)
 ├── MetadataResolver.kt
 ├── LlmSuggestion.kt
 └── LlmPort.kt                # port
@@ -752,7 +863,23 @@ class MetadataResolver {
 }
 ```
 
-### 6.5 LlmPort (port) & LlmSuggestion
+### 6.5 MetadataTemplateMerger
+
+```kotlin
+/**
+ * Мержит два MetadataTemplate.
+ * Поля из overlay имеют приоритет над base.
+ * Если типы отличаются — overlay побеждает полностью.
+ */
+fun mergeTemplates(base: MetadataTemplate, overlay: MetadataTemplate?): MetadataTemplate
+```
+
+Используется для трёхуровневого merge метаданных:
+1. `Rule.metadataTemplate` (база)
+2. `Channel.metadataOverrides` (per-channel поверх правила)
+3. `UserOverrides` (ручные правки пользователя — высший приоритет)
+
+### 6.6 LlmPort (port) & LlmSuggestion
 
 ```kotlin
 interface LlmPort {

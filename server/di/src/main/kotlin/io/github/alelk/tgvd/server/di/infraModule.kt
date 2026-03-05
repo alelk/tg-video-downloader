@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.server.di
 
+import io.github.alelk.tgvd.domain.channel.ChannelRepository
 import io.github.alelk.tgvd.domain.job.JobRepository
 import io.github.alelk.tgvd.domain.job.VideoDownloader
 import io.github.alelk.tgvd.domain.rule.RuleRepository
@@ -13,6 +14,7 @@ import io.github.alelk.tgvd.server.infra.config.JobsConfig
 import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
 import io.github.alelk.tgvd.server.infra.db.DatabaseFactory
+import io.github.alelk.tgvd.server.infra.db.repository.ChannelRepositoryImpl
 import io.github.alelk.tgvd.server.infra.db.repository.JobRepositoryImpl
 import io.github.alelk.tgvd.server.infra.db.repository.RuleRepositoryImpl
 import io.github.alelk.tgvd.server.infra.db.repository.VideoInfoCacheImpl
@@ -37,6 +39,7 @@ internal fun infraModule() = module {
     // Repositories (domain port → infra adapter)
     single<WorkspaceRepository> { WorkspaceRepositoryImpl(get<Database>()) }
     single<RuleRepository> { RuleRepositoryImpl(get<Database>()) }
+    single<ChannelRepository> { ChannelRepositoryImpl(get<Database>()) }
     single<JobRepository> { JobRepositoryImpl(get<Database>()) }
     single<VideoInfoCache> { VideoInfoCacheImpl(get<Database>()) }
 

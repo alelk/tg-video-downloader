@@ -109,11 +109,12 @@
 **Организация**: Package-by-feature (не по техническим слоям).
 
 **Содержит**:
-- `common/` — Value objects (`VideoId`, `RuleId`, `JobId`, `WorkspaceId`, `Url`, `FilePath`, `LocalDate`, `Extractor`), `Category`, `DomainError`
+- `common/` — Value objects (`VideoId`, `RuleId`, `JobId`, `WorkspaceId`, `ChannelDirectoryEntryId`, `Url`, `FilePath`, `LocalDate`, `Extractor`, `Tag`), `Category`, `DomainError`
 - `workspace/` — `Workspace`, `WorkspaceMember`, `WorkspaceRole`, `WorkspaceRepository` port
+- `channel/` — `Channel` (справочник каналов), `ChannelRepository` port
 - `video/` — `VideoSource`, `VideoInfo`, `VideoInfoExtractor` port, `VideoInfoCache` port
-- `rule/` — `Rule`, `RuleMatch` (sealed, вкл. `CategoryEquals`), `MatchContext`, `RuleMatchingService`, `RuleRepository` port
-- `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `MetadataResolver`, `LlmPort`
+- `rule/` — `Rule`, `RuleMatch` (sealed, вкл. `HasTag`, `CategoryEquals`), `MatchContext`, `MatchResult`, `RuleMatchingService`, `RuleRepository` port
+- `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `MetadataResolver`, `MetadataTemplateMerger`, `LlmPort`
 - `storage/` — `StoragePlan`, `OutputRule`, `OutputFormat` (sealed), `PathTemplateEngine`, `VideoDownloader` port
 - `job/` — `Job`, `JobStatus`, `CreateJobUseCase`, `JobRepository` port
 - `preview/` — `UserOverrides` (sealed), `PreviewUseCase` (оркестратор)
@@ -124,11 +125,12 @@
 
 ```
 domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
-├── common/         # Value objects (VideoId, WorkspaceId, Url, FilePath, LocalDate, Extractor...), Category, DomainError
+├── common/         # Value objects (VideoId, WorkspaceId, Tag, Url, FilePath, LocalDate, Extractor...), Category, DomainError
 ├── workspace/      # Workspace, WorkspaceMember, WorkspaceRole, WorkspaceRepository port
+├── channel/        # Channel (справочник каналов), ChannelRepository port
 ├── video/          # VideoSource, VideoInfo, VideoInfoExtractor port, VideoInfoCache port
-├── rule/           # Rule, RuleMatch (sealed), MatchContext, matches.kt, RuleMatchingService, RuleRepository port
-├── metadata/       # ResolvedMetadata (sealed), MetadataTemplate (sealed), MetadataResolver, LlmPort
+├── rule/           # Rule, RuleMatch (sealed), MatchContext, MatchResult, matches.kt, RuleMatchingService, RuleRepository port
+├── metadata/       # ResolvedMetadata (sealed), MetadataTemplate (sealed), MetadataTemplateMerger, MetadataResolver, LlmPort
 ├── storage/        # StoragePlan, OutputRule, OutputFormat (sealed), PathTemplateEngine, VideoDownloader port
 ├── job/            # Job, JobStatus, CreateJobUseCase, JobRepository port
 └── preview/        # UserOverrides (sealed), PreviewUseCase

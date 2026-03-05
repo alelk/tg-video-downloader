@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.domain.rule
 
+import io.github.alelk.tgvd.domain.channel.Channel
 import io.github.alelk.tgvd.domain.common.*
 import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.kotest.assertions.throwables.shouldThrow
@@ -7,8 +8,12 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.property.checkAll
 import io.kotest.property.Arb
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
+@OptIn(ExperimentalUuidApi::class)
 class RuleMatchTest : FunSpec({
 
     fun videoInfo(
@@ -169,10 +174,62 @@ class RuleMatchTest : FunSpec({
         }
     }
 
+    context("HasTag matching") {
+        fun channel(
+            channelId: String = "UC123",
+            extractor: Extractor = Extractor.YOUTUBE,
+            tags: Set<Tag> = emptySet(),
+        ): Channel {
+            val now = Clock.System.now()
+            return Channel(
+                id = ChannelDirectoryEntryId(Uuid.random()),
+                workspaceId = WorkspaceId(Uuid.random()),
+                channelId = ChannelId(channelId),
+                extractor = extractor,
+                name = "Test",
+                tags = tags,
+                createdAt = now,
+                updatedAt = now,
+            )
+        }
+
+        test("matches when channel has the tag") {
+            val match = RuleMatch.HasTag(Tag("music-video"))
+            val video = videoInfo()
+            val ch = channel(tags = setOf(Tag("music-video"), Tag("pop")))
+
+            match.matches(MatchContext(video, channel = ch)) shouldBe true
+        }
+
+        test("does not match when channel lacks the tag") {
+            val match = RuleMatch.HasTag(Tag("music-video"))
+            val video = videoInfo()
+            val ch = channel(tags = setOf(Tag("lofi")))
+
+            match.matches(MatchContext(video, channel = ch)) shouldBe false
+        }
+
+        test("does not match when channel is null") {
+            val match = RuleMatch.HasTag(Tag("music-video"))
+            val video = videoInfo()
+
+            match.matches(MatchContext(video, channel = null)) shouldBe false
+        }
+
+        test("does not match when channel has empty tags") {
+            val match = RuleMatch.HasTag(Tag("music-video"))
+            val video = videoInfo()
+            val ch = channel(tags = emptySet())
+
+            match.matches(MatchContext(video, channel = ch)) shouldBe false
+        }
+    }
+
     context("specificity") {
         test("ChannelId has highest specificity") {
             RuleMatch.ChannelId("UC123").matchSpecificity() shouldBe 100
             RuleMatch.ChannelName("Name").matchSpecificity() shouldBe 80
+            RuleMatch.HasTag(Tag("music-video")).matchSpecificity() shouldBe 70
             RuleMatch.UrlRegex(".*").matchSpecificity() shouldBe 60
             RuleMatch.TitleRegex(".*").matchSpecificity() shouldBe 40
         }

@@ -29,6 +29,7 @@ fun RuleMatchDto.toState(): MatchConditionState = when (this) {
     is RuleMatchDto.TitleRegex -> MatchConditionState.Simple("title-regex", pattern)
     is RuleMatchDto.UrlRegex -> MatchConditionState.Simple("url-regex", pattern)
     is RuleMatchDto.CategoryEquals -> MatchConditionState.Simple("category-equals", category.name)
+    is RuleMatchDto.HasTag -> MatchConditionState.Simple("has-tag", tag)
     is RuleMatchDto.AllOf -> MatchConditionState.Composite(
         operator = CompositeOperator.ALL_OF,
         children = mutableStateListOf<MatchConditionState>().also { list -> matches.forEach { list.add(it.toState()) } },
@@ -49,6 +50,7 @@ fun MatchConditionState.toDto(): RuleMatchDto = when (this) {
         "category-equals" -> RuleMatchDto.CategoryEquals(
             CategoryDto.entries.firstOrNull { it.name == value } ?: CategoryDto.OTHER
         )
+        "has-tag" -> RuleMatchDto.HasTag(value)
         else -> RuleMatchDto.ChannelName(value, ignoreCase)
     }
     is MatchConditionState.Composite -> when (operator) {

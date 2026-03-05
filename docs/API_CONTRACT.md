@@ -181,6 +181,12 @@ sealed interface RuleMatchDto {
     data class CategoryEquals(
         val category: CategoryDto,
     ) : RuleMatchDto
+    
+    @Serializable
+    @SerialName("has-tag")
+    data class HasTag(
+        val tag: String,
+    ) : RuleMatchDto
 }
 ```
 
@@ -221,6 +227,14 @@ sealed interface RuleMatchDto {
 {
   "type": "category-equals",
   "category": "music-video"
+}
+```
+
+**HasTag** (матчит по тегу из справочника каналов):
+```json
+{
+  "type": "has-tag",
+  "tag": "music-video"
 }
 ```
 
@@ -633,6 +647,98 @@ data class CreateRuleRequestDto(
 ### 6.10 DELETE /api/v1/workspaces/{slug}/rules/{id}
 
 Удалить (или деактивировать) правило.
+
+---
+
+### 6.11 GET /api/v1/workspaces/{slug}/channels
+
+Список каналов workspace. Опционально фильтрация по тегу.
+
+#### Query Parameters
+
+| Параметр | Тип    | Описание                         |
+|----------|--------|----------------------------------|
+| `tag`    | string | (опц.) Фильтр по тегу           |
+
+#### Response
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "workspaceId": "uuid",
+      "channelId": "UCq-Fj5jknLsUf-MWSy4_brA",
+      "extractor": "youtube",
+      "name": "Rick Astley",
+      "tags": ["music-video", "pop"],
+      "metadataOverrides": {
+        "type": "music-video",
+        "artistOverride": "Rick Astley"
+      },
+      "notes": null,
+      "createdAt": "2026-01-15T10:30:00Z",
+      "updatedAt": "2026-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+### 6.12 POST /api/v1/workspaces/{slug}/channels
+
+Создать канал в справочнике.
+
+#### Request
+
+```json
+{
+  "channelId": "UCq-Fj5jknLsUf-MWSy4_brA",
+  "extractor": "youtube",
+  "name": "Rick Astley",
+  "tags": ["music-video", "pop"],
+  "metadataOverrides": {
+    "type": "music-video",
+    "artistOverride": "Rick Astley"
+  }
+}
+```
+
+#### Response
+
+`201 Created` — `ChannelDto`
+
+### 6.13 GET /api/v1/workspaces/{slug}/channels/{id}
+
+Получить канал по ID.
+
+### 6.14 PUT /api/v1/workspaces/{slug}/channels/{id}
+
+Обновить канал. Все поля опциональны (partial update).
+
+#### Request
+
+```json
+{
+  "name": "Rick Astley Official",
+  "tags": ["music-video", "pop", "80s"]
+}
+```
+
+### 6.15 DELETE /api/v1/workspaces/{slug}/channels/{id}
+
+Удалить канал. `204 No Content`.
+
+### 6.16 GET /api/v1/workspaces/{slug}/channels/tags
+
+Список всех уникальных тегов в workspace.
+
+#### Response
+
+```json
+{
+  "tags": ["lofi", "music-video", "pop", "series"]
+}
+```
 
 ---
 

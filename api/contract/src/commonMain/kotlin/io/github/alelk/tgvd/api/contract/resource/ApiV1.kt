@@ -77,6 +77,20 @@ class ApiV1 {
                 @Resource("{id}")
                 class ById(val parent: Rules, val id: String)
             }
+
+            // --- Channels ---
+
+            @Serializable
+            @Resource("channels")
+            class Channels(val parent: Workspaces.ById, val tag: String? = null) {
+                @Serializable
+                @Resource("{id}")
+                class ById(val parent: Channels, val id: String)
+
+                @Serializable
+                @Resource("tags")
+                class Tags(val parent: Channels)
+            }
         }
     }
 

@@ -1,6 +1,7 @@
 package io.github.alelk.tgvd.domain.rule
 
 import io.github.alelk.tgvd.domain.common.Category
+import io.github.alelk.tgvd.domain.common.Tag
 
 sealed interface RuleMatch {
 
@@ -52,4 +53,10 @@ sealed interface RuleMatch {
 
     /** Матчит по категории из user overrides. Если overrides == null — не матчит. */
     data class CategoryEquals(val category: Category) : RuleMatch
+
+    /**
+     * Матчит если канал видео зарегистрирован в справочнике и имеет указанный тег.
+     * Матчинг: channelId + extractor из VideoInfo → поиск в ChannelRepository → проверка tag.
+     */
+    data class HasTag(val tag: Tag) : RuleMatch
 }

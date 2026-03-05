@@ -14,6 +14,8 @@ sealed interface DomainError {
     @OptIn(ExperimentalUuidApi::class)
     data class RuleNotFound(val id: RuleId, override val message: String = "Rule not found: ${id.value}") : DomainError
     @OptIn(ExperimentalUuidApi::class)
+    data class ChannelNotFound(val id: ChannelDirectoryEntryId, override val message: String = "Channel not found: ${id.value}") : DomainError
+    @OptIn(ExperimentalUuidApi::class)
     data class JobNotFound(val id: JobId, override val message: String = "Job not found: ${id.value}") : DomainError
 
     // === Video ===

@@ -65,7 +65,43 @@ CREATE INDEX idx_rules_category ON rules(category);
 CREATE INDEX idx_rules_match ON rules USING GIN (match);
 ```
 
-### 2.4 Таблица `jobs`
+### 2.4 Таблица `channels`
+
+Справочник каналов — каналы с тегами и переопределениями метаданных.
+Подробнее: [ADR/008-channel-directory.md](./ADR/008-channel-directory.md)
+
+```sql
+CREATE TABLE channels (
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id       UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    channel_id         TEXT NOT NULL,
+    extractor          TEXT NOT NULL,
+    name               TEXT NOT NULL,
+    tags               TEXT[] NOT NULL DEFAULT '{}',
+    metadata_overrides JSONB,
+    notes              TEXT,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (workspace_id, channel_id, extractor)
+);
+
+CREATE INDEX idx_channels_workspace ON channels(workspace_id);
+CREATE INDEX idx_channels_tags ON channels USING GIN (tags);
+CREATE INDEX idx_channels_extractor ON channels(extractor);
+CREATE INDEX idx_channels_channel_id ON channels(channel_id);
+
+COMMENT ON TABLE channels IS 'Справочник каналов — каналы с тегами и переопределениями метаданных';
+COMMENT ON COLUMN channels.channel_id IS 'ID канала на платформе (YouTube channel ID, etc.)';
+COMMENT ON COLUMN channels.extractor IS 'Платформа: youtube, rutube, vk, etc.';
+COMMENT ON COLUMN channels.tags IS 'Теги для группировки каналов (PostgreSQL text array)';
+COMMENT ON COLUMN channels.metadata_overrides IS 'MetadataTemplatePm JSON — переопределения метаданных';
+```
+
+> `tags` хранятся как PostgreSQL `TEXT[]` с GIN-индексом для быстрого поиска по тегам.
+> Запрос `tags @> ARRAY['music-video']` использует GIN-индекс.
+> `metadata_overrides` — JSONB с тем же форматом, что и `rules.metadata_template`.
+
+### 2.5 Таблица `jobs`
 
 ```sql
 CREATE TABLE jobs (
@@ -111,7 +147,7 @@ COMMENT ON COLUMN jobs.storage_plan IS 'StoragePlanDto JSON';
 COMMENT ON COLUMN jobs.created_by_telegram_user_id IS 'Telegram user id (BIGINT)';
 ```
 
-### 2.5 Таблица `job_outputs` (опционально)
+### 2.6 Таблица `job_outputs` (опционально)
 
 Для нормализованного хранения результатов:
 
@@ -131,7 +167,7 @@ COMMENT ON TABLE job_outputs IS 'Выходные файлы job';
 COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, audio/ext, image/ext';
 ```
 
-### 2.6 Таблица `video_info_cache`
+### 2.7 Таблица `video_info_cache`
 
 Кэш VideoInfo из yt-dlp для избежания повторных вызовов при интерактивном preview.
 
@@ -180,6 +216,15 @@ COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
 {
   "type": "category-equals",
   "category": "music-video"
+}
+```
+
+или (матч по тегу из справочника каналов):
+
+```json
+{
+  "type": "has-tag",
+  "tag": "music-video"
 }
 ```
 

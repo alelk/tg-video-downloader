@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.server.di
 
+import io.github.alelk.tgvd.domain.channel.ChannelRepository
 import io.github.alelk.tgvd.domain.job.CreateJobUseCase
 import io.github.alelk.tgvd.domain.job.JobRepository
 import io.github.alelk.tgvd.domain.metadata.LlmPort
@@ -16,7 +17,7 @@ import org.koin.dsl.module
 internal fun domainModule() = module {
     single { MetadataResolver() }
     single { PathTemplateEngine() }
-    single { RuleMatchingService(get<RuleRepository>()) }
+    single { RuleMatchingService(get<RuleRepository>(), get<ChannelRepository>()) }
     single { CreateJobUseCase(get<JobRepository>()) }
 
     single {

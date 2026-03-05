@@ -10,4 +10,5 @@ fun RuleMatch.matches(ctx: MatchContext): Boolean = when (this) {
     is RuleMatch.TitleRegex -> regex.containsMatchIn(ctx.video.title)
     is RuleMatch.UrlRegex -> regex.containsMatchIn(ctx.video.webpageUrl.value)
     is RuleMatch.CategoryEquals -> ctx.overrides != null && ctx.overrides.category == category
+    is RuleMatch.HasTag -> ctx.channel != null && tag in ctx.channel.tags
 }

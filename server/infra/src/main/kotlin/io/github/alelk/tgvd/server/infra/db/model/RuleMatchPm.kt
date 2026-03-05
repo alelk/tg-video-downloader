@@ -37,5 +37,9 @@ sealed interface RuleMatchPm {
     @Serializable
     @SerialName("category-equals")
     data class CategoryEquals(val category: String) : RuleMatchPm
+
+    @Serializable
+    @SerialName("has-tag")
+    data class HasTag(val tag: String) : RuleMatchPm
 }
 

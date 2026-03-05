@@ -2,7 +2,6 @@ package io.github.alelk.tgvd.domain.preview
 
 import arrow.core.Either
 import arrow.core.raise.either
-import io.github.alelk.tgvd.domain.common.Category
 import io.github.alelk.tgvd.domain.common.DomainError
 import io.github.alelk.tgvd.domain.common.WorkspaceId
 import io.github.alelk.tgvd.domain.metadata.LlmPort
@@ -11,6 +10,8 @@ import io.github.alelk.tgvd.domain.metadata.MetadataSource
 import io.github.alelk.tgvd.domain.metadata.MetadataTemplate
 import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.metadata.category
+import io.github.alelk.tgvd.domain.metadata.mergeTemplates
+import io.github.alelk.tgvd.domain.rule.MatchResult
 import io.github.alelk.tgvd.domain.rule.Rule
 import io.github.alelk.tgvd.domain.rule.RuleMatchingService
 import io.github.alelk.tgvd.domain.storage.OutputDefaults
@@ -43,23 +44,23 @@ class PreviewUseCase(
         val videoInfo = videoInfoCache.get(url)
             ?: videoInfoExtractor.extract(url).bind().also { videoInfoCache.put(url, it) }
 
-        // 2. Rule matching с учётом overrides
-        val matchedRule = ruleMatchingService.findMatchingRule(videoInfo, workspaceId, overrides)
+        // 2. Rule matching с учётом overrides и channel directory
+        val matchResult = ruleMatchingService.findMatchingRule(videoInfo, workspaceId, overrides)
 
-        // 3. Resolve metadata (rule → LLM → fallback)
-        val (metadata, source) = resolveMetadata(videoInfo, matchedRule)
+        // 3. Resolve metadata (rule + channel overrides → LLM → fallback)
+        val (metadata, source) = resolveMetadata(videoInfo, matchResult)
 
         // 4. Apply user overrides поверх resolved metadata
         val finalMetadata = applyOverrides(metadata, overrides)
 
         // 5. Outputs
-        val outputs = matchedRule?.outputs ?: OutputDefaults.defaultFor(finalMetadata.category)
+        val outputs = matchResult?.rule?.outputs ?: OutputDefaults.defaultFor(finalMetadata.category)
 
         PreviewResult(
             videoInfo = videoInfo,
             metadata = finalMetadata,
             metadataSource = source,
-            matchedRule = matchedRule,
+            matchedRule = matchResult?.rule,
             outputs = outputs,
         )
     }
@@ -106,10 +107,14 @@ class PreviewUseCase(
     }
 
     private suspend fun resolveMetadata(
-        video: VideoInfo, rule: Rule?,
+        video: VideoInfo, matchResult: MatchResult?,
     ): Pair<ResolvedMetadata, MetadataSource> {
-        return if (rule != null) {
-            metadataResolver.resolve(video, rule.metadataTemplate) to MetadataSource.RULE
+        return if (matchResult != null) {
+            val effectiveTemplate = mergeTemplates(
+                base = matchResult.rule.metadataTemplate,
+                overlay = matchResult.channel?.metadataOverrides,
+            )
+            metadataResolver.resolve(video, effectiveTemplate) to MetadataSource.RULE
         } else {
             resolveFallback(video)
         }

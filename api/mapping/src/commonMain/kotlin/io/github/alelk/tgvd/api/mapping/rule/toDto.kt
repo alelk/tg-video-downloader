@@ -18,6 +18,7 @@ fun RuleMatch.toDto(): RuleMatchDto = when (this) {
     is RuleMatch.TitleRegex -> RuleMatchDto.TitleRegex(pattern)
     is RuleMatch.UrlRegex -> RuleMatchDto.UrlRegex(pattern)
     is RuleMatch.CategoryEquals -> RuleMatchDto.CategoryEquals(category.toDto())
+    is RuleMatch.HasTag -> RuleMatchDto.HasTag(tag.value)
 }
 
 @OptIn(ExperimentalUuidApi::class)

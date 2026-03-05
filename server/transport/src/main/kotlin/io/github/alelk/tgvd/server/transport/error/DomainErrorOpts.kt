@@ -65,6 +65,9 @@ fun DomainError.toHttpResponse(correlationId: String): Pair<HttpStatusCode, ApiE
 
     is DomainError.WorkspaceAccessDenied ->
         HttpStatusCode.Forbidden to apiError("FORBIDDEN", message, correlationId)
+
+    is DomainError.ChannelNotFound ->
+        HttpStatusCode.NotFound to apiError("NOT_FOUND", message, correlationId)
 }
 
 

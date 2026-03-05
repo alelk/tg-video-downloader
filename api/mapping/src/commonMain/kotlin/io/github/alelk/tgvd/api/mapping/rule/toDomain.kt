@@ -6,6 +6,7 @@ import arrow.core.raise.ensure
 import io.github.alelk.tgvd.api.contract.rule.RuleMatchDto
 import io.github.alelk.tgvd.api.mapping.common.toDomain
 import io.github.alelk.tgvd.domain.common.DomainError
+import io.github.alelk.tgvd.domain.common.Tag
 import io.github.alelk.tgvd.domain.rule.RuleMatch
 
 fun RuleMatchDto.toDomain(): Either<DomainError.ValidationError, RuleMatch> = either {
@@ -42,6 +43,11 @@ fun RuleMatchDto.toDomain(): Either<DomainError.ValidationError, RuleMatch> = ei
 
         is RuleMatchDto.CategoryEquals -> {
             RuleMatch.CategoryEquals(category.toDomain())
+        }
+
+        is RuleMatchDto.HasTag -> {
+            ensure(tag.isNotBlank()) { DomainError.ValidationError("tag", "Cannot be blank") }
+            RuleMatch.HasTag(Tag(tag))
         }
     }
 }
