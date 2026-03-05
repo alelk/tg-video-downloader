@@ -222,7 +222,7 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                 TopAppBar(
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Preview")
+                            Text(stringResource(Res.string.preview_title))
                             if (isRefreshing) {
                                 Spacer(modifier = Modifier.width(8.dp))
                                 CircularProgressIndicator(
@@ -234,7 +234,7 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                     },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(TgvdIcons.ArrowBack, contentDescription = "Back")
+                            Icon(TgvdIcons.ArrowBack, contentDescription = stringResource(Res.string.action_back))
                         }
                     },
                 )
@@ -248,15 +248,15 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                     .verticalScroll(rememberScrollState()),
             ) {
                 // Video Info (read-only)
-                SectionCard(title = "Video Info", icon = TgvdIcons.Videocam) {
-                    InfoRow("Title", preview.videoInfo.title)
+                SectionCard(title = stringResource(Res.string.preview_video_info), icon = TgvdIcons.Videocam) {
+                    InfoRow(stringResource(Res.string.label_title), preview.videoInfo.title)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            InfoRow("Channel", preview.videoInfo.channelName)
+                            InfoRow(stringResource(Res.string.label_channel), preview.videoInfo.channelName)
                         }
                         // Overflow menu for channel directory
                         if (channelChecked) {
@@ -270,7 +270,7 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                     }
                                     DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                                         DropdownMenuItem(
-                                            text = { Text("Edit in Channel Directory") },
+                                            text = { Text(stringResource(Res.string.channels_edit_in_directory)) },
                                             onClick = {
                                                 menuExpanded = false
                                                 navigator.push(ChannelEditorScreen(
@@ -285,9 +285,9 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                             }
                         }
                     }
-                    InfoRow("Duration", formatDuration(preview.videoInfo.durationSeconds))
-                    InfoRow("Platform", preview.videoInfo.extractor)
-                    preview.videoInfo.uploadDate?.let { InfoRow("Upload Date", it) }
+                    InfoRow(stringResource(Res.string.label_duration), formatDuration(preview.videoInfo.durationSeconds))
+                    InfoRow(stringResource(Res.string.label_platform), preview.videoInfo.extractor)
+                    preview.videoInfo.uploadDate?.let { InfoRow(stringResource(Res.string.label_upload_date), it) }
 
                     // "Add to Channel Directory" — only when NOT already in directory
                     if (channelChecked && existingChannel == null) {
@@ -307,7 +307,7 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                         ) {
                             Icon(TgvdIcons.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Add to Channel Directory", style = MaterialTheme.typography.labelMedium)
+                            Text(stringResource(Res.string.channels_add_to_directory), style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -577,7 +577,7 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(8.dp))
                     }
-                    Text(if (isCreating) "Creating..." else "Download")
+                    Text(if (isCreating) stringResource(Res.string.preview_creating) else stringResource(Res.string.preview_download_button))
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))

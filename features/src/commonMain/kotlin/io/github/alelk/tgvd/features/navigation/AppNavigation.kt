@@ -16,6 +16,7 @@ import io.github.alelk.tgvd.api.contract.workspace.CreateWorkspaceRequestDto
 import io.github.alelk.tgvd.features.channels.screen.ChannelsTab
 import io.github.alelk.tgvd.features.common.component.CreateWorkspaceDialog
 import io.github.alelk.tgvd.features.common.component.WorkspaceTopBar
+import io.github.alelk.tgvd.features.common.state.LocaleState
 import io.github.alelk.tgvd.features.common.state.WorkspaceState
 import io.github.alelk.tgvd.features.download.screen.DownloadTab
 import io.github.alelk.tgvd.features.jobs.screen.JobsTab
@@ -27,6 +28,7 @@ import org.koin.compose.koinInject
 @Composable
 fun AppNavigation() {
     val workspaceState = koinInject<WorkspaceState>()
+    val localeState = koinInject<LocaleState>()
     val client = koinInject<TgVideoDownloaderClient>()
     val scope = rememberCoroutineScope()
 
@@ -39,6 +41,7 @@ fun AppNavigation() {
             topBar = {
                 WorkspaceTopBar(
                     workspaceState = workspaceState,
+                    localeState = localeState,
                     onCreateWorkspace = {
                         createError = null
                         showCreateDialog = true

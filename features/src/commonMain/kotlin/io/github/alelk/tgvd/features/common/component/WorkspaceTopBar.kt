@@ -6,19 +6,23 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.alelk.tgvd.features.common.state.LocaleState
 import io.github.alelk.tgvd.features.common.state.WorkspaceState
 
 /**
  * Top app bar showing the current workspace as a clickable chip.
  * Clicking the chip opens a bottom sheet with workspace list and "Create new" option.
+ * Right side: locale switcher button.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkspaceTopBar(
     workspaceState: WorkspaceState,
+    localeState: LocaleState,
     onCreateWorkspace: () -> Unit,
 ) {
     var showSheet by remember { mutableStateOf(false) }
+    var showLocalePicker by remember { mutableStateOf(false) }
     val selected = workspaceState.selectedWorkspace
 
     CenterAlignedTopAppBar(
@@ -32,6 +36,43 @@ fun WorkspaceTopBar(
                     )
                 },
             )
+        },
+        actions = {
+            // Locale switcher
+            Box {
+                FilterChip(
+                    selected = false,
+                    onClick = { showLocalePicker = true },
+                    label = {
+                        Text(
+                            text = LocaleState.flagFor(localeState.currentLocale),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    },
+                    modifier = Modifier.padding(end = 8.dp),
+                )
+                DropdownMenu(
+                    expanded = showLocalePicker,
+                    onDismissRequest = { showLocalePicker = false },
+                ) {
+                    LocaleState.SUPPORTED_LOCALES.forEach { locale ->
+                        DropdownMenuItem(
+                            text = {
+                                Text("${LocaleState.flagFor(locale)}  ${LocaleState.labelFor(locale)}")
+                            },
+                            onClick = {
+                                localeState.setLocale(locale)
+                                showLocalePicker = false
+                            },
+                            trailingIcon = {
+                                if (locale == localeState.currentLocale) {
+                                    Text("✓", color = MaterialTheme.colorScheme.primary)
+                                }
+                            },
+                        )
+                    }
+                }
+            }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
             containerColor = MaterialTheme.colorScheme.surface,

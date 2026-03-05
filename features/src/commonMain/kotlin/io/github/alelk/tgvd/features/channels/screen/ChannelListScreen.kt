@@ -17,7 +17,9 @@ import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.channel.ChannelDto
 import io.github.alelk.tgvd.features.common.component.*
 import io.github.alelk.tgvd.features.common.icon.TgvdIcons
+import io.github.alelk.tgvd.features.generated.resources.*
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 
 class ChannelListScreen : Screen {
@@ -75,8 +77,8 @@ class ChannelListScreen : Screen {
         deleteConfirmId?.let { channelId ->
             AlertDialog(
                 onDismissRequest = { deleteConfirmId = null },
-                title = { Text("Delete Channel") },
-                text = { Text("Are you sure you want to remove this channel from the directory?") },
+                title = { Text(stringResource(Res.string.action_delete)) },
+                text = { Text(stringResource(Res.string.channels_delete_confirm)) },
                 confirmButton = {
                     TextButton(onClick = {
                         scope.launch {
@@ -85,10 +87,10 @@ class ChannelListScreen : Screen {
                             loadChannels()
                             loadTags()
                         }
-                    }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                    }) { Text(stringResource(Res.string.action_delete), color = MaterialTheme.colorScheme.error) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { deleteConfirmId = null }) { Text("Cancel") }
+                    TextButton(onClick = { deleteConfirmId = null }) { Text(stringResource(Res.string.action_cancel)) }
                 },
             )
         }
@@ -96,7 +98,7 @@ class ChannelListScreen : Screen {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Channels") },
+                    title = { Text(stringResource(Res.string.channels_title)) },
                 )
             },
             floatingActionButton = {
@@ -108,7 +110,7 @@ class ChannelListScreen : Screen {
                         }))
                     },
                 ) {
-                    Icon(TgvdIcons.Add, contentDescription = "Add Channel")
+                    Icon(TgvdIcons.Add, contentDescription = stringResource(Res.string.channels_add))
                 }
             },
         ) { paddingValues ->
@@ -118,7 +120,7 @@ class ChannelListScreen : Screen {
                 // Tag filter chips
                 if (allTags.isNotEmpty()) {
                     Text(
-                        "Filter by tag",
+                        stringResource(Res.string.channels_filter_by_tag),
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                     )
@@ -130,7 +132,7 @@ class ChannelListScreen : Screen {
                             FilterChip(
                                 selected = selectedTag == null,
                                 onClick = { selectedTag = null },
-                                label = { Text("All") },
+                                label = { Text(stringResource(Res.string.channels_filter_all)) },
                             )
                         }
                         items(allTags) { tag ->
@@ -151,8 +153,8 @@ class ChannelListScreen : Screen {
                 when {
                     isLoading && channels.isEmpty() -> LoadingContent()
                     channels.isEmpty() -> EmptyContent(
-                        if (selectedTag != null) "No channels with tag \"$selectedTag\"."
-                        else "No channels yet. Add channels to group them by tags and apply rules."
+                        if (selectedTag != null) stringResource(Res.string.channels_empty_filtered, selectedTag!!)
+                        else stringResource(Res.string.channels_empty)
                     )
                     else -> {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -218,7 +220,7 @@ private fun ChannelCard(channel: ChannelDto, onEdit: () -> Unit, onDelete: () ->
             channel.metadataOverrides?.let {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "✦ Has metadata overrides",
+                    text = "✦ ${stringResource(Res.string.channels_has_overrides)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -243,10 +245,10 @@ private fun ChannelCard(channel: ChannelDto, onEdit: () -> Unit, onDelete: () ->
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 IconButton(onClick = onEdit) {
-                    Icon(TgvdIcons.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
+                    Icon(TgvdIcons.Edit, contentDescription = stringResource(Res.string.action_edit), tint = MaterialTheme.colorScheme.primary)
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(TgvdIcons.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                    Icon(TgvdIcons.Delete, contentDescription = stringResource(Res.string.action_delete), tint = MaterialTheme.colorScheme.error)
                 }
             }
         }

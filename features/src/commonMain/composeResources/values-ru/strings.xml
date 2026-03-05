@@ -6,6 +6,7 @@
     <string name="tab_download">Скачать</string>
     <string name="tab_jobs">Задачи</string>
     <string name="tab_rules">Правила</string>
+    <string name="tab_channels">Каналы</string>
     <string name="tab_settings">Настройки</string>
 
     <!-- URL Input Screen -->
@@ -142,5 +143,36 @@
     <string name="action_save">Сохранить</string>
     <string name="action_edit">Редактировать</string>
     <string name="action_retry">Повторить</string>
+    <string name="action_back">Назад</string>
+    <string name="action_add">Добавить</string>
+
+    <!-- Channel Directory -->
+    <string name="channels_title">Каналы</string>
+    <string name="channels_empty">Каналов пока нет. Добавьте каналы, чтобы группировать их по тегам и применять правила.</string>
+    <string name="channels_empty_filtered">Нет каналов с тегом «%1$s».</string>
+    <string name="channels_add">Добавить канал</string>
+    <string name="channels_edit">Редактировать канал</string>
+    <string name="channels_delete_confirm">Удалить этот канал из справочника?</string>
+    <string name="channels_filter_all">Все</string>
+    <string name="channels_filter_by_tag">Фильтр по тегу</string>
+    <string name="channels_has_overrides">Есть переопределения метаданных</string>
+    <string name="channels_channel_info">Информация о канале</string>
+    <string name="channels_display_name">Отображаемое имя</string>
+    <string name="channels_channel_id">ID канала (платформа)</string>
+    <string name="channels_platform">Платформа (напр. youtube)</string>
+    <string name="channels_tags">Теги</string>
+    <string name="channels_tags_hint">напр. music-video, pop, lofi</string>
+    <string name="channels_tags_quick_add">Быстрое добавление</string>
+    <string name="channels_metadata_overrides">Переопределение метаданных</string>
+    <string name="channels_override_metadata">Переопределить метаданные для этого канала</string>
+    <string name="channels_notes">Заметки</string>
+    <string name="channels_notes_hint">Заметки (необязательно)</string>
+    <string name="channels_saving">Сохранение…</string>
+    <string name="channels_add_to_directory">Добавить в справочник каналов</string>
+    <string name="channels_edit_in_directory">Редактировать в справочнике каналов</string>
+
+    <!-- Match Types (new) -->
+    <string name="match_channel_tag">Тег канала</string>
+    <string name="match_category_equals">Категория</string>
 </resources>
 

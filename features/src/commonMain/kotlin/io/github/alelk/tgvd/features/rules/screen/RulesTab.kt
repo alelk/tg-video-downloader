@@ -8,12 +8,16 @@ import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import cafe.adriel.voyager.transitions.SlideTransition
 import io.github.alelk.tgvd.features.common.icon.TgvdIcons
+import io.github.alelk.tgvd.features.generated.resources.Res
+import io.github.alelk.tgvd.features.generated.resources.tab_rules
+import org.jetbrains.compose.resources.stringResource
 
 object RulesTab : Tab {
     override val options: TabOptions
         @Composable get() {
             val icon = rememberVectorPainter(TgvdIcons.Rule)
-            return remember(icon) { TabOptions(index = 2u, title = "Rules", icon = icon) }
+            val title = stringResource(Res.string.tab_rules)
+            return remember(icon, title) { TabOptions(index = 2u, title = title, icon = icon) }
         }
 
     @Composable

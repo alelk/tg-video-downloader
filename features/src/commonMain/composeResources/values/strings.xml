@@ -6,6 +6,7 @@
     <string name="tab_download">Download</string>
     <string name="tab_jobs">Jobs</string>
     <string name="tab_rules">Rules</string>
+    <string name="tab_channels">Channels</string>
     <string name="tab_settings">Settings</string>
 
     <!-- URL Input Screen -->
@@ -142,5 +143,36 @@
     <string name="action_save">Save</string>
     <string name="action_edit">Edit</string>
     <string name="action_retry">Retry</string>
+    <string name="action_back">Back</string>
+    <string name="action_add">Add</string>
+
+    <!-- Channel Directory -->
+    <string name="channels_title">Channels</string>
+    <string name="channels_empty">No channels yet. Add channels to group them by tags and apply rules.</string>
+    <string name="channels_empty_filtered">No channels with tag \"%1$s\".</string>
+    <string name="channels_add">Add Channel</string>
+    <string name="channels_edit">Edit Channel</string>
+    <string name="channels_delete_confirm">Remove this channel from the directory?</string>
+    <string name="channels_filter_all">All</string>
+    <string name="channels_filter_by_tag">Filter by tag</string>
+    <string name="channels_has_overrides">Has metadata overrides</string>
+    <string name="channels_channel_info">Channel Info</string>
+    <string name="channels_display_name">Display Name</string>
+    <string name="channels_channel_id">Channel ID (platform)</string>
+    <string name="channels_platform">Platform (e.g. youtube)</string>
+    <string name="channels_tags">Tags</string>
+    <string name="channels_tags_hint">e.g. music-video, pop, lofi</string>
+    <string name="channels_tags_quick_add">Quick add</string>
+    <string name="channels_metadata_overrides">Metadata Overrides</string>
+    <string name="channels_override_metadata">Override metadata for this channel</string>
+    <string name="channels_notes">Notes</string>
+    <string name="channels_notes_hint">Notes (optional)</string>
+    <string name="channels_saving">Saving…</string>
+    <string name="channels_add_to_directory">Add to Channel Directory</string>
+    <string name="channels_edit_in_directory">Edit in Channel Directory</string>
+
+    <!-- Match Types (new) -->
+    <string name="match_channel_tag">Channel Tag</string>
+    <string name="match_category_equals">Category</string>
 </resources>
 
