@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.6.0](https://github.com/alelk/tg-video-downloader/compare/v1.5.0...v1.6.0) (2026-03-05)
+
+
+### Features
+
+* enhance theme handling and add runtime configuration example ([9c73825](https://github.com/alelk/tg-video-downloader/commit/9c73825383bcd68f08e5b5eb890e76a4fe5838d0))
+
 # [1.5.0](https://github.com/alelk/tg-video-downloader/compare/v1.4.0...v1.5.0) (2026-03-05)
 
 
