@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.5.0](https://github.com/alelk/tg-video-downloader/compare/v1.4.0...v1.5.0) (2026-03-05)
+
+
+### Features
+
+* implement CORS configuration and error handling for workspace creation ([2af955e](https://github.com/alelk/tg-video-downloader/commit/2af955ecc0f61c736760f1dd59b753f3a7e18bc8))
+
 # [1.4.0](https://github.com/alelk/tg-video-downloader/compare/v1.3.0...v1.4.0) (2026-03-05)
 
 
