@@ -82,7 +82,12 @@ class ApiV1 {
 
             @Serializable
             @Resource("channels")
-            class Channels(val parent: Workspaces.ById, val tag: String? = null) {
+            class Channels(
+                val parent: Workspaces.ById,
+                val tag: String? = null,
+                val channelId: String? = null,
+                val extractor: String? = null,
+            ) {
                 @Serializable
                 @Resource("{id}")
                 class ById(val parent: Channels, val id: String)

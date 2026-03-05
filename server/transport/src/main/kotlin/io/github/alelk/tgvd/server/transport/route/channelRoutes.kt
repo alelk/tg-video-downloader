@@ -37,15 +37,18 @@ fun Route.channelRoutes() {
     val channelRepository by inject<ChannelRepository>()
     val workspaceRepository by inject<WorkspaceRepository>()
 
-    // GET /api/v1/workspaces/{slug}/channels?tag=...
+    // GET /api/v1/workspaces/{slug}/channels?tag=...&channelId=...&extractor=...
     get<ApiV1.Workspaces.ById.Channels> { res ->
         val result = either<DomainError, ChannelListResponseDto> {
             val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
             val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
-            val channels = if (res.tag != null) {
-                channelRepository.findByTag(ws.id, Tag(res.tag!!))
-            } else {
-                channelRepository.findByWorkspace(ws.id)
+            val channels = when {
+                res.channelId != null && res.extractor != null -> {
+                    val ch = channelRepository.findByChannelId(ws.id, ChannelId(res.channelId!!), Extractor(res.extractor!!))
+                    listOfNotNull(ch)
+                }
+                res.tag != null -> channelRepository.findByTag(ws.id, Tag(res.tag!!))
+                else -> channelRepository.findByWorkspace(ws.id)
             }
             ChannelListResponseDto(items = channels.map { it.toDto() })
         }

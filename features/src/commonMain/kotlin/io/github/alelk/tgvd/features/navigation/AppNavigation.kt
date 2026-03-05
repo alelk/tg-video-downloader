@@ -13,6 +13,7 @@ import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.workspace.CreateWorkspaceRequestDto
+import io.github.alelk.tgvd.features.channels.screen.ChannelsTab
 import io.github.alelk.tgvd.features.common.component.CreateWorkspaceDialog
 import io.github.alelk.tgvd.features.common.component.WorkspaceTopBar
 import io.github.alelk.tgvd.features.common.state.WorkspaceState
@@ -49,6 +50,7 @@ fun AppNavigation() {
                     TabItem(DownloadTab)
                     TabItem(JobsTab)
                     TabItem(RulesTab)
+                    TabItem(ChannelsTab)
                     TabItem(SettingsTab)
                 }
             },

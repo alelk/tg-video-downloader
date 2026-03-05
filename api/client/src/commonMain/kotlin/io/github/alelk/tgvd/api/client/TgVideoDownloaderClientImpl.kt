@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.api.client
 
+import io.github.alelk.tgvd.api.contract.channel.*
 import io.github.alelk.tgvd.api.contract.common.ApiErrorDto
 import io.github.alelk.tgvd.api.contract.job.*
 import io.github.alelk.tgvd.api.contract.preview.*
@@ -124,6 +125,43 @@ class TgVideoDownloaderClientImpl(
             auth()
         }.checkAndBody<Unit>()
     }
+
+    // --- Channels ---
+
+    override suspend fun getChannels(tag: String?, channelId: String?, extractor: String?): ChannelListResponseDto =
+        client.get(Workspaces.ById.Channels(workspace(), tag = tag, channelId = channelId, extractor = extractor)) {
+            auth()
+        }.checkAndBody()
+
+    override suspend fun getChannel(id: String): ChannelDto =
+        client.get(Workspaces.ById.Channels.ById(Workspaces.ById.Channels(workspace()), id)) {
+            auth()
+        }.checkAndBody()
+
+    override suspend fun createChannel(request: CreateChannelDto): ChannelDto =
+        client.post(Workspaces.ById.Channels(workspace())) {
+            auth()
+            setBody(request)
+        }.checkAndBody()
+
+    override suspend fun updateChannel(id: String, request: UpdateChannelDto): ChannelDto =
+        client.put(Workspaces.ById.Channels.ById(Workspaces.ById.Channels(workspace()), id)) {
+            auth()
+            setBody(request)
+        }.checkAndBody()
+
+    override suspend fun deleteChannel(id: String) {
+        client.delete(Workspaces.ById.Channels.ById(Workspaces.ById.Channels(workspace()), id)) {
+            auth()
+        }.checkAndBody<Unit>()
+    }
+
+    override suspend fun getChannelTags(): TagListResponseDto =
+        client.get(Workspaces.ById.Channels.Tags(Workspaces.ById.Channels(workspace()))) {
+            auth()
+        }.checkAndBody()
+
+    // --- System ---
 
     override suspend fun getYtDlpStatus(): YtDlpStatusDto =
         client.get(ApiV1.System.YtDlp.Status(ApiV1.System.YtDlp(ApiV1.System()))) {

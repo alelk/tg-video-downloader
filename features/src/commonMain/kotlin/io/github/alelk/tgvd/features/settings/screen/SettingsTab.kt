@@ -11,7 +11,7 @@ object SettingsTab : Tab {
     override val options: TabOptions
         @Composable get() {
             val icon = rememberVectorPainter(TgvdIcons.Settings)
-            return remember(icon) { TabOptions(index = 3u, title = "Settings", icon = icon) }
+            return remember(icon) { TabOptions(index = 4u, title = "Settings", icon = icon) }
         }
 
     @Composable

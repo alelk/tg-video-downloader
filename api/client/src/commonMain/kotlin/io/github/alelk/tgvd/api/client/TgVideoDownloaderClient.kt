@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.api.client
 
+import io.github.alelk.tgvd.api.contract.channel.*
 import io.github.alelk.tgvd.api.contract.job.*
 import io.github.alelk.tgvd.api.contract.preview.*
 import io.github.alelk.tgvd.api.contract.rule.*
@@ -32,6 +33,23 @@ interface TgVideoDownloaderClient {
 
     suspend fun deleteRule(id: String)
 
+    // --- Channels ---
+
+    suspend fun getChannels(tag: String? = null, channelId: String? = null, extractor: String? = null): ChannelListResponseDto
+
+    suspend fun getChannel(id: String): ChannelDto
+
+    suspend fun createChannel(request: CreateChannelDto): ChannelDto
+
+    suspend fun updateChannel(id: String, request: UpdateChannelDto): ChannelDto
+
+    suspend fun deleteChannel(id: String)
+
+    suspend fun getChannelTags(): TagListResponseDto
+
+
+    // --- System ---
+
     suspend fun getYtDlpStatus(): YtDlpStatusDto
 
     suspend fun updateYtDlp(): YtDlpUpdateResponseDto
@@ -40,4 +58,3 @@ interface TgVideoDownloaderClient {
 
     suspend fun updateSettings(request: SystemSettingsDto): SystemSettingsDto
 }
-

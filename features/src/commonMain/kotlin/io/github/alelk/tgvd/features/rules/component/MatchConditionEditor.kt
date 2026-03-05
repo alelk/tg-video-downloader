@@ -16,6 +16,7 @@ import io.github.alelk.tgvd.features.rules.model.MatchConditionState
 private val MATCH_TYPES = listOf(
     "channel-id" to "Channel ID",
     "channel-name" to "Channel Name",
+    "has-tag" to "Channel Tag",
     "title-regex" to "Title Pattern",
     "url-regex" to "URL Pattern",
     "category-equals" to "Category",

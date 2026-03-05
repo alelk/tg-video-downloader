@@ -21,6 +21,8 @@ import io.github.alelk.tgvd.api.contract.preview.UserOverridesDto
 import io.github.alelk.tgvd.api.contract.storage.OutputFormatDto
 import io.github.alelk.tgvd.api.contract.storage.OutputTargetDto
 import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
+import io.github.alelk.tgvd.api.contract.channel.ChannelDto
+import io.github.alelk.tgvd.features.channels.screen.ChannelEditorScreen
 import io.github.alelk.tgvd.features.common.component.ErrorCard
 import io.github.alelk.tgvd.features.common.component.InfoRow
 import io.github.alelk.tgvd.features.common.component.SectionCard
@@ -52,6 +54,28 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
 
         // Current server response
         var preview by remember { mutableStateOf(initialPreview) }
+
+        // Channel directory: check if this channel is already registered
+        var existingChannel by remember { mutableStateOf<ChannelDto?>(null) }
+        var channelChecked by remember { mutableStateOf(false) }
+
+        fun reloadChannel() {
+            scope.launch {
+                try {
+                    val result = client.getChannels(
+                        channelId = preview.videoInfo.channelId,
+                        extractor = preview.videoInfo.extractor,
+                    )
+                    existingChannel = result.items.firstOrNull()
+                } catch (_: Exception) {
+                    // Ignore — non-critical
+                } finally {
+                    channelChecked = true
+                }
+            }
+        }
+
+        LaunchedEffect(Unit) { reloadChannel() }
 
         // Track which fields the user has manually edited
         val userEdits = remember { mutableStateSetOf<String>() }
@@ -226,10 +250,66 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                 // Video Info (read-only)
                 SectionCard(title = "Video Info", icon = TgvdIcons.Videocam) {
                     InfoRow("Title", preview.videoInfo.title)
-                    InfoRow("Channel", preview.videoInfo.channelName)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            InfoRow("Channel", preview.videoInfo.channelName)
+                        }
+                        // Overflow menu for channel directory
+                        if (channelChecked) {
+                            val ch = existingChannel
+                            if (ch != null) {
+                                // Channel already in directory → three-dot menu
+                                var menuExpanded by remember { mutableStateOf(false) }
+                                Box {
+                                    IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(32.dp)) {
+                                        Icon(TgvdIcons.MoreVert, contentDescription = "Channel options", modifier = Modifier.size(20.dp))
+                                    }
+                                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                                        DropdownMenuItem(
+                                            text = { Text("Edit in Channel Directory") },
+                                            onClick = {
+                                                menuExpanded = false
+                                                navigator.push(ChannelEditorScreen(
+                                                    channelId = ch.id,
+                                                    onSaved = { reloadChannel() },
+                                                ))
+                                            },
+                                            leadingIcon = { Icon(TgvdIcons.Edit, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                     InfoRow("Duration", formatDuration(preview.videoInfo.durationSeconds))
                     InfoRow("Platform", preview.videoInfo.extractor)
                     preview.videoInfo.uploadDate?.let { InfoRow("Upload Date", it) }
+
+                    // "Add to Channel Directory" — only when NOT already in directory
+                    if (channelChecked && existingChannel == null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                navigator.push(
+                                    ChannelEditorScreen(
+                                        prefillChannelId = preview.videoInfo.channelId,
+                                        prefillExtractor = preview.videoInfo.extractor,
+                                        prefillChannelName = preview.videoInfo.channelName,
+                                        onSaved = { reloadChannel() },
+                                    )
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(TgvdIcons.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Add to Channel Directory", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))

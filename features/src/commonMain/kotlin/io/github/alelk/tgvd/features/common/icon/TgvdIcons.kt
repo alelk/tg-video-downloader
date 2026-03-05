@@ -194,6 +194,29 @@ object TgvdIcons {
         }.build()
     }
 
+    /** More vertical (three dots) icon */
+    val MoreVert: ImageVector by lazy {
+        ImageVector.Builder("MoreVert", 24.dp, 24.dp, 24f, 24f).apply {
+            path(fill = SolidColor(Color.Black)) {
+                // Top dot
+                moveTo(12f, 8f)
+                arcToRelative(2f, 2f, 0f, true, false, 0f, -4f)
+                arcToRelative(2f, 2f, 0f, true, false, 0f, 4f)
+                close()
+                // Middle dot
+                moveTo(12f, 14f)
+                arcToRelative(2f, 2f, 0f, true, false, 0f, -4f)
+                arcToRelative(2f, 2f, 0f, true, false, 0f, 4f)
+                close()
+                // Bottom dot
+                moveTo(12f, 20f)
+                arcToRelative(2f, 2f, 0f, true, false, 0f, -4f)
+                arcToRelative(2f, 2f, 0f, true, false, 0f, 4f)
+                close()
+            }
+        }.build()
+    }
+
     /** Movie/film icon */
     val Movie: ImageVector by lazy {
         ImageVector.Builder("Movie", 24.dp, 24.dp, 24f, 24f).apply {

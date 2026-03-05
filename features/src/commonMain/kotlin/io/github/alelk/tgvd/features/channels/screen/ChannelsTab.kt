@@ -1,0 +1,26 @@
+package io.github.alelk.tgvd.features.channels.screen
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import cafe.adriel.voyager.navigator.Navigator
+import cafe.adriel.voyager.navigator.tab.Tab
+import cafe.adriel.voyager.navigator.tab.TabOptions
+import cafe.adriel.voyager.transitions.SlideTransition
+import io.github.alelk.tgvd.features.common.icon.TgvdIcons
+
+object ChannelsTab : Tab {
+    override val options: TabOptions
+        @Composable get() {
+            val icon = rememberVectorPainter(TgvdIcons.List)
+            return remember(icon) { TabOptions(index = 3u, title = "Channels", icon = icon) }
+        }
+
+    @Composable
+    override fun Content() {
+        Navigator(ChannelListScreen()) { navigator ->
+            SlideTransition(navigator)
+        }
+    }
+}
+
