@@ -1,6 +1,6 @@
 name: CI
 
-"on":
+on:
   push:
     branches: [main, next]
   pull_request:
@@ -78,7 +78,7 @@ jobs:
         if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
         run: |
           tar -czf tgvd-webapp.tar.gz \
-            -C tgminiapp/build/dist/js/productionExecutable .
+            -C tgminiapp/build/kotlin-webpack/js/productionExecutable .
 
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v4

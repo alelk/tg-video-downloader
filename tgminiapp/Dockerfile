@@ -52,7 +52,7 @@ LABEL org.opencontainers.image.source="https://github.com/alelk/tg-video-downloa
 LABEL org.opencontainers.image.description="TG Video Downloader — Telegram Mini App (Web UI)"
 LABEL org.opencontainers.image.licenses="MIT"
 
-COPY --from=builder /build/tgminiapp/build/dist/js/productionExecutable/ /usr/share/nginx/html/
+COPY --from=builder /build/tgminiapp/build/kotlin-webpack/js/productionExecutable/ /usr/share/nginx/html/
 COPY tgminiapp/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
