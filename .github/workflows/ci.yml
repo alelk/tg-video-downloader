@@ -71,14 +71,14 @@ jobs:
         run: >
           ./gradlew
           build check
-          :tgminiapp:jsBrowserProductionWebpack
+          :tgminiapp:jsBrowserDistribution
           --no-daemon
 
       - name: Package webapp dist as tar.gz
         if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
         run: |
           tar -czf tgvd-webapp.tar.gz \
-            -C tgminiapp/build/kotlin-webpack/js/productionExecutable .
+            -C tgminiapp/build/dist/js/productionExecutable .
 
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v4

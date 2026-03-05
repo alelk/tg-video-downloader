@@ -2,6 +2,7 @@ package io.github.alelk.tgvd.server
 
 import com.sksamuel.hoplite.ConfigLoaderBuilder
 import com.sksamuel.hoplite.addEnvironmentSource
+import com.sksamuel.hoplite.addFileSource
 import com.sksamuel.hoplite.addResourceSource
 import io.github.alelk.tgvd.api.contract.common.apiJson
 import io.github.alelk.tgvd.server.di.serverModules
@@ -146,12 +147,14 @@ private fun Application.configureRouting() {
 
 private fun loadConfig(): AppConfig {
     val profile = System.getenv("APP_PROFILE") ?: "local"
-    logger.info { "Loading configuration with profile: $profile" }
+    val externalConfig = System.getenv("APP_CONFIG") ?: "/app/config/application.yaml"
+    logger.info { "Loading configuration with profile: $profile, external config: $externalConfig" }
 
     return ConfigLoaderBuilder.default()
-        .addResourceSource("/application.yaml")
-        .addResourceSource("/application-$profile.yaml", optional = true)
-        .addEnvironmentSource()
+        .addFileSource(externalConfig, optional = true)          // 1. External file (highest priority)
+        .addResourceSource("/application-$profile.yaml", optional = true) // 2. Profile-specific
+        .addResourceSource("/application.yaml")                           // 3. Defaults
+        .addEnvironmentSource()                                           // 4. Env vars override any key
         .build()
         .loadConfigOrThrow<AppConfig>()
 }

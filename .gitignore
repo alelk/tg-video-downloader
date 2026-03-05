@@ -58,6 +58,9 @@ bin/
 .env.local
 .env.*.local
 
+### Docker local data ###
+/data/
+
 /yt-downloader-example
 
 /server/app/yt-dlp

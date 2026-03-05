@@ -47,49 +47,19 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # ── Server ──
-      SERVER__PORT: "8080"
-      SERVER__HOST: "0.0.0.0"
-      SERVER__BASE_URL: "http://localhost:8080"
-
-      # ── Database (Hoplite maps DB__URL → db.url) ──
-      DB__URL: "jdbc:postgresql://db:5432/tgvd"
-      DB__USER: "tgvd"
-      DB__PASSWORD: "tgvd"
-      DB__POOL_SIZE: "10"
-      DB__MIN_IDLE: "2"
-
-      # ── Telegram ──
-      TELEGRAM__BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-dev-token}"
-      TELEGRAM__ALLOWED_USER_IDS: "${TELEGRAM_ALLOWED_USER_IDS:-}"
-      TELEGRAM__DEV_MODE: "${TELEGRAM_DEV_MODE:-true}"
-
-      # ── Storage (volume tgvd-media смонтирован в /data/media) ──
-      STORAGE__BASE_DIRECTORIES: "/data/media"
-      STORAGE__TEMP_DIRECTORY: "/data/temp"
-
-      # ── yt-dlp ──
-      YT_DLP__PATH: "/usr/local/bin/yt-dlp"
-      YT_DLP__ALLOW_UPDATE: "true"
-      YT_DLP__AUTO_DOWNLOAD: "true"
-      YT_DLP__UPDATE_CHANNEL: "stable"
-      YT_DLP__COOKIES_FILE: "${YTDLP_COOKIES_FILE:-}"
-
-      # ── Jobs ──
-      JOBS__MAX_CONCURRENT_DOWNLOADS: "2"
-      JOBS__MAX_ATTEMPTS: "3"
-      JOBS__POLL_INTERVAL_MS: "5000"
-      JOBS__RETRY_DELAY_MS: "30000"
-
-      # ── Logging ──
-      LOGGING__LEVEL: "INFO"
-      LOGGING__FORMAT: "TEXT"
-
-      # ── App profile ──
-      APP_PROFILE: "docker"
+      # Внешний конфиг-файл (смонтирован через configs)
+      APP_CONFIG: /app/config/application.yaml
+      # Секреты (из .env файла) — подставляются в application.yaml через Hoplite ${...}
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-dev-token}"
+      TELEGRAM_ALLOWED_USER_IDS: "${TELEGRAM_ALLOWED_USER_IDS:-}"
+      TELEGRAM_DEV_MODE: "${TELEGRAM_DEV_MODE:-true}"
+      YTDLP_COOKIES_FILE: "${YTDLP_COOKIES_FILE:-}"
+    configs:
+      - source: server-config
+        target: /app/config/application.yaml
     volumes:
-      - ${TGVD_MEDIA_DIR:-~/Downloads/tgvd/media}:/data/media
-      - ${TGVD_TEMP_DIR:-~/Downloads/tgvd/temp}:/data/temp
+      - ${TGVD_MEDIA_DIR:-./data/media}:/data/media
+      - ${TGVD_TEMP_DIR:-./data/temp}:/data/temp
     depends_on:
       db:
         condition: service_healthy
@@ -120,6 +90,55 @@ services:
 volumes:
   db-data:
     name: tgvd-db-data
+
+configs:
+  server-config:
+    content: |
+      server:
+        port: 8080
+        host: "0.0.0.0"
+        baseUrl: "http://localhost:8080"
+
+      telegram:
+        botToken: "$${TELEGRAM_BOT_TOKEN:-dev-token}"
+        allowedUserIds: []
+        devMode: $${TELEGRAM_DEV_MODE:-true}
+
+      db:
+        url: "jdbc:postgresql://db:5432/tgvd"
+        user: "tgvd"
+        password: "tgvd"
+        poolSize: 10
+        minIdle: 2
+
+      storage:
+        baseDirectories:
+          - "/data/media"
+        tempDirectory: "/data/temp"
+
+      ytDlp:
+        path: "yt-dlp"
+        timeout: "30m"
+        retries: 3
+        fragmentRetries: 10
+        allowUpdate: true
+        updateChannel: "stable"
+        autoDownload: true
+        cookiesFile: "$${YTDLP_COOKIES_FILE:-}"
+
+      ffmpeg:
+        path: "ffmpeg"
+        timeout: "60m"
+
+      jobs:
+        maxConcurrentDownloads: 2
+        maxAttempts: 3
+        pollIntervalMs: 5000
+        retryDelayMs: 30000
+
+      logging:
+        level: "INFO"
+        format: "TEXT"
 
 networks:
   tgvd-network:

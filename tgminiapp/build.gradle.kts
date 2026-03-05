@@ -15,8 +15,8 @@ kotlin {
             commonWebpackConfig {
                 outputFileName = "tgminiapp.js"
             }
+            binaries.executable()
         }
-        binaries.executable()
     }
 
     sourceSets {
