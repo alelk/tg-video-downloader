@@ -32,6 +32,13 @@ plugins:
         - app.version
       message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
 
-  # 6. Create GitHub Release
-  - "@semantic-release/github"
+  # 6. Create GitHub Release and attach build artifacts
+  - - "@semantic-release/github"
+    - assets:
+        - path: server/app/build/libs/tgvd-server.jar
+          label: "Server fat JAR (tgvd-server.jar)"
+        - path: tgvd-webapp.tar.gz
+          label: "Web App JS bundle (tgvd-webapp.tar.gz)"
+        - path: app.version
+          label: "Version file"
 

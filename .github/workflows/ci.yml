@@ -68,30 +68,9 @@ jobs:
         env:
           GITHUB_USER: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew build check --no-daemon
-
-      - name: Publish Test Results
-        uses: mikepenz/action-junit-report@v4
-        if: success() || failure()
-        with:
-          report_paths: "**/build/test-results/**/TEST-*.xml"
-
-      # ── Semantic Release (финальный запуск — коммит + GitHub Release) ──
-      - name: Release
-        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
-
-      # ── Собрать артефакты и прикрепить к GitHub Release ──
-      - name: Build release artifacts (JAR + JS)
-        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
-        env:
-          GITHUB_USER: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >
           ./gradlew
-          :server:app:shadowJar
+          build check
           :tgminiapp:jsBrowserProductionWebpack
           --no-daemon
 
@@ -101,23 +80,17 @@ jobs:
           tar -czf tgvd-webapp.tar.gz \
             -C tgminiapp/build/dist/js/productionExecutable .
 
-      - name: Upload release assets
+      - name: Publish Test Results
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure()
+        with:
+          report_paths: "**/build/test-results/**/TEST-*.xml"
+
+      # ── Semantic Release — создаёт GitHub Release и прикрепляет артефакты ──
+      - name: Release
         if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION=$(cat app.version)
-          gh release upload "v${VERSION}" \
-            server/app/build/libs/tgvd-server.jar \
-            tgvd-webapp.tar.gz \
-            app.version \
-            --clobber
+        run: npx semantic-release
 
-      - name: Upload app.version artifact
-        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-version
-          path: app.version
-          retention-days: 90
 
