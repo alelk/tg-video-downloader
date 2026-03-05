@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.2.0](https://github.com/alelk/tg-video-downloader/compare/v1.1.0...v1.2.0) (2026-03-05)
+
+
+### Features
+
+* update CI and Docker configurations; enhance build process and external config handling ([9ada00f](https://github.com/alelk/tg-video-downloader/commit/9ada00f65362191103dcc1d7dece227624d214f0))
+
 # [1.1.0](https://github.com/alelk/tg-video-downloader/compare/v1.0.0...v1.1.0) (2026-03-05)
 
 
