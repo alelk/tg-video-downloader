@@ -8,27 +8,28 @@
 #     -t ghcr.io/.../tg-video-downloader-server:1.2.3 .
 # ============================================================
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-jre-jammy
 
 LABEL org.opencontainers.image.source="https://github.com/alelk/tg-video-downloader"
 LABEL org.opencontainers.image.description="TG Video Downloader — Ktor HTTP Server"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# Путь к JAR-файлу относительно build context (рядом с Dockerfile.ci)
+# Путь к JAR-файлу относительно build context
 ARG JAR_PATH=tgvd-server.jar
 
-# Non-root user
-RUN addgroup -g 1001 -S appgroup && \
-    adduser  -u 1001 -S appuser -G appgroup
+# ffmpeg — required for yt-dlp post-processing
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
 
-# python3 + ffmpeg — runtime dependencies for yt-dlp
-RUN apk add --no-cache python3 ffmpeg
+# Non-root user
+RUN groupadd -g 1001 appgroup && \
+    useradd  -u 1001 -g appgroup -s /bin/false appuser
 
 WORKDIR /app
 
 COPY ${JAR_PATH} ./app.jar
 
-# /app/bin — writable directory for yt-dlp binary (downloaded at startup)
+# /app/bin — writable dir for yt-dlp (downloaded/updated at runtime)
 RUN mkdir -p /data/media /data/temp /app/bin && \
     chown -R appuser:appgroup /app /data
 
@@ -37,7 +38,7 @@ USER appuser
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+    CMD curl -sf http://localhost:8080/health || exit 1
 
 ENV JAVA_OPTS="\
   -XX:+UseContainerSupport \

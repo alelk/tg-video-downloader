@@ -49,26 +49,27 @@ COPY server/di/src       ./server/di/src
 RUN gradle :server:app:shadowJar --no-daemon
 
 # ---- Stage 2: Runtime ----
-FROM eclipse-temurin:21-jre-alpine
+# Debian-based (not Alpine): standalone yt-dlp binary requires glibc.
+FROM eclipse-temurin:21-jre-jammy
 
 LABEL org.opencontainers.image.source="https://github.com/alelk/tg-video-downloader"
 LABEL org.opencontainers.image.description="TG Video Downloader — Ktor HTTP Server"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# Non-root user
-RUN addgroup -g 1001 -S appgroup && \
-    adduser  -u 1001 -S appuser -G appgroup
+# ffmpeg — required for yt-dlp post-processing
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
 
-# python3 + ffmpeg — runtime dependencies for yt-dlp
-RUN apk add --no-cache python3 ffmpeg
+# Non-root user
+RUN groupadd -g 1001 appgroup && \
+    useradd  -u 1001 -g appgroup -s /bin/false appuser
 
 WORKDIR /app
 
 # Copy fat JAR
 COPY --from=builder /build/server/app/build/libs/tgvd-server.jar ./app.jar
 
-# Data directories (mounted as volumes in docker-compose)
-# /app/bin — writable directory for yt-dlp binary (downloaded by YtDlpBootstrap at startup)
+# /app/bin — writable dir for yt-dlp (downloaded/updated by YtDlpBootstrap at runtime)
 RUN mkdir -p /data/media /data/temp /app/bin && \
     chown -R appuser:appgroup /app /data
 
@@ -76,11 +77,9 @@ USER appuser
 
 EXPOSE 8080
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+    CMD curl -sf http://localhost:8080/health || exit 1
 
-# JVM container-aware flags
 ENV JAVA_OPTS="\
   -XX:+UseContainerSupport \
   -XX:MaxRAMPercentage=75.0 \
