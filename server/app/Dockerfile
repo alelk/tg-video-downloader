@@ -59,13 +59,17 @@ LABEL org.opencontainers.image.licenses="MIT"
 RUN addgroup -g 1001 -S appgroup && \
     adduser  -u 1001 -S appuser -G appgroup
 
+# python3 + ffmpeg — runtime dependencies for yt-dlp
+RUN apk add --no-cache python3 ffmpeg
+
 WORKDIR /app
 
 # Copy fat JAR
 COPY --from=builder /build/server/app/build/libs/tgvd-server.jar ./app.jar
 
 # Data directories (mounted as volumes in docker-compose)
-RUN mkdir -p /data/media /data/temp && \
+# /app/bin — writable directory for yt-dlp binary (downloaded by YtDlpBootstrap at startup)
+RUN mkdir -p /data/media /data/temp /app/bin && \
     chown -R appuser:appgroup /app /data
 
 USER appuser

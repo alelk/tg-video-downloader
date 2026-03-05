@@ -117,7 +117,7 @@ configs:
         tempDirectory: "/data/temp"
 
       ytDlp:
-        path: "yt-dlp"
+        path: "/app/bin/yt-dlp"
         timeout: "30m"
         retries: 3
         fragmentRetries: 10

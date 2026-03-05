@@ -21,11 +21,15 @@ ARG JAR_PATH=tgvd-server.jar
 RUN addgroup -g 1001 -S appgroup && \
     adduser  -u 1001 -S appuser -G appgroup
 
+# python3 + ffmpeg — runtime dependencies for yt-dlp
+RUN apk add --no-cache python3 ffmpeg
+
 WORKDIR /app
 
 COPY ${JAR_PATH} ./app.jar
 
-RUN mkdir -p /data/media /data/temp && \
+# /app/bin — writable directory for yt-dlp binary (downloaded at startup)
+RUN mkdir -p /data/media /data/temp /app/bin && \
     chown -R appuser:appgroup /app /data
 
 USER appuser
