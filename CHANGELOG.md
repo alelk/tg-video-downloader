@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.4.0](https://github.com/alelk/tg-video-downloader/compare/v1.3.0...v1.4.0) (2026-03-05)
+
+
+### Features
+
+* update Docker configurations; switch to Debian-based image and add ffmpeg for yt-dlp ([ab9c181](https://github.com/alelk/tg-video-downloader/commit/ab9c181f1371c5bbff2e489c0c6b6cae83950dd3))
+
 # [1.3.0](https://github.com/alelk/tg-video-downloader/compare/v1.2.0...v1.3.0) (2026-03-05)
 
 
