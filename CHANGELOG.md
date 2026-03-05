@@ -1,5 +1,20 @@
 # TGVD CHANGELOG
 
+# [1.1.0](https://github.com/alelk/tg-video-downloader/compare/v1.0.0...v1.1.0) (2026-03-05)
+
+
+### Bug Fixes
+
+* update CI and Docker configurations; correct paths for build artifacts ([babdd80](https://github.com/alelk/tg-video-downloader/commit/babdd8044f937be6a7028853df6c59ba3c466191))
+* update CI and Docker publish workflows; correct syntax for event triggers ([ea2db2e](https://github.com/alelk/tg-video-downloader/commit/ea2db2e0dfd95b9fa60d894feb5852e328a5b426))
+* update Dockerfile; remove alpine variant for gradle image to improve compatibility ([4b8e89e](https://github.com/alelk/tg-video-downloader/commit/4b8e89e60d3a0ba7a9ca34578658130fa368961b))
+
+
+### Features
+
+* enhance CI/CD workflows; add artifact building and uploading for Docker images ([1119cd8](https://github.com/alelk/tg-video-downloader/commit/1119cd86ecbd3f526fa7c53cb729b1d7c22397b6))
+* update CI configuration; streamline build process and enhance release artifact handling ([9f76676](https://github.com/alelk/tg-video-downloader/commit/9f766769351a0bf5578403cfdd7f2828d4f44bfc))
+
 # 1.0.0 (2026-03-05)
 
 
