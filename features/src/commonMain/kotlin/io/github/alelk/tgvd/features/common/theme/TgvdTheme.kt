@@ -47,7 +47,9 @@ private val DarkColorScheme = darkColorScheme(
     onSurface = Color(0xFFE0E0E0),
     surfaceContainer = DarkSurfaceContainer,
     surfaceContainerHigh = DarkSurfaceContainerHigh,
-    onSurfaceVariant = Color(0xFF9E9EAE),
+    onSurfaceVariant = Color(0xFFB0B0BE),
+    outline = Color(0xFF8888A0),
+    outlineVariant = Color(0xFF44445A),
     error = StatusFailed,
     errorContainer = Color(0xFF3D1C1C),
     onErrorContainer = Color(0xFFFFB4AB),
@@ -66,11 +68,25 @@ private val LightColorScheme = lightColorScheme(
     onSurface = Color(0xFF1C1B1F),
     surfaceContainer = LightSurfaceContainer,
     surfaceContainerHigh = Color(0xFFF0F0F5),
-    onSurfaceVariant = Color(0xFF6B6B7B),
+    onSurfaceVariant = Color(0xFF49454F),
+    outline = Color(0xFF79747E),
+    outlineVariant = Color(0xFFCAC4D0),
     error = StatusFailed,
     errorContainer = Color(0xFFFFDAD6),
     onErrorContainer = Color(0xFF93000A),
 )
+
+/**
+ * Derives a readable secondary text color from Telegram's text color.
+ * Telegram's `hint_color` is too faded for Material3 `onSurfaceVariant` role
+ * (used for navigation icons, card labels, chip text — must stay readable).
+ * Instead we take the main text color and reduce opacity to ~70%.
+ */
+private fun deriveSecondaryTextColor(textColor: Color?, hintColor: Color?): Color? {
+    // Prefer text color at 70% opacity — always readable against its own background
+    textColor?.let { return it.copy(alpha = 0.70f) }
+    return hintColor
+}
 
 private fun buildColorScheme(
     isDark: Boolean,
@@ -78,15 +94,36 @@ private fun buildColorScheme(
 ): ColorScheme {
     val base = if (isDark) DarkColorScheme else LightColorScheme
     val tg = telegramColors ?: return base
+
+    val cardSurface = tg.secondaryBgColor ?: base.surfaceContainer
+    val secondaryText = deriveSecondaryTextColor(tg.textColor, tg.hintColor) ?: base.onSurfaceVariant
+
     return base.copy(
+        // Brand
         primary = tg.buttonColor ?: base.primary,
         onPrimary = tg.buttonTextColor ?: base.onPrimary,
+
+        // Main background & text
         background = tg.bgColor ?: base.background,
         onBackground = tg.textColor ?: base.onBackground,
+
+        // Primary surface (scaffold, screens)
         surface = tg.bgColor ?: base.surface,
         onSurface = tg.textColor ?: base.onSurface,
-        surfaceContainer = tg.secondaryBgColor ?: base.surfaceContainer,
-        onSurfaceVariant = tg.hintColor ?: base.onSurfaceVariant,
+
+        // Cards, navigation bar, dialogs, bottom sheets
+        surfaceVariant = cardSurface,
+        surfaceContainer = cardSurface,
+        surfaceContainerLow = tg.bgColor ?: base.surfaceContainerLow,
+        surfaceContainerHigh = cardSurface,
+        surfaceContainerHighest = cardSurface,
+
+        // Secondary text: icons, labels, chips — must stay readable
+        onSurfaceVariant = secondaryText,
+
+        // Borders, dividers
+        outline = tg.hintColor ?: base.outline,
+        outlineVariant = tg.hintColor?.copy(alpha = 0.40f) ?: base.outlineVariant,
     )
 }
 

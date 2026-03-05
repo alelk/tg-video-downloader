@@ -58,9 +58,10 @@ fun main() {
         }) {
             val telegramColors = remember { readTelegramThemeColors() }
             val platformCallbacks = remember { createPlatformCallbacks() }
+            val isDark = remember(telegramColors) { detectIsDarkTheme(telegramColors) }
 
             TgvdTheme(
-                isDarkTheme = true,
+                isDarkTheme = isDark,
                 telegramColors = telegramColors,
                 platformCallbacks = platformCallbacks,
             ) {
@@ -145,6 +146,18 @@ private fun parseColor(hex: dynamic): Color? {
     val g = str.substring(3, 5).toIntOrNull(16) ?: return null
     val b = str.substring(5, 7).toIntOrNull(16) ?: return null
     return Color(r, g, b)
+}
+
+/**
+ * Determines whether to use dark theme based on Telegram's bgColor luminance.
+ * Falls back to dark theme when Telegram colors are not available (dev mode).
+ * Uses W3C relative luminance formula: dark if luminance < 0.5.
+ */
+private fun detectIsDarkTheme(telegramColors: TelegramThemeColors?): Boolean {
+    val bg = telegramColors?.bgColor ?: return true
+    // sRGB relative luminance (simplified)
+    val luminance = 0.2126f * bg.red + 0.7152f * bg.green + 0.0722f * bg.blue
+    return luminance < 0.5f
 }
 
 /**

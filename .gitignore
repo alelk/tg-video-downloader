@@ -58,6 +58,9 @@ bin/
 .env.local
 .env.*.local
 
+### Frontend local config (см. config.example.js) ###
+tgminiapp/src/jsMain/resources/config.js
+
 ### Docker local data ###
 /data/
 
