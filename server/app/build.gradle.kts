@@ -44,9 +44,7 @@ tasks.test {
 }
 
 tasks.shadowJar {
-    archiveBaseName.set("tgvd-server")
-    archiveClassifier.set("")
-    archiveVersion.set("")
+    archiveFileName.set("tgvd-server.jar")
 
     // Merge META-INF/services — required for Ktor plugins, SLF4J providers, Flyway, etc.
     mergeServiceFiles {

@@ -1,0 +1,46 @@
+# ============================================================
+# Dockerfile для CI/CD: принимает готовый fat JAR как build arg.
+# Gradle не запускается — только упаковка артефакта в runtime-образ.
+#
+# Использование:
+#   docker build -f server/app/Dockerfile.ci \
+#     --build-arg JAR_PATH=tgvd-server.jar \
+#     -t ghcr.io/.../tg-video-downloader-server:1.2.3 .
+# ============================================================
+
+FROM eclipse-temurin:21-jre-alpine
+
+LABEL org.opencontainers.image.source="https://github.com/alelk/tg-video-downloader"
+LABEL org.opencontainers.image.description="TG Video Downloader — Ktor HTTP Server"
+LABEL org.opencontainers.image.licenses="MIT"
+
+# Путь к JAR-файлу относительно build context (рядом с Dockerfile.ci)
+ARG JAR_PATH=tgvd-server.jar
+
+# Non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser  -u 1001 -S appuser -G appgroup
+
+WORKDIR /app
+
+COPY ${JAR_PATH} ./app.jar
+
+RUN mkdir -p /data/media /data/temp && \
+    chown -R appuser:appgroup /app /data
+
+USER appuser
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+
+ENV JAVA_OPTS="\
+  -XX:+UseContainerSupport \
+  -XX:MaxRAMPercentage=75.0 \
+  -XX:+UseG1GC \
+  -XX:+UseStringDeduplication \
+  -Djava.security.egd=file:/dev/./urandom"
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
+

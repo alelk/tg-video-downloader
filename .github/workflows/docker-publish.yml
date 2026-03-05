@@ -1,16 +1,20 @@
 name: Publish Docker Images
 
 # Запускается ТОЛЬКО вручную (workflow_dispatch).
-# Автоматической публикации образов нет.
+# Артефакты (JAR, JS) скачиваются из GitHub Release — Gradle не запускается.
 #
 # Inputs:
-#   target  — какой образ опубликовать: server | webapp | both
-#   tag     — дополнительный тег (например: latest, v1.2.3)
-#             Версия из app.version тегируется всегда.
+#   release_tag — тег релиза из которого брать артефакты (например: v1.2.3)
+#   target      — какой образ опубликовать: server | webapp | both
+#   extra_tag   — дополнительный тег образа (например: latest)
 
 on:
   workflow_dispatch:
     inputs:
+      release_tag:
+        description: "GitHub Release tag to fetch artifacts from (e.g. v1.2.3)"
+        required: true
+        type: string
       target:
         description: "Image to publish: server | webapp | both"
         required: true
@@ -20,8 +24,8 @@ on:
           - server
           - webapp
           - both
-      tag:
-        description: "Additional Docker tag (e.g. latest, v1.2.3)"
+      extra_tag:
+        description: "Additional Docker tag (e.g. latest)"
         required: false
         default: "latest"
         type: string
@@ -32,7 +36,6 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  OWNER: ${{ github.repository_owner }}
 
 jobs:
   publish-server:
@@ -44,15 +47,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Read version from app.version
+      - name: Download release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ inputs.release_tag }}" \
+            --pattern "tgvd-server.jar" \
+            --pattern "app.version" \
+            --dir ./release-assets
+          cp release-assets/tgvd-server.jar .
+          cp release-assets/app.version .
+
+      - name: Read version
         id: version
         run: |
-          if [ -f app.version ]; then
-            VERSION=$(head -n1 app.version | tr -d '[:space:]')
-            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          else
-            echo "version=0.0.1-SNAPSHOT" >> "$GITHUB_OUTPUT"
-          fi
+          VERSION=$(cat app.version | tr -d '[:space:]')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -65,31 +75,33 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata (server)
-        id: meta-server
+        id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}-server
           tags: |
-            type=raw,value=${{ inputs.tag }}
+            type=raw,value=${{ inputs.extra_tag }},enable=${{ inputs.extra_tag != '' }}
             type=raw,value=${{ steps.version.outputs.version }}
-            type=sha,prefix=sha-
+            type=raw,value=${{ inputs.release_tag }}
 
       - name: Build and push server image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: server/app/Dockerfile
+          file: server/app/Dockerfile.ci
           push: true
-          tags: ${{ steps.meta-server.outputs.tags }}
-          labels: ${{ steps.meta-server.outputs.labels }}
-          build-args: |
-            GITHUB_USER=${{ github.actor }}
-            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          cache-from: type=gha,scope=server
-          cache-to: type=gha,mode=max,scope=server
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: JAR_PATH=tgvd-server.jar
+          cache-from: type=gha,scope=server-ci
+          cache-to: type=gha,mode=max,scope=server-ci
 
-      - name: Print server image digest
-        run: echo "Server image pushed with tags ${{ steps.meta-server.outputs.tags }}"
+      - name: Summary
+        run: |
+          echo "### ✅ Server image published" >> $GITHUB_STEP_SUMMARY
+          echo "**Release:** ${{ inputs.release_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo '${{ steps.meta.outputs.tags }}' | tr ',' '\n' | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
 
   publish-webapp:
     name: Publish webapp image
@@ -100,15 +112,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Read version from app.version
+      - name: Download release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ inputs.release_tag }}" \
+            --pattern "tgvd-webapp.tar.gz" \
+            --pattern "app.version" \
+            --dir ./release-assets
+          cp release-assets/tgvd-webapp.tar.gz .
+          cp release-assets/app.version .
+
+      - name: Read version
         id: version
         run: |
-          if [ -f app.version ]; then
-            VERSION=$(head -n1 app.version | tr -d '[:space:]')
-            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          else
-            echo "version=0.0.1-SNAPSHOT" >> "$GITHUB_OUTPUT"
-          fi
+          VERSION=$(cat app.version | tr -d '[:space:]')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -121,29 +140,31 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata (webapp)
-        id: meta-webapp
+        id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}-webapp
           tags: |
-            type=raw,value=${{ inputs.tag }}
+            type=raw,value=${{ inputs.extra_tag }},enable=${{ inputs.extra_tag != '' }}
             type=raw,value=${{ steps.version.outputs.version }}
-            type=sha,prefix=sha-
+            type=raw,value=${{ inputs.release_tag }}
 
       - name: Build and push webapp image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: tgminiapp/Dockerfile
+          file: tgminiapp/Dockerfile.ci
           push: true
-          tags: ${{ steps.meta-webapp.outputs.tags }}
-          labels: ${{ steps.meta-webapp.outputs.labels }}
-          build-args: |
-            GITHUB_USER=${{ github.actor }}
-            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          cache-from: type=gha,scope=webapp
-          cache-to: type=gha,mode=max,scope=webapp
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: DIST_ARCHIVE=tgvd-webapp.tar.gz
+          cache-from: type=gha,scope=webapp-ci
+          cache-to: type=gha,mode=max,scope=webapp-ci
 
-      - name: Print webapp image digest
-        run: echo "Webapp image pushed with tags ${{ steps.meta-webapp.outputs.tags }}"
+      - name: Summary
+        run: |
+          echo "### ✅ Webapp image published" >> $GITHUB_STEP_SUMMARY
+          echo "**Release:** ${{ inputs.release_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo '${{ steps.meta.outputs.tags }}' | tr ',' '\n' | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
 

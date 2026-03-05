@@ -83,6 +83,36 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release
 
+      # ── Собрать артефакты и прикрепить к GitHub Release ──
+      - name: Build release artifacts (JAR + JS)
+        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
+        env:
+          GITHUB_USER: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          ./gradlew
+          :server:app:shadowJar
+          :tgminiapp:jsBrowserProductionWebpack
+          --no-daemon
+
+      - name: Package webapp dist as tar.gz
+        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
+        run: |
+          tar -czf tgvd-webapp.tar.gz \
+            -C tgminiapp/build/dist/js/productionExecutable .
+
+      - name: Upload release assets
+        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(cat app.version)
+          gh release upload "v${VERSION}" \
+            server/app/build/libs/tgvd-server.jar \
+            tgvd-webapp.tar.gz \
+            app.version \
+            --clobber
+
       - name: Upload app.version artifact
         if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
         uses: actions/upload-artifact@v4

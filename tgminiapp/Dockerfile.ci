@@ -1,0 +1,37 @@
+# ============================================================
+# Dockerfile для CI/CD: принимает готовый JS-архив как build arg.
+# Gradle не запускается — только распаковка и упаковка в nginx-образ.
+#
+# Использование:
+#   docker build -f tgminiapp/Dockerfile.ci \
+#     --build-arg DIST_ARCHIVE=tgvd-webapp.tar.gz \
+#     -t ghcr.io/.../tg-video-downloader-webapp:1.2.3 .
+# ============================================================
+
+FROM nginx:1.27-alpine
+
+LABEL org.opencontainers.image.source="https://github.com/alelk/tg-video-downloader"
+LABEL org.opencontainers.image.description="TG Video Downloader — Telegram Mini App (Web UI)"
+LABEL org.opencontainers.image.licenses="MIT"
+
+# Путь к tar.gz-архиву с JS-дистрибутивом относительно build context
+ARG DIST_ARCHIVE=tgvd-webapp.tar.gz
+
+COPY ${DIST_ARCHIVE} /tmp/webapp.tar.gz
+RUN tar -xzf /tmp/webapp.tar.gz -C /usr/share/nginx/html/ && \
+    rm /tmp/webapp.tar.gz
+
+COPY tgminiapp/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# Runtime configuration via environment variables:
+#   API_BASE_URL — backend API base URL (default: uses window.location.origin)
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
+
+EXPOSE 80
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["nginx", "-g", "daemon off;"]
+

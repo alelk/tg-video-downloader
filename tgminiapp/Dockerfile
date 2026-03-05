@@ -3,7 +3,10 @@
 # ============================================================
 
 # ---- Stage 1: Build JS bundle ----
-FROM gradle:8.14-jdk21-alpine AS builder
+# linux/amd64 — фиксируем платформу builder-стадии, чтобы Node.js (скачиваемый
+# Kotlin/JS плагином) корректно запускался на ARM64-хостах (Apple Silicon).
+# Итоговый nginx-образ собирается под нативную платформу хоста.
+FROM --platform=linux/amd64 gradle:8.14-jdk21-alpine AS builder
 
 # Build arguments for private registry authentication (GitHub Packages)
 ARG GITHUB_USER
