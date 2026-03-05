@@ -21,7 +21,8 @@ val TelegramAuthPlugin = createRouteScopedPlugin(
     createConfiguration = ::TelegramAuthConfig,
 ) {
     val validator = pluginConfig.validator
-    val allowedUsers = pluginConfig.allowedUserIds
+    val allowedUserIds = pluginConfig.allowedUserIds
+    val allowedUsernames = pluginConfig.allowedUsernames.map { it.lowercase().trimStart('@') }.toSet()
 
     onCall { call ->
         val correlationId = call.callId ?: "unknown"
@@ -39,7 +40,11 @@ val TelegramAuthPlugin = createRouteScopedPlugin(
 
             is arrow.core.Either.Right -> {
                 val user = result.value
-                if (allowedUsers.isNotEmpty() && user.id.value !in allowedUsers) {
+                val isAllowed = (allowedUserIds.isEmpty() && allowedUsernames.isEmpty()) ||
+                    user.id.value in allowedUserIds ||
+                    (user.username != null && user.username.lowercase() in allowedUsernames)
+
+                if (!isAllowed) {
                     call.respond(HttpStatusCode.Forbidden, apiError("FORBIDDEN", "User not allowed", correlationId))
                     return@onCall
                 }
@@ -52,6 +57,7 @@ val TelegramAuthPlugin = createRouteScopedPlugin(
 class TelegramAuthConfig {
     lateinit var validator: TelegramAuthValidator
     var allowedUserIds: Set<Long> = emptySet()
+    var allowedUsernames: Set<String> = emptySet()
 }
 
 

@@ -143,6 +143,7 @@ private fun Application.configureRouting() {
             install(TelegramAuthPlugin) {
                 validator = authValidator
                 allowedUserIds = telegramConfig.allowedUserIds.mapNotNull { it.toLongOrNull() }.toSet()
+                allowedUsernames = telegramConfig.allowedUsernames.toSet()
             }
 
             workspaceRoutes()

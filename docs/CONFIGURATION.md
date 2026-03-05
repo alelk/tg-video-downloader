@@ -25,8 +25,10 @@ server:
 # Telegram
 telegram:
   botToken: "123456:ABC-DEF..."        # REQUIRED, через env
-  allowedUserIds:                       # REQUIRED
+  allowedUserIds:                       # по Telegram user ID (числовой)
     - "123456789"
+  allowedUsernames:                     # по @username (удобнее — человек знает свой логин)
+    - "my_username"
   devMode: false                        # NEVER true in production
 
 # Database
@@ -116,7 +118,8 @@ data class ServerConfig(
 
 data class TelegramConfig(
     val botToken: String,
-    val allowedUserIds: List<String>,
+    val allowedUserIds: List<String> = emptyList(),
+    val allowedUsernames: List<String> = emptyList(),
     val devMode: Boolean = false,
 )
 
@@ -222,6 +225,7 @@ Hoplite автоматически мапит env variables:
 | `SERVER_PORT`               | `server.port`                               |
 | `TELEGRAM_BOT_TOKEN`        | `telegram.botToken`                         |
 | `TELEGRAM_ALLOWED_USER_IDS` | `telegram.allowedUserIds` (comma-separated) |
+| `TELEGRAM_ALLOWED_USERNAMES`| `telegram.allowedUsernames` (comma-separated)|
 | `DB_URL`                    | `db.url`                                    |
 | `DB_USER`                   | `db.user`                                   |
 | `DB_PASSWORD`               | `db.password`                               |

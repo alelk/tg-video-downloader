@@ -52,6 +52,7 @@ services:
       # Секреты (из .env файла) — подставляются в application.yaml через Hoplite ${...}
       TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-dev-token}"
       TELEGRAM_ALLOWED_USER_IDS: "${TELEGRAM_ALLOWED_USER_IDS:-}"
+      TELEGRAM_ALLOWED_USERNAMES: "${TELEGRAM_ALLOWED_USERNAMES:-}"
       TELEGRAM_DEV_MODE: "${TELEGRAM_DEV_MODE:-true}"
       YTDLP_COOKIES_FILE: "${YTDLP_COOKIES_FILE:-}"
     configs:
@@ -102,6 +103,7 @@ configs:
       telegram:
         botToken: "$${TELEGRAM_BOT_TOKEN:-dev-token}"
         allowedUserIds: []
+        allowedUsernames: []
         devMode: $${TELEGRAM_DEV_MODE:-true}
 
       db:
