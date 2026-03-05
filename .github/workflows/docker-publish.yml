@@ -8,7 +8,7 @@ name: Publish Docker Images
 #   target      — какой образ опубликовать: server | webapp | both
 #   extra_tag   — дополнительный тег образа (например: latest)
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       release_tag:
