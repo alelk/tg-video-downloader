@@ -65,17 +65,27 @@ fun Application.configureApplication(config: AppConfig) {
         json(apiJson)
     }
 
-    install(CORS) {
-        anyHost()
-        allowHeader(HttpHeaders.ContentType)
-        allowHeader("X-Telegram-Init-Data")
-        allowHeader("X-Workspace-Id")
-        exposeHeader("X-Correlation-Id")
-        allowMethod(HttpMethod.Get)
-        allowMethod(HttpMethod.Post)
-        allowMethod(HttpMethod.Put)
-        allowMethod(HttpMethod.Delete)
-        allowMethod(HttpMethod.Options)
+    if (config.cors.enabled) {
+        install(CORS) {
+            val corsConfig = config.cors
+            if (corsConfig.anyHost) {
+                anyHost()
+            } else {
+                corsConfig.hosts.forEach { host ->
+                    allowHost(host, schemes = listOf("http", "https"))
+                }
+            }
+
+            allowCredentials = corsConfig.allowCredentials
+            allowNonSimpleContentTypes = corsConfig.allowNonSimpleContentTypes
+
+            corsConfig.methods.forEach { m ->
+                runCatching { HttpMethod.parse(m) }.getOrNull()?.let { allowMethod(it) }
+            }
+
+            corsConfig.headers.forEach { allowHeader(it) }
+            corsConfig.exposeHeaders.forEach { exposeHeader(it) }
+        }
     }
 
     install(DefaultHeaders) {
@@ -151,10 +161,10 @@ private fun loadConfig(): AppConfig {
     logger.info { "Loading configuration with profile: $profile, external config: $externalConfig" }
 
     return ConfigLoaderBuilder.default()
+        .addEnvironmentSource()
         .addFileSource(externalConfig, optional = true)          // 1. External file (highest priority)
         .addResourceSource("/application-$profile.yaml", optional = true) // 2. Profile-specific
         .addResourceSource("/application.yaml")                           // 3. Defaults
-        .addEnvironmentSource()                                           // 4. Env vars override any key
         .build()
         .loadConfigOrThrow<AppConfig>()
 }

@@ -11,6 +11,7 @@ import cafe.adriel.voyager.navigator.tab.CurrentTab
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
+import io.github.alelk.tgvd.api.client.ApiException
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.workspace.CreateWorkspaceRequestDto
 import io.github.alelk.tgvd.features.channels.screen.ChannelsTab
@@ -83,6 +84,8 @@ fun AppNavigation() {
                         workspaceState.workspaces = workspaceState.workspaces + created
                         workspaceState.selectWorkspace(created)
                         showCreateDialog = false
+                    } catch (e: ApiException) {
+                        createError = e.message ?: "API error: ${e.code}"
                     } catch (e: Exception) {
                         createError = e.message ?: "Failed to create workspace"
                     } finally {

@@ -1,8 +1,15 @@
 package io.github.alelk.tgvd.tgminiapp
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -14,7 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeViewport
+import io.github.alelk.tgvd.api.client.ApiException
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClientImpl
 import io.github.alelk.tgvd.api.contract.common.apiJson
@@ -150,13 +159,18 @@ private fun WorkspaceInitializer(content: @Composable () -> Unit) {
     val workspaceState = koinInject<WorkspaceState>()
     var ready by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var retryTrigger by remember { mutableStateOf(0) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(retryTrigger) {
+        error = null
+        ready = false
         try {
             val workspaces = client.getWorkspaces()
             val ws = if (workspaces.items.isNotEmpty()) {
                 workspaces.items
             } else {
+                // POST /workspaces with getOrCreate semantics on the server:
+                // if slug "default" already exists the server returns 200 with existing workspace
                 val created = client.createWorkspace(CreateWorkspaceRequestDto(slug = "default", name = "Default"))
                 listOf(created)
             }
@@ -169,6 +183,8 @@ private fun WorkspaceInitializer(content: @Composable () -> Unit) {
 
             (client as TgVideoDownloaderClientImpl).workspaceSlug = selected.slug
             ready = true
+        } catch (e: ApiException) {
+            error = "${e.code}: ${e.message}"
         } catch (e: Exception) {
             error = e.message ?: "Failed to initialize workspace"
         }
@@ -184,7 +200,27 @@ private fun WorkspaceInitializer(content: @Composable () -> Unit) {
     when {
         error != null -> {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Error: $error", color = Color.Red)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(24.dp),
+                ) {
+                    Text(
+                        text = "⚠️ Initialization Error",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = error ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = { retryTrigger++ }) {
+                        Text("Retry")
+                    }
+                }
             }
         }
         ready -> content()

@@ -12,4 +12,5 @@ data class AppConfig(
     val logging: LoggingConfig = LoggingConfig(),
     val llm: LlmConfig = LlmConfig(),
     val proxy: ProxyConfig = ProxyConfig(),
+    val cors: CorsConfig = CorsConfig(),
 )

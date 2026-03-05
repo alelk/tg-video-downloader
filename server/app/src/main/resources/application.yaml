@@ -6,7 +6,7 @@ server:
 telegram:
   botToken: "${TELEGRAM_BOT_TOKEN:-test-token}"
   allowedUserIds: []
-  devMode: true
+  devMode: false
 
 db:
   url: "jdbc:postgresql://localhost:5432/tgvd"
@@ -63,4 +63,23 @@ proxy:
   port: 8080
   username: null
   password: null
+
+cors:
+  enabled: true
+  anyHost: false
+  allowCredentials: false
+  hosts: ["localhost:8081"]
+  headers:
+    - "Content-Type"
+    - "X-Telegram-Init-Data"
+    - "X-Workspace-Id"
+  exposeHeaders:
+    - "X-Correlation-Id"
+  methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+  allowNonSimpleContentTypes: true
 

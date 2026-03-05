@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.server.infra.db.repository
 import arrow.core.Either
+import arrow.core.left
 import arrow.core.right
 import io.github.alelk.tgvd.domain.common.DomainError
 import io.github.alelk.tgvd.domain.common.TelegramUserId
@@ -59,15 +60,29 @@ class WorkspaceRepositoryImpl(
             .count() > 0
     }
     override suspend fun save(workspace: Workspace): Either<DomainError, Workspace> = dbQuery(database) {
-        val exists = WorkspacesTable.selectAll()
+        val existsById = WorkspacesTable.selectAll()
             .where { WorkspacesTable.id eq workspace.id.value }
             .count() > 0
-        if (exists) {
+        if (existsById) {
+            // Check that updated slug doesn't collide with another workspace
+            val slugOwner = WorkspacesTable.selectAll()
+                .where { WorkspacesTable.slug eq workspace.slug.value }
+                .singleOrNull()
+            if (slugOwner != null && slugOwner[WorkspacesTable.id].value != workspace.id.value) {
+                return@dbQuery DomainError.WorkspaceSlugConflict(workspace.slug).left()
+            }
             WorkspacesTable.update({ WorkspacesTable.id eq workspace.id.value }) {
                 it[slug] = workspace.slug.value
                 it[name] = workspace.name
             }
         } else {
+            // Check slug uniqueness before insert
+            val slugExists = WorkspacesTable.selectAll()
+                .where { WorkspacesTable.slug eq workspace.slug.value }
+                .count() > 0
+            if (slugExists) {
+                return@dbQuery DomainError.WorkspaceSlugConflict(workspace.slug).left()
+            }
             WorkspacesTable.insert {
                 it[id] = workspace.id.value
                 it[slug] = workspace.slug.value

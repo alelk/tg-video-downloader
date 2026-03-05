@@ -41,7 +41,7 @@ fun Route.workspaceRoutes() {
         call.respond(WorkspaceListResponseDto(items = workspaces))
     }
 
-    // Create a new workspace
+    // Create a new workspace (or return existing if slug already taken)
     post<ApiV1.Workspaces> {
         val request = call.receive<CreateWorkspaceRequestDto>()
         val user = call.telegramUser
@@ -50,6 +50,25 @@ fun Route.workspaceRoutes() {
         val result = either {
             val slug = runCatching { WorkspaceSlug(request.slug) }
                 .getOrElse { raise(DomainError.ValidationError("slug", it.message ?: "Invalid slug")) }
+
+            // Check if workspace with this slug already exists
+            val existing = workspaceRepository.findBySlug(slug)
+            if (existing != null) {
+                // Ensure the caller is a member; if not, add as MEMBER
+                if (!workspaceRepository.isMember(existing.id, user.id)) {
+                    workspaceRepository.addMember(
+                        WorkspaceMember(
+                            workspaceId = existing.id,
+                            userId = user.id,
+                            role = WorkspaceRole.MEMBER,
+                            joinedAt = now,
+                        )
+                    ).bind()
+                }
+                val membership = workspaceRepository.findMembers(existing.id)
+                    .find { it.userId == user.id }
+                return@post call.respond(HttpStatusCode.OK, existing.toDto(membership?.role?.name?.lowercase() ?: "member"))
+            }
 
             val workspace = Workspace(
                 id = WorkspaceId(Uuid.random()),
