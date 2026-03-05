@@ -29,6 +29,16 @@
     <string name="preview_back">Back</string>
     <string name="preview_original">Original</string>
     <string name="preview_additional">Additional</string>
+    <string name="preview_storage_collapsed">Storage Plan (tap to expand)</string>
+    <string name="preview_storage_path">Output Path</string>
+    <string name="preview_storage_container">Container</string>
+    <string name="preview_storage_max_quality">Max Quality</string>
+    <string name="preview_storage_quality_best">Best available</string>
+    <string name="preview_storage_quality_1080p">1080p HD</string>
+    <string name="preview_storage_quality_720p">720p HD</string>
+    <string name="preview_storage_quality_480p">480p SD</string>
+    <string name="preview_storage_from_rule">from rule</string>
+    <string name="preview_storage_no_rule">No rule matched — configure manually</string>
 
     <!-- Info Labels -->
     <string name="label_title">Title</string>

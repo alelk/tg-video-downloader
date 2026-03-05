@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.features.download.screen
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -18,9 +19,11 @@ import io.github.alelk.tgvd.api.contract.metadata.ResolvedMetadataDto
 import io.github.alelk.tgvd.api.contract.preview.PreviewRequestDto
 import io.github.alelk.tgvd.api.contract.preview.PreviewResponseDto
 import io.github.alelk.tgvd.api.contract.preview.UserOverridesDto
+import io.github.alelk.tgvd.api.contract.storage.MediaContainerDto
 import io.github.alelk.tgvd.api.contract.storage.OutputFormatDto
 import io.github.alelk.tgvd.api.contract.storage.OutputTargetDto
 import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
+import io.github.alelk.tgvd.api.contract.storage.VideoQualityDto
 import io.github.alelk.tgvd.api.contract.channel.ChannelDto
 import io.github.alelk.tgvd.features.channels.screen.ChannelEditorScreen
 import io.github.alelk.tgvd.features.common.component.ErrorCard
@@ -100,6 +103,7 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
         var tags by remember { mutableStateOf(preview.metadata.tags.joinToString(", ")) }
         var originalPath by remember { mutableStateOf(preview.storagePlan.original.path) }
         var originalFormat by remember { mutableStateOf(preview.storagePlan.original.format) }
+        var originalMaxQuality by remember { mutableStateOf(preview.storagePlan.original.maxQuality) }
         val additionalOutputs = remember {
             mutableStateListOf(*preview.storagePlan.additional.map {
                 OutputTargetDto(
@@ -443,54 +447,159 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Storage Plan (editable paths for all outputs)
-                SectionCard(title = "Storage Plan", icon = TgvdIcons.Folder) {
-                    // Original output
-                    Text("Original", style = MaterialTheme.typography.labelMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    OutlinedTextField(
-                        value = originalPath,
-                        onValueChange = { originalPath = it },
-                        label = { Text("Output Path") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = false,
-                        minLines = 2,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    FormatDropdown(
-                        selectedFormat = originalFormat,
-                        onFormatSelected = { originalFormat = it },
-                    )
+                // Storage Plan (collapsible, collapsed by default)
+                var storagePlanExpanded by remember { mutableStateOf(false) }
+                val noRule = preview.matchedRule == null
 
-                    // Additional outputs
-                    additionalOutputs.forEachIndexed { index, target ->
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                "Output #${index + 2}",
-                                style = MaterialTheme.typography.labelMedium,
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (noRule)
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    ),
+                ) {
+                    // Header row — always visible, tap to expand
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { storagePlanExpanded = !storagePlanExpanded }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                TgvdIcons.Folder,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
                             )
-                            Text(
-                                target.format.serialized,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    stringResource(Res.string.preview_storage_plan),
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                if (!storagePlanExpanded) {
+                                    // Compact summary when collapsed
+                                    val qualitySuffix = originalMaxQuality?.let { " · ${qualityLabel(it)}" } ?: ""
+                                    Text(
+                                        text = "${originalFormat.serialized}$qualitySuffix",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (noRule) {
+                                Text(
+                                    stringResource(Res.string.preview_storage_no_rule),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(end = 8.dp),
+                                )
+                            } else {
+                                preview.matchedRule?.name?.let { ruleName ->
+                                    Text(
+                                        "(${stringResource(Res.string.preview_storage_from_rule)}: $ruleName)",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(end = 8.dp),
+                                    )
+                                }
+                            }
+                            Icon(
+                                if (storagePlanExpanded) TgvdIcons.ExpandLess else TgvdIcons.ExpandMore,
+                                contentDescription = if (storagePlanExpanded)
+                                    stringResource(Res.string.rule_collapse)
+                                else
+                                    stringResource(Res.string.rule_expand),
+                                modifier = Modifier.size(20.dp),
                             )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        OutlinedTextField(
-                            value = target.path,
-                            onValueChange = { newPath ->
-                                additionalOutputs[index] = target.copy(path = newPath)
-                            },
-                            label = { Text("Output Path") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = false,
-                            minLines = 2,
-                        )
+                    }
+
+                    // Expanded content
+                    if (storagePlanExpanded) {
+                        HorizontalDivider()
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+
+                            // — Original output —
+                            Text(
+                                stringResource(Res.string.preview_original),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = originalPath,
+                                onValueChange = { originalPath = it },
+                                label = { Text(stringResource(Res.string.preview_storage_path)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = false,
+                                minLines = 2,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            // Container + Quality in one row
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                val selectedContainer = (originalFormat as? OutputFormatDto.OriginalVideo)?.container
+                                ContainerDropdown(
+                                    selectedContainer = selectedContainer,
+                                    onContainerSelected = { originalFormat = OutputFormatDto.OriginalVideo(it) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                QualityDropdown(
+                                    selectedQuality = originalMaxQuality,
+                                    onQualitySelected = { originalMaxQuality = it },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+
+                            // — Additional outputs —
+                            additionalOutputs.forEachIndexed { index, target ->
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+                                Text(
+                                    "${stringResource(Res.string.preview_additional)} #${index + 1}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                OutlinedTextField(
+                                    value = target.path,
+                                    onValueChange = { newPath ->
+                                        additionalOutputs[index] = target.copy(path = newPath)
+                                    },
+                                    label = { Text(stringResource(Res.string.preview_storage_path)) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = false,
+                                    minLines = 2,
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                // Container + Quality in one row
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    val addContainer = (target.format as? OutputFormatDto.OriginalVideo)?.container
+                                    ContainerDropdown(
+                                        selectedContainer = addContainer,
+                                        onContainerSelected = { container ->
+                                            additionalOutputs[index] = target.copy(
+                                                format = OutputFormatDto.OriginalVideo(container),
+                                            )
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    QualityDropdown(
+                                        selectedQuality = target.maxQuality,
+                                        onQualitySelected = { q ->
+                                            additionalOutputs[index] = target.copy(maxQuality = q)
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -543,7 +652,7 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                     original = OutputTargetDto(
                                         path = originalPath,
                                         format = originalFormat,
-                                        maxQuality = preview.storagePlan.original.maxQuality,
+                                        maxQuality = originalMaxQuality,
                                         encodeSettings = preview.storagePlan.original.encodeSettings,
                                         embedThumbnail = preview.storagePlan.original.embedThumbnail,
                                         embedMetadata = preview.storagePlan.original.embedMetadata,
@@ -588,18 +697,27 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
 
 @Composable
 private fun mutableStateSetOf(vararg elements: String): MutableSet<String> {
-    // Simple mutable set backed by mutableStateListOf for compose recomposition
     return remember { mutableSetOf(*elements) }
+}
+
+/** Human-readable label for a VideoQualityDto value */
+@Composable
+private fun qualityLabel(quality: VideoQualityDto): String = when (quality) {
+    VideoQualityDto.BEST -> stringResource(Res.string.preview_storage_quality_best)
+    VideoQualityDto.HD_1080 -> stringResource(Res.string.preview_storage_quality_1080p)
+    VideoQualityDto.HD_720 -> stringResource(Res.string.preview_storage_quality_720p)
+    VideoQualityDto.SD_480 -> stringResource(Res.string.preview_storage_quality_480p)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FormatDropdown(
-    selectedFormat: OutputFormatDto,
-    onFormatSelected: (OutputFormatDto) -> Unit,
+private fun ContainerDropdown(
+    selectedContainer: MediaContainerDto?,
+    onContainerSelected: (MediaContainerDto) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val displayValue = selectedContainer?.extension?.uppercase() ?: "auto"
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -607,10 +725,10 @@ private fun FormatDropdown(
         modifier = modifier,
     ) {
         OutlinedTextField(
-            value = selectedFormat.serialized,
+            value = displayValue,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Format") },
+            label = { Text(stringResource(Res.string.preview_storage_container)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth(),
             singleLine = true,
@@ -619,14 +737,77 @@ private fun FormatDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            OutputFormatDto.allFormats.forEach { format ->
+            MediaContainerDto.entries.forEach { container ->
                 DropdownMenuItem(
-                    text = { Text(format.serialized) },
+                    text = { Text(container.extension.uppercase()) },
                     onClick = {
-                        onFormatSelected(format)
+                        onContainerSelected(container)
                         expanded = false
                     },
                     contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                    trailingIcon = {
+                        if (container == selectedContainer) {
+                            Text("✓", color = MaterialTheme.colorScheme.primary)
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun QualityDropdown(
+    selectedQuality: VideoQualityDto?,
+    onQualitySelected: (VideoQualityDto?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val displayValue = selectedQuality?.let { qualityLabel(it) }
+        ?: stringResource(Res.string.preview_storage_quality_best)
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = modifier,
+    ) {
+        OutlinedTextField(
+            value = displayValue,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(stringResource(Res.string.preview_storage_max_quality)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            singleLine = true,
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            // "Best available" = null
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.preview_storage_quality_best)) },
+                onClick = {
+                    onQualitySelected(null)
+                    expanded = false
+                },
+                contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                trailingIcon = {
+                    if (selectedQuality == null) Text("✓", color = MaterialTheme.colorScheme.primary)
+                },
+            )
+            VideoQualityDto.entries.forEach { quality ->
+                DropdownMenuItem(
+                    text = { Text(qualityLabel(quality)) },
+                    onClick = {
+                        onQualitySelected(quality)
+                        expanded = false
+                    },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                    trailingIcon = {
+                        if (quality == selectedQuality) Text("✓", color = MaterialTheme.colorScheme.primary)
+                    },
                 )
             }
         }

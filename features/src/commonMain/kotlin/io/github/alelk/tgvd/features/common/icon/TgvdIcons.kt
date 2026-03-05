@@ -217,6 +217,36 @@ object TgvdIcons {
         }.build()
     }
 
+    /** Expand more (chevron down) */
+    val ExpandMore: ImageVector by lazy {
+        ImageVector.Builder("ExpandMore", 24.dp, 24.dp, 24f, 24f).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(16.59f, 8.59f)
+                lineTo(12f, 13.17f)
+                lineTo(7.41f, 8.59f)
+                lineTo(6f, 10f)
+                lineTo(12f, 16f)
+                lineTo(18f, 10f)
+                close()
+            }
+        }.build()
+    }
+
+    /** Expand less (chevron up) */
+    val ExpandLess: ImageVector by lazy {
+        ImageVector.Builder("ExpandLess", 24.dp, 24.dp, 24f, 24f).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(12f, 8f)
+                lineTo(6f, 14f)
+                lineTo(7.41f, 15.41f)
+                lineTo(12f, 10.83f)
+                lineTo(16.59f, 15.41f)
+                lineTo(18f, 14f)
+                close()
+            }
+        }.build()
+    }
+
     /** Movie/film icon */
     val Movie: ImageVector by lazy {
         ImageVector.Builder("Movie", 24.dp, 24.dp, 24f, 24f).apply {
