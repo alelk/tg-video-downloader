@@ -78,8 +78,19 @@ class FfmpegRunner(
                 val isHw = settings.hwAccel != null
                 if (isHw) {
                     when (settings.hwAccel) {
-                        VideoEncodeSettings.HwAccel.VIDEOTOOLBOX -> { add("-q:v"); add("${settings.crf.coerceIn(1, 100)}") }
-                        VideoEncodeSettings.HwAccel.NVENC -> { add("-cq"); add("${settings.crf}"); add("-preset"); add("p4") }
+                        VideoEncodeSettings.HwAccel.VIDEOTOOLBOX -> {
+                            // VideoToolbox uses -q:v with INVERTED scale: 1 = worst, 100 = best (lossless)
+                            // CRF uses: 0 = lossless, 51 = worst
+                            // Convert: q:v = round((51 - crf) / 51 * 99) + 1
+                            val vtQuality = ((51 - settings.crf).toDouble() / 51.0 * 99.0 + 1.0).toInt().coerceIn(1, 100)
+                            add("-q:v"); add("$vtQuality")
+                        }
+                        VideoEncodeSettings.HwAccel.NVENC -> {
+                            // NVENC -cq uses same 0-51 scale as CRF (0 = lossless, 51 = worst)
+                            add("-cq"); add("${settings.crf}")
+                            // Map user preset to NVENC p1-p7 scale
+                            add("-preset"); add(nvencPreset(settings.preset))
+                        }
                         VideoEncodeSettings.HwAccel.QSV -> { add("-global_quality"); add("${settings.crf}") }
                         else -> { add("-crf"); add("${settings.crf}") }
                     }
@@ -132,6 +143,21 @@ class FfmpegRunner(
             }
             else -> error("No dimension constraint specified")
         }
+    }
+
+    /**
+     * Map generic EncodePreset to NVENC preset names (p1=fastest .. p7=slowest).
+     */
+    private fun nvencPreset(preset: VideoEncodeSettings.EncodePreset): String = when (preset) {
+        VideoEncodeSettings.EncodePreset.ULTRAFAST -> "p1"
+        VideoEncodeSettings.EncodePreset.SUPERFAST -> "p1"
+        VideoEncodeSettings.EncodePreset.VERYFAST -> "p2"
+        VideoEncodeSettings.EncodePreset.FASTER -> "p3"
+        VideoEncodeSettings.EncodePreset.FAST -> "p4"
+        VideoEncodeSettings.EncodePreset.MEDIUM -> "p4"
+        VideoEncodeSettings.EncodePreset.SLOW -> "p5"
+        VideoEncodeSettings.EncodePreset.SLOWER -> "p6"
+        VideoEncodeSettings.EncodePreset.VERYSLOW -> "p7"
     }
 
     /**
