@@ -26,19 +26,27 @@ class FfmpegRunner(
         input: FilePath,
         output: FilePath,
         container: MediaContainer,
+        maxWidth: Int? = null,
         maxHeight: Int? = null,
         encodeSettings: VideoEncodeSettings? = null,
     ): Either<DomainError, FilePath> {
         val settings = encodeSettings ?: VideoEncodeSettings()
 
         // Determine if transcoding is actually needed:
-        // If maxHeight is set, check source resolution — skip transcoding if source is already <= maxHeight
-        val sourceHeight = if (maxHeight != null) probeVideoHeight(input) else null
-        val needsTranscode = maxHeight != null && (sourceHeight == null || sourceHeight > maxHeight)
-        val effectiveMaxHeight = if (needsTranscode) maxHeight else null
+        // If maxHeight is set, check source resolution — skip transcoding if source is already within limits
+        val sourceResolution = if (maxHeight != null || maxWidth != null) probeVideoResolution(input) else null
+        val sourceWidth = sourceResolution?.first
+        val sourceHeight = sourceResolution?.second
+        val needsTranscode = when {
+            maxHeight == null && maxWidth == null -> false
+            sourceHeight == null || sourceWidth == null -> true // can't determine — transcode to be safe
+            maxHeight != null && sourceHeight > maxHeight -> true
+            maxWidth != null && sourceWidth > maxWidth -> true
+            else -> false
+        }
 
-        if (maxHeight != null && !needsTranscode) {
-            logger.info { "Source height (${sourceHeight}p) <= max (${maxHeight}p), will remux only" }
+        if ((maxHeight != null || maxWidth != null) && !needsTranscode) {
+            logger.info { "Source resolution (${sourceWidth}x${sourceHeight}) within limits (${maxWidth ?: "any"}x${maxHeight ?: "any"}), will remux only" }
         }
 
         val args = buildList {
@@ -57,9 +65,13 @@ class FfmpegRunner(
 
             add("-i"); add(input.value)
 
-            if (needsTranscode && effectiveMaxHeight != null) {
-                // Video scaling — use expression without quotes
-                add("-vf"); add("scale=-2:min($effectiveMaxHeight\\,ih)")
+            if (needsTranscode) {
+                // Video scaling — fit within maxWidth x maxHeight box, preserving aspect ratio.
+                // scale=iw*min(1,min(MW/iw,MH/ih)):ih*min(1,min(MW/iw,MH/ih))
+                // This scales down only (never upscales) and constrains BOTH dimensions.
+                // -2 trick ensures dimensions are divisible by 2 for codec compatibility.
+                val scaleFilter = buildScaleFilter(maxWidth, maxHeight)
+                add("-vf"); add(scaleFilter)
                 // Video encoder
                 add("-c:v"); add(settings.resolveEncoder())
                 // Quality
@@ -86,26 +98,52 @@ class FfmpegRunner(
             add("-y"); add(output.value)
         }
 
-        val desc = if (needsTranscode && effectiveMaxHeight != null) {
+        val desc = if (needsTranscode) {
             val encoder = settings.resolveEncoder()
-            "convert to ${container.extension} (${effectiveMaxHeight}p, $encoder, crf=${settings.crf})"
+            val sizeDesc = listOfNotNull(maxWidth?.let { "${it}w" }, maxHeight?.let { "${it}p" }).joinToString("x")
+            "convert to ${container.extension} ($sizeDesc, $encoder, crf=${settings.crf})"
         } else {
-            "remux to ${container.extension}" + if (maxHeight != null) " (source ${sourceHeight}p <= ${maxHeight}p)" else ""
+            val limits = listOfNotNull(maxWidth?.let { "${it}w" }, maxHeight?.let { "${it}p" }).joinToString("x")
+            "remux to ${container.extension}" + if (limits.isNotEmpty()) " (source ${sourceWidth}x${sourceHeight} within $limits)" else ""
         }
 
         return runFfmpeg(args = args, description = desc).map { output }
     }
 
     /**
-     * Probe video height using ffprobe. Returns null if detection fails.
+     * Build ffmpeg scale filter that fits video within maxWidth x maxHeight box.
+     * Never upscales. Ensures dimensions are divisible by 2.
      */
-    private suspend fun probeVideoHeight(input: FilePath): Int? = withContext(Dispatchers.IO) {
+    private fun buildScaleFilter(maxWidth: Int?, maxHeight: Int?): String {
+        // Use ffmpeg expressions to constrain both dimensions while preserving aspect ratio.
+        // The approach: compute scale factor as min(1, min(MW/iw, MH/ih)), apply to both dims, round to even.
+        return when {
+            maxWidth != null && maxHeight != null -> {
+                // Fit within box: scale down only, preserve aspect ratio, round to even
+                "scale='trunc(iw*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2':'trunc(ih*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2'"
+            }
+            maxHeight != null -> {
+                // Constrain height only (original behavior)
+                "scale=-2:'min($maxHeight\\,ih)'"
+            }
+            maxWidth != null -> {
+                // Constrain width only
+                "scale='min($maxWidth\\,iw)':-2"
+            }
+            else -> error("No dimension constraint specified")
+        }
+    }
+
+    /**
+     * Probe video width and height using ffprobe. Returns (width, height) pair or null if detection fails.
+     */
+    private suspend fun probeVideoResolution(input: FilePath): Pair<Int, Int>? = withContext(Dispatchers.IO) {
         try {
             val ffprobePath = config.path.replace("ffmpeg", "ffprobe")
             val process = ProcessBuilder(
                 ffprobePath, "-v", "error",
                 "-select_streams", "v:0",
-                "-show_entries", "stream=height",
+                "-show_entries", "stream=width,height",
                 "-of", "csv=p=0",
                 input.value,
             ).redirectErrorStream(true).start()
@@ -113,8 +151,16 @@ class FfmpegRunner(
             val output = process.inputStream.bufferedReader().use { it.readText().trim() }
             val exitCode = process.waitFor()
             if (exitCode == 0) {
-                output.lines().firstOrNull()?.trim()?.toIntOrNull().also {
-                    logger.info { "Probed video height: ${it}p for ${input.fileName}" }
+                // Output format: "width,height" e.g. "2579,1080"
+                val parts = output.lines().firstOrNull()?.trim()?.split(",")
+                val width = parts?.getOrNull(0)?.trim()?.toIntOrNull()
+                val height = parts?.getOrNull(1)?.trim()?.toIntOrNull()
+                if (width != null && height != null) {
+                    logger.info { "Probed video resolution: ${width}x${height} for ${input.fileName}" }
+                    width to height
+                } else {
+                    logger.warn { "Could not parse ffprobe resolution output: $output" }
+                    null
                 }
             } else {
                 logger.warn { "ffprobe failed (exit=$exitCode): $output" }
