@@ -1,5 +1,14 @@
 # TGVD CHANGELOG
 
+# [1.8.0](https://github.com/alelk/tg-video-downloader/compare/v1.7.0...v1.8.0) (2026-03-06)
+
+
+### Features
+
+* enhance NVENC and VideoToolbox settings for improved video encoding quality ([e8a7743](https://github.com/alelk/tg-video-downloader/commit/e8a77435a9e6083be2445bd5a259d7f25a9cb125))
+* enhance video conversion to support maximum resolution constraints ([8f620b2](https://github.com/alelk/tg-video-downloader/commit/8f620b26cf73b8ae105fc0ce55ea1af02d3723dc))
+* replace Row with FlowRow for improved layout in MatchConditionEditor and RuleEditorScreen ([5fc4fd6](https://github.com/alelk/tg-video-downloader/commit/5fc4fd67b030fe6cf7c700ad2b951bd582dc8ae5))
+
 # [1.7.0](https://github.com/alelk/tg-video-downloader/compare/v1.6.0...v1.7.0) (2026-03-05)
 
 
