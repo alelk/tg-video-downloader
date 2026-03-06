@@ -187,7 +187,10 @@ class RuleEditorScreen(
                     )
                 }
                 Text("Category", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     CategoryDto.entries.forEach { cat ->
                         FilterChip(
                             selected = category == cat,
@@ -378,7 +381,10 @@ private fun OutputsEditor(outputs: SnapshotStateList<OutputState>) {
 
                         // Max quality (optional)
                         Text("Max Quality", style = MaterialTheme.typography.labelMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
                             FilterChip(
                                 selected = output.maxQuality == null,
                                 onClick = { outputs[index] = output.copy(maxQuality = null) },
@@ -408,7 +414,10 @@ private fun OutputsEditor(outputs: SnapshotStateList<OutputState>) {
 
                                 // Codec
                                 Text("Video Codec", style = MaterialTheme.typography.labelSmall)
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
                                     VideoCodecDto.entries.forEach { c ->
                                         FilterChip(
                                             selected = curSettings.codec == c,
@@ -420,7 +429,10 @@ private fun OutputsEditor(outputs: SnapshotStateList<OutputState>) {
 
                                 // HW Accel
                                 Text("Hardware Acceleration", style = MaterialTheme.typography.labelSmall)
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
                                     FilterChip(
                                         selected = curSettings.hwAccel == null,
                                         onClick = { outputs[index] = output.copy(encodeSettings = curSettings.copy(hwAccel = null)) },
@@ -437,7 +449,10 @@ private fun OutputsEditor(outputs: SnapshotStateList<OutputState>) {
 
                                 // Preset
                                 Text("Encode Preset", style = MaterialTheme.typography.labelSmall)
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
                                     listOf(EncodePresetDto.VERYFAST, EncodePresetDto.FAST, EncodePresetDto.MEDIUM, EncodePresetDto.SLOW, EncodePresetDto.VERYSLOW).forEach { p ->
                                         FilterChip(
                                             selected = curSettings.preset == p,
@@ -463,7 +478,10 @@ private fun OutputsEditor(outputs: SnapshotStateList<OutputState>) {
 
                                 // Audio bitrate
                                 Text("Audio Bitrate", style = MaterialTheme.typography.labelSmall)
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
                                     listOf("96k", "128k", "192k", "256k", "320k").forEach { br ->
                                         FilterChip(
                                             selected = curSettings.audioBitrate == br,
@@ -520,7 +538,10 @@ private fun FormatSelector(current: OutputFormatDto, onChange: (OutputFormatDto)
         is OutputFormatDto.Audio -> "Audio"
         is OutputFormatDto.Thumbnail -> "Thumbnail"
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
         formatGroups.forEach { (groupName, formats) ->
             FilterChip(
                 selected = currentGroup == groupName,
@@ -532,7 +553,10 @@ private fun FormatSelector(current: OutputFormatDto, onChange: (OutputFormatDto)
 
     // Extension selector within group
     val currentFormats = formatGroups.find { it.first == currentGroup }?.second.orEmpty()
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
         currentFormats.forEach { fmt ->
             FilterChip(
                 selected = current.extension == fmt.extension,
@@ -571,14 +595,20 @@ private fun DownloadPolicySection(
 ) {
     Column(Modifier.fillMaxWidth().padding(start = 8.dp), Arrangement.spacedBy(8.dp)) {
         Text("Max Download Quality", style = MaterialTheme.typography.labelMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             VideoQualityDto.entries.forEach { q ->
                 FilterChip(selected = maxQuality == q, onClick = { onMaxQualityChange(q) },
                     label = { Text(qualityLabel(q), style = MaterialTheme.typography.bodySmall) })
             }
         }
         Text("Preferred Container", style = MaterialTheme.typography.labelMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             FilterChip(selected = preferredContainer == null, onClick = { onContainerChange(null) },
                 label = { Text("Auto", style = MaterialTheme.typography.bodySmall) })
             MediaContainerDto.entries.forEach { c ->

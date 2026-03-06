@@ -124,9 +124,10 @@ private fun SimpleMatchEditor(
     var ignoreCase by remember(state) { mutableStateOf(state.ignoreCase) }
 
     // Match type chips
-    Row(
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         MATCH_TYPES.forEach { (key, label) ->
             FilterChip(
@@ -148,6 +149,37 @@ private fun SimpleMatchEditor(
                 value = categoryName
                 onChanged(MatchConditionState.Simple(type = type, value = categoryName, ignoreCase = ignoreCase))
             },
+        )
+    } else if (type == "has-tag") {
+        // Predefined tag chips (like ChannelEditorScreen)
+        val predefinedTags = listOf("music-video", "series")
+        Text("Quick select", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            predefinedTags.forEach { tag ->
+                FilterChip(
+                    selected = value == tag,
+                    onClick = {
+                        value = tag
+                        onChanged(MatchConditionState.Simple(type = type, value = tag, ignoreCase = ignoreCase))
+                    },
+                    label = { Text(tag) },
+                )
+            }
+        }
+        OutlinedTextField(
+            value = value,
+            onValueChange = {
+                value = it
+                onChanged(MatchConditionState.Simple(type = type, value = it, ignoreCase = ignoreCase))
+            },
+            label = { Text("Tag") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            isError = value.isBlank(),
+            supportingText = { Text("e.g. music-video, series, lofi") },
         )
     } else {
         OutlinedTextField(
