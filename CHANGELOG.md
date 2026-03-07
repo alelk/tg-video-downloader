@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.10.0](https://github.com/alelk/tg-video-downloader/compare/v1.9.0...v1.10.0) (2026-03-07)
+
+
+### Features
+
+* Implement composite build for tg-mini-app and update clipboard handling ([4415100](https://github.com/alelk/tg-video-downloader/commit/4415100e87e5e13b60a977c1457cc1224acf4bc4))
+
 # [1.9.0](https://github.com/alelk/tg-video-downloader/compare/v1.8.0...v1.9.0) (2026-03-07)
 
 
