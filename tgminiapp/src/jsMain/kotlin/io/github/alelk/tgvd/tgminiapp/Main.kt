@@ -137,7 +137,41 @@ private fun createPlatformCallbacks() = PlatformCallbacks(
     onHapticFeedback = {
         try { js("window.Telegram.WebApp.HapticFeedback.impactOccurred('light')") } catch (_: Throwable) {}
     },
+    readTextFromClipboard = { callback ->
+        readClipboardText(callback)
+    },
 )
+
+/**
+ * Reads text from clipboard using Telegram WebApp API (preferred on iOS)
+ * with fallback to navigator.clipboard Web API.
+ *
+ * On iOS in Telegram Mini App, native paste doesn't work with Compose Canvas-based
+ * text fields, so we use the Telegram `readTextFromClipboard` method instead.
+ */
+private fun readClipboardText(callback: (String?) -> Unit) {
+    val jsCallback: (dynamic) -> Unit = { text -> callback(text as? String) }
+
+    // Try Telegram WebApp API first (works on iOS in Telegram)
+    try {
+        val webApp: dynamic = js("window.Telegram.WebApp")
+        if (webApp.readTextFromClipboard != null && webApp.readTextFromClipboard != undefined) {
+            webApp.readTextFromClipboard(jsCallback)
+            return
+        }
+    } catch (_: Throwable) {}
+
+    // Fallback: Web Clipboard API (works in desktop browsers)
+    try {
+        val clipboard: dynamic = js("navigator.clipboard")
+        if (clipboard != null && clipboard != undefined) {
+            clipboard.readText().then(jsCallback).catch { _: dynamic -> callback(null) }
+            return
+        }
+    } catch (_: Throwable) {}
+
+    callback(null)
+}
 
 private fun parseColor(hex: dynamic): Color? {
     val str = hex as? String ?: return null

@@ -12,6 +12,8 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.preview.PreviewRequestDto
 import io.github.alelk.tgvd.features.common.component.ErrorCard
+import io.github.alelk.tgvd.features.common.icon.TgvdIcons
+import io.github.alelk.tgvd.features.common.theme.LocalPlatformCallbacks
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -21,6 +23,7 @@ class UrlInputScreen : Screen {
     override fun Content() {
         val client = koinInject<TgVideoDownloaderClient>()
         val navigator = LocalNavigator.currentOrThrow
+        val platformCallbacks = LocalPlatformCallbacks.current
 
         var url by remember { mutableStateOf("") }
         var isLoading by remember { mutableStateOf(false) }
@@ -45,6 +48,28 @@ class UrlInputScreen : Screen {
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !isLoading,
+                trailingIcon = {
+                    val readClipboard = platformCallbacks.readTextFromClipboard
+                    if (readClipboard != null) {
+                        IconButton(
+                            onClick = {
+                                readClipboard { text ->
+                                    if (!text.isNullOrBlank()) {
+                                        url = text.trim()
+                                        errorMessage = null
+                                    }
+                                }
+                            },
+                            enabled = !isLoading,
+                        ) {
+                            Icon(
+                                imageVector = TgvdIcons.ContentPaste,
+                                contentDescription = "Paste",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                },
             )
 
             Spacer(modifier = Modifier.height(16.dp))

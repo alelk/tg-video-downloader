@@ -30,6 +30,8 @@ data class PlatformCallbacks(
     val onShowBackButton: ((Boolean) -> Unit)? = null,
     val onShowMainButton: ((text: String, onClick: () -> Unit) -> Unit)? = null,
     val onHideMainButton: (() -> Unit)? = null,
+    /** Read text from clipboard. Uses Telegram WebApp API on iOS where native paste doesn't work with Canvas. */
+    val readTextFromClipboard: ((callback: (String?) -> Unit) -> Unit)? = null,
 )
 
 val LocalPlatformCallbacks = staticCompositionLocalOf { PlatformCallbacks() }
