@@ -205,15 +205,18 @@ class YtDlpRunner(
             .enrichPath()
             .start()
 
+        val outputLines = mutableListOf<String>()
         process.inputStream.bufferedReader().useLines { lines ->
             for (line in lines) {
+                outputLines += line
                 parseProgressLine(line)?.let { emit(it) }
             }
         }
 
         val exitCode = process.waitFor()
         if (exitCode != 0) {
-            logger.error { "yt-dlp download failed (exit=$exitCode)" }
+            val output = outputLines.takeLast(50).joinToString("\n")
+            logger.error { "yt-dlp download failed (exit=$exitCode):\n$output" }
         }
     }.flowOn(Dispatchers.IO)
 
