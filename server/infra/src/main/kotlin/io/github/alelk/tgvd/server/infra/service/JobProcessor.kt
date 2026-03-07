@@ -201,8 +201,7 @@ class JobProcessor(
                 ffmpegRunner.convertVideo(originalPath, target.path, format.container, maxResolution?.first, maxResolution?.second, target.encodeSettings)
                     .fold(
                         { error ->
-                            logger.error { "Conversion failed for ${target.path.value}: $error" }
-                            return
+                            throw RuntimeException("Conversion to ${format.container.extension} failed for ${target.path.value}: $error")
                         },
                         { path ->
                             logger.info { "Converted to ${format.container.extension}: ${target.path.value}" }
@@ -214,8 +213,7 @@ class JobProcessor(
                 ffmpegRunner.extractAudio(originalPath, target.path, format.format)
                     .fold(
                         { error ->
-                            logger.error { "Audio extraction failed for ${target.path.value}: $error" }
-                            return
+                            throw RuntimeException("Audio extraction (${format.format.extension}) failed for ${target.path.value}: $error")
                         },
                         { path ->
                             logger.info { "Extracted audio as ${format.format.extension}: ${target.path.value}" }

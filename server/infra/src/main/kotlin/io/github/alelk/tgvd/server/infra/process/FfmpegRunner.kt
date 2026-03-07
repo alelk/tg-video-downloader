@@ -56,7 +56,21 @@ class FfmpegRunner(
                     when (hw) {
                         VideoEncodeSettings.HwAccel.VIDEOTOOLBOX -> {} // no init flag needed
                         VideoEncodeSettings.HwAccel.NVENC -> { add("-hwaccel"); add("cuda") }
-                        VideoEncodeSettings.HwAccel.QSV -> { add("-hwaccel"); add("qsv") }
+                        VideoEncodeSettings.HwAccel.QSV -> {
+                            // Intel QSV via VAAPI → QSV chain (mirrors Jellyfin approach):
+                            // 1. init_hw_device vaapi=va — VAAPI device (auto-detect driver)
+                            // 2. init_hw_device qsv=qs@va — QSV device derived from VAAPI
+                            // 3. filter_hw_device qs — use QSV device for vf filters
+                            // 4. hwaccel vaapi — decode via VAAPI
+                            // 5. hwaccel_output_format vaapi — decoded frames stay on VAAPI surface
+                            // 6. extra_hw_frames — reserve extra surfaces for filter pipeline
+                            add("-init_hw_device"); add("vaapi=va:")
+                            add("-init_hw_device"); add("qsv=qs@va")
+                            add("-filter_hw_device"); add("qs")
+                            add("-hwaccel"); add("vaapi")
+                            add("-hwaccel_output_format"); add("vaapi")
+                            add("-extra_hw_frames"); add("64")
+                        }
                         VideoEncodeSettings.HwAccel.VAAPI -> { add("-hwaccel"); add("vaapi"); add("-hwaccel_output_format"); add("vaapi") }
                         VideoEncodeSettings.HwAccel.AMF -> {} // no init flag needed
                     }
@@ -67,10 +81,9 @@ class FfmpegRunner(
 
             if (needsTranscode) {
                 // Video scaling — fit within maxWidth x maxHeight box, preserving aspect ratio.
-                // scale=iw*min(1,min(MW/iw,MH/ih)):ih*min(1,min(MW/iw,MH/ih))
-                // This scales down only (never upscales) and constrains BOTH dimensions.
-                // -2 trick ensures dimensions are divisible by 2 for codec compatibility.
-                val scaleFilter = buildScaleFilter(maxWidth, maxHeight)
+                // For QSV: use scale_vaapi + hwmap (vaapi surface → qsv surface) as Jellyfin does.
+                // For others: standard scale filter with software or hwaccel-specific approach.
+                val scaleFilter = buildScaleFilter(maxWidth, maxHeight, settings.hwAccel)
                 add("-vf"); add(scaleFilter)
                 // Video encoder
                 add("-c:v"); add(settings.resolveEncoder())
@@ -91,7 +104,11 @@ class FfmpegRunner(
                             // Map user preset to NVENC p1-p7 scale
                             add("-preset"); add(nvencPreset(settings.preset))
                         }
-                        VideoEncodeSettings.HwAccel.QSV -> { add("-global_quality"); add("${settings.crf}") }
+                        VideoEncodeSettings.HwAccel.QSV -> {
+                            add("-low_power"); add("1")
+                            add("-preset"); add("medium")
+                            add("-global_quality"); add("${settings.crf}")
+                        }
                         else -> { add("-crf"); add("${settings.crf}") }
                     }
                 } else {
@@ -118,30 +135,89 @@ class FfmpegRunner(
             "remux to ${container.extension}" + if (limits.isNotEmpty()) " (source ${sourceWidth}x${sourceHeight} within $limits)" else ""
         }
 
-        return runFfmpeg(args = args, description = desc).map { output }
+        val result = runFfmpeg(args = args, description = desc)
+
+        // If hardware encoder failed — retry with software fallback
+        if (result.isLeft() && settings.hwAccel != null) {
+            val fallbackSettings = settings.copy(hwAccel = null)
+            logger.warn { "Hardware encoder (${settings.hwAccel}) failed, retrying with software encoder (${fallbackSettings.resolveEncoder()})" }
+            val fallbackArgs = buildList {
+                add("-i"); add(input.value)
+                if (needsTranscode) {
+                    val scaleFilter = buildScaleFilter(maxWidth, maxHeight)
+                    add("-vf"); add(scaleFilter)
+                    add("-c:v"); add(fallbackSettings.resolveEncoder())
+                    add("-crf"); add("${fallbackSettings.crf}")
+                    add("-preset"); add(fallbackSettings.preset.ffmpegValue)
+                    add("-c:a"); add(fallbackSettings.resolveAudioCodec(container))
+                    add("-b:a"); add(fallbackSettings.audioBitrate)
+                } else {
+                    add("-c:v"); add("copy")
+                    add("-c:a"); add("copy")
+                }
+                add("-y"); add(output.value)
+            }
+            val fallbackDesc = if (needsTranscode) {
+                val sizeDesc = listOfNotNull(maxWidth?.let { "${it}w" }, maxHeight?.let { "${it}p" }).joinToString("x")
+                "convert to ${container.extension} ($sizeDesc, ${fallbackSettings.resolveEncoder()}, crf=${fallbackSettings.crf}) [sw fallback]"
+            } else desc
+            return runFfmpeg(args = fallbackArgs, description = fallbackDesc).map { output }
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        return result.map { output } as Either<DomainError, FilePath>
     }
 
     /**
-     * Build ffmpeg scale filter that fits video within maxWidth x maxHeight box.
-     * Never upscales. Ensures dimensions are divisible by 2.
+     * Build ffmpeg video filter for scaling.
+     *
+     * - QSV: scale via scale_vaapi on VAAPI surface, then hwmap to QSV for h264_qsv encoder.
+     *   Pipeline: scale_vaapi=w=W:h=H:format=nv12,hwmap=derive_device=qsv,format=qsv
+     * - VAAPI: scale_vaapi filter directly.
+     * - Others (SW, NVENC, VideoToolbox, AMF): standard software scale filter.
+     *
+     * HW filters (scale_vaapi) preserve aspect ratio when one dimension is -1.
+     * SW filter: fits within box, never upscales, rounds to even.
      */
-    private fun buildScaleFilter(maxWidth: Int?, maxHeight: Int?): String {
-        // Use ffmpeg expressions to constrain both dimensions while preserving aspect ratio.
-        // The approach: compute scale factor as min(1, min(MW/iw, MH/ih)), apply to both dims, round to even.
-        return when {
-            maxWidth != null && maxHeight != null -> {
-                // Fit within box: scale down only, preserve aspect ratio, round to even
-                "scale='trunc(iw*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2':'trunc(ih*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2'"
+    private fun buildScaleFilter(
+        maxWidth: Int?,
+        maxHeight: Int?,
+        hwAccel: VideoEncodeSettings.HwAccel? = null,
+    ): String {
+        return when (hwAccel) {
+            VideoEncodeSettings.HwAccel.QSV -> {
+                val w = maxWidth ?: -1
+                val h = maxHeight ?: -1
+                if (maxWidth != null || maxHeight != null) {
+                    // scale_vaapi scales on VAAPI surface, hwmap maps result to QSV for h264_qsv encoder
+                    "scale_vaapi=w=$w:h=$h:format=nv12," +
+                        "hwmap=derive_device=qsv,format=qsv"
+                } else {
+                    // No resize — just map VAAPI surface to QSV
+                    "hwmap=derive_device=qsv,format=qsv"
+                }
             }
-            maxHeight != null -> {
-                // Constrain height only (original behavior)
-                "scale=-2:'min($maxHeight\\,ih)'"
+            VideoEncodeSettings.HwAccel.VAAPI -> {
+                val w = maxWidth ?: -1
+                val h = maxHeight ?: -1
+                if (maxWidth != null || maxHeight != null) {
+                    "scale_vaapi=w=$w:h=$h:format=nv12"
+                } else {
+                    "scale_vaapi=format=nv12"
+                }
             }
-            maxWidth != null -> {
-                // Constrain width only
-                "scale='min($maxWidth\\,iw)':-2"
+            else -> {
+                // Standard software scale filter — fit within box, never upscale, round to even
+                when {
+                    maxWidth != null && maxHeight != null ->
+                        "scale='trunc(iw*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2':'trunc(ih*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2'"
+                    maxHeight != null ->
+                        "scale=-2:'min($maxHeight\\,ih)'"
+                    maxWidth != null ->
+                        "scale='min($maxWidth\\,iw)':-2"
+                    else -> error("No dimension constraint specified")
+                }
             }
-            else -> error("No dimension constraint specified")
         }
     }
 
