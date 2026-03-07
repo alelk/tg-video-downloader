@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.15.0](https://github.com/alelk/tg-video-downloader/compare/v1.14.0...v1.15.0) (2026-03-07)
+
+
+### Features
+
+* enhance QSV hardware acceleration support and improve error handling in video processing ([80283ff](https://github.com/alelk/tg-video-downloader/commit/80283ff521a7c1d3b88b61b209a1e2a54c869b69))
+
 # [1.14.0](https://github.com/alelk/tg-video-downloader/compare/v1.13.0...v1.14.0) (2026-03-07)
 
 
