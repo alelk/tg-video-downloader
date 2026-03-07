@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.13.0](https://github.com/alelk/tg-video-downloader/compare/v1.12.0...v1.13.0) (2026-03-07)
+
+
+### Features
+
+* add Telegram Mini App auto-reply bot with URL handling ([81bcaf9](https://github.com/alelk/tg-video-downloader/commit/81bcaf9a0467a7b922d2fef3356d092f86c090a4))
+
 # [1.12.0](https://github.com/alelk/tg-video-downloader/compare/v1.11.0...v1.12.0) (2026-03-07)
 
 
