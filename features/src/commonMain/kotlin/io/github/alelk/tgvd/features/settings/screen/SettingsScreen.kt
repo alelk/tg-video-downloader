@@ -12,6 +12,7 @@ import io.github.alelk.tgvd.api.contract.system.ProxySettingsDto
 import io.github.alelk.tgvd.api.contract.system.SystemSettingsDto
 import io.github.alelk.tgvd.api.contract.system.YtDlpSettingsDto
 import io.github.alelk.tgvd.api.contract.system.YtDlpStatusDto
+import io.github.alelk.tgvd.features.common.BuildConfig
 import io.github.alelk.tgvd.features.common.component.*
 import io.github.alelk.tgvd.features.common.state.WorkspaceState
 import io.github.alelk.tgvd.features.common.theme.StatusCompleted
@@ -347,7 +348,7 @@ fun SettingsScreen() {
         // About section
         SectionCard(title = "About") {
             InfoRow("App", "TG Video Downloader")
-            InfoRow("Version", "0.1.0-SNAPSHOT")
+            InfoRow("Version", BuildConfig.APP_VERSION)
         }
 
         Spacer(modifier = Modifier.height(16.dp))

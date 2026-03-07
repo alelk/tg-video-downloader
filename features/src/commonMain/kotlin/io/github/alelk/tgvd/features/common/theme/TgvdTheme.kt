@@ -30,7 +30,12 @@ data class PlatformCallbacks(
     val onShowBackButton: ((Boolean) -> Unit)? = null,
     val onShowMainButton: ((text: String, onClick: () -> Unit) -> Unit)? = null,
     val onHideMainButton: (() -> Unit)? = null,
-    /** Read text from clipboard. Uses Telegram WebApp API on iOS where native paste doesn't work with Canvas. */
+    /**
+     * Read text from clipboard using platform-specific API.
+     * On Telegram Mini App uses `readTextFromClipboard` Telegram WebApp API (Bot API 6.4+).
+     * Falls back to `navigator.clipboard.readText()` on desktop browsers.
+     * The callback receives the clipboard text, or null if unavailable.
+     */
     val readTextFromClipboard: ((callback: (String?) -> Unit) -> Unit)? = null,
 )
 

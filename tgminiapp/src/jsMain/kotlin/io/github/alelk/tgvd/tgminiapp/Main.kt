@@ -18,11 +18,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.ComposeViewport
+import com.kirillNay.telegram.miniapp.webApp.webApp
 import io.github.alelk.tgvd.api.client.ApiException
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClientImpl
@@ -35,28 +33,37 @@ import io.github.alelk.tgvd.features.common.theme.TelegramThemeColors
 import io.github.alelk.tgvd.features.common.theme.TgvdTheme
 import io.github.alelk.tgvd.features.di.featuresModule
 import io.github.alelk.tgvd.features.navigation.AppNavigation
+import com.kirillNay.telegram.miniapp.compose.telegramWebApp
 import io.ktor.client.*
 import io.ktor.client.engine.js.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.serialization.kotlinx.json.*
-import kotlinx.browser.document
 import org.koin.compose.KoinApplication
 import org.koin.compose.koinInject
 import org.koin.dsl.module
 
-@OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    initTelegramWebApp()
+    webApp.ready()
+    webApp.expand()
 
-    val root = document.getElementById("root")!!
-    ComposeViewport(root) {
+    telegramWebApp { telegramStyle ->
         val apiModule = remember { createApiModule() }
         val platformModule = remember { createPlatformModule() }
 
         KoinApplication(application = {
             modules(platformModule, apiModule, featuresModule)
         }) {
-            val telegramColors = remember { readTelegramThemeColors() }
+            val telegramColors = remember(telegramStyle.colors) {
+                TelegramThemeColors(
+                    bgColor = telegramStyle.colors.backgroundColor,
+                    textColor = telegramStyle.colors.textColor,
+                    hintColor = telegramStyle.colors.hintColor,
+                    buttonColor = telegramStyle.colors.buttonColor,
+                    buttonTextColor = telegramStyle.colors.buttonTextColor,
+                    linkColor = telegramStyle.colors.linkColor,
+                    secondaryBgColor = telegramStyle.colors.secondaryBackgroundColor,
+                )
+            }
             val platformCallbacks = remember { createPlatformCallbacks() }
             val isDark = remember(telegramColors) { detectIsDarkTheme(telegramColors) }
 
@@ -77,15 +84,6 @@ private fun createPlatformModule() = module {
     single<PreferencesStorage> { LocalStoragePreferences() }
 }
 
-private fun initTelegramWebApp() {
-    try {
-        js("window.Telegram.WebApp.ready()")
-        js("window.Telegram.WebApp.expand()")
-    } catch (_: Throwable) {
-        // Not running inside Telegram — dev mode
-    }
-}
-
 private fun createApiModule() = module {
     single<TgVideoDownloaderClient> {
         val httpClient = HttpClient(Js) {
@@ -95,8 +93,7 @@ private fun createApiModule() = module {
             ?: js("window.location.origin").unsafeCast<String>()
         val initDataProvider = {
             try {
-                val initData = js("window.Telegram.WebApp.initData").unsafeCast<String>()
-                initData.takeIf { it.isNotBlank() } ?: "dev"
+                webApp.rawInitData.takeIf { it.isNotBlank() } ?: "dev"
             } catch (_: Throwable) {
                 "dev"
             }
@@ -118,24 +115,9 @@ private fun readEnvConfig(key: String): String? = try {
     null
 }
 
-private fun readTelegramThemeColors(): TelegramThemeColors? = try {
-    val tp = js("window.Telegram.WebApp.themeParams")
-    TelegramThemeColors(
-        bgColor = parseColor(tp.bg_color),
-        textColor = parseColor(tp.text_color),
-        hintColor = parseColor(tp.hint_color),
-        buttonColor = parseColor(tp.button_color),
-        buttonTextColor = parseColor(tp.button_text_color),
-        linkColor = parseColor(tp.link_color),
-        secondaryBgColor = parseColor(tp.secondary_bg_color),
-    )
-} catch (_: Throwable) {
-    null
-}
-
 private fun createPlatformCallbacks() = PlatformCallbacks(
     onHapticFeedback = {
-        try { js("window.Telegram.WebApp.HapticFeedback.impactOccurred('light')") } catch (_: Throwable) {}
+        try { webApp.hapticFeedback.impactOccurred("light") } catch (_: Throwable) {}
     },
     readTextFromClipboard = { callback ->
         readClipboardText(callback)
@@ -143,20 +125,19 @@ private fun createPlatformCallbacks() = PlatformCallbacks(
 )
 
 /**
- * Reads text from clipboard using Telegram WebApp API (preferred on iOS)
- * with fallback to navigator.clipboard Web API.
+ * Reads text from clipboard using Telegram WebApp typed API (preferred on iOS).
+ * Falls back to navigator.clipboard Web API for desktop browsers.
  *
- * On iOS in Telegram Mini App, native paste doesn't work with Compose Canvas-based
- * text fields, so we use the Telegram `readTextFromClipboard` method instead.
+ * Note: Telegram's readTextFromClipboard can only be called in response to user interaction
+ * (e.g. a click) and requires Bot API 6.4+.
  */
 private fun readClipboardText(callback: (String?) -> Unit) {
-    val jsCallback: (dynamic) -> Unit = { text -> callback(text as? String) }
-
-    // Try Telegram WebApp API first (works on iOS in Telegram)
+    // Try Telegram WebApp typed API first
     try {
-        val webApp: dynamic = js("window.Telegram.WebApp")
-        if (webApp.readTextFromClipboard != null && webApp.readTextFromClipboard != undefined) {
-            webApp.readTextFromClipboard(jsCallback)
+        if (webApp.isVersionAtLeast("6.4")) {
+            webApp.readTextFromClipboard { text ->
+                callback(text.takeIf { it.isNotBlank() })
+            }
             return
         }
     } catch (_: Throwable) {}
@@ -165,21 +146,14 @@ private fun readClipboardText(callback: (String?) -> Unit) {
     try {
         val clipboard: dynamic = js("navigator.clipboard")
         if (clipboard != null && clipboard != undefined) {
-            clipboard.readText().then(jsCallback).catch { _: dynamic -> callback(null) }
+            clipboard.readText()
+                .then { text: dynamic -> callback(text as? String) }
+                .catch { _: dynamic -> callback(null) }
             return
         }
     } catch (_: Throwable) {}
 
     callback(null)
-}
-
-private fun parseColor(hex: dynamic): Color? {
-    val str = hex as? String ?: return null
-    if (!str.startsWith("#") || str.length != 7) return null
-    val r = str.substring(1, 3).toIntOrNull(16) ?: return null
-    val g = str.substring(3, 5).toIntOrNull(16) ?: return null
-    val b = str.substring(5, 7).toIntOrNull(16) ?: return null
-    return Color(r, g, b)
 }
 
 /**

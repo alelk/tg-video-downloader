@@ -30,6 +30,8 @@ class UrlInputScreen : Screen {
         var errorMessage by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
 
+        val hasPasteSupport = platformCallbacks.readTextFromClipboard != null
+
         Column(
             modifier = Modifier.fillMaxSize().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -48,12 +50,11 @@ class UrlInputScreen : Screen {
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !isLoading,
-                trailingIcon = {
-                    val readClipboard = platformCallbacks.readTextFromClipboard
-                    if (readClipboard != null) {
+                trailingIcon = if (hasPasteSupport) {
+                    {
                         IconButton(
                             onClick = {
-                                readClipboard { text ->
+                                platformCallbacks.readTextFromClipboard?.invoke { text ->
                                     if (!text.isNullOrBlank()) {
                                         url = text.trim()
                                         errorMessage = null
@@ -69,7 +70,7 @@ class UrlInputScreen : Screen {
                             )
                         }
                     }
-                },
+                } else null,
             )
 
             Spacer(modifier = Modifier.height(16.dp))
