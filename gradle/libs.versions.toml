@@ -37,7 +37,7 @@ androidx-lifecycle = "2.9.6"
 voyager = "1.1.0-beta03"
 
 # Telegram Mini App
-tgMiniApp = "1.0.0-rc.3"
+tgMiniApp = "1.0.0"
 
 # Gradle plugins
 shadow = "9.3.1"

@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.kirillNay.telegram.miniapp.webApp.webApp
+import com.kirillNay.telegram.miniapp.compose.telegramWebApp
 import io.github.alelk.tgvd.api.client.ApiException
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClientImpl
@@ -33,7 +34,6 @@ import io.github.alelk.tgvd.features.common.theme.TelegramThemeColors
 import io.github.alelk.tgvd.features.common.theme.TgvdTheme
 import io.github.alelk.tgvd.features.di.featuresModule
 import io.github.alelk.tgvd.features.navigation.AppNavigation
-import com.kirillNay.telegram.miniapp.compose.telegramWebApp
 import io.ktor.client.*
 import io.ktor.client.engine.js.*
 import io.ktor.client.plugins.contentnegotiation.*
