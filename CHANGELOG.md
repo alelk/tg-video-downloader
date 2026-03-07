@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.14.0](https://github.com/alelk/tg-video-downloader/compare/v1.13.0...v1.14.0) (2026-03-07)
+
+
+### Features
+
+* enhance error logging for yt-dlp download failures and add project configuration file ([6965587](https://github.com/alelk/tg-video-downloader/commit/69655879440db061923e87d4a7de008042fa4419))
+
 # [1.13.0](https://github.com/alelk/tg-video-downloader/compare/v1.12.0...v1.13.0) (2026-03-07)
 
 
