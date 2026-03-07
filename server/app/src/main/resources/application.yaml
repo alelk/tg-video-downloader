@@ -8,6 +8,17 @@ telegram:
   allowedUserIds: []
   allowedUsernames: []
   devMode: false
+  miniAppAutoReply:
+    enabled: ${TELEGRAM_BOT_MINI_APP_ENABLED:-false}
+    botUsername: "${TELEGRAM_BOT_USERNAME:-}"
+    appShortName: "${TELEGRAM_BOT_MINI_APP_SHORT_NAME:-}"
+    buttonText: "${TELEGRAM_BOT_MINI_APP_BUTTON_TEXT:-Open Mini App}"
+    replyText: "${TELEGRAM_BOT_MINI_APP_REPLY_TEXT:-Open Mini App to continue.}"
+    urlPatterns:
+      - "youtube\\.com|youtu\\.be"
+      - "rutube\\.ru"
+      - "vk\\.com/video"
+    pollingTimeoutSeconds: ${TELEGRAM_BOT_MINI_APP_POLLING_TIMEOUT_SECONDS:-60}
 
 db:
   url: "jdbc:postgresql://localhost:5432/tgvd"
@@ -83,4 +94,3 @@ cors:
     - "DELETE"
     - "OPTIONS"
   allowNonSimpleContentTypes: true
-

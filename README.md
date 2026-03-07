@@ -184,6 +184,35 @@ storage:
 5. Может поставить галочку "Сохранить как правило" для этого канала.
 ```
 
+### Сценарий 3: Bot -> Mini App кнопка (автоподстановка URL)
+
+Теперь сервер может поднимать lightweight long-polling бота, который:
+- получает сообщение с ссылкой;
+- отправляет inline-кнопку `Open Mini App`;
+- открывает Mini App через `startapp`, и поле URL в UI уже заполнено.
+
+Минимальная конфигурация:
+
+```yaml
+telegram:
+  botToken: "${TELEGRAM_BOT_TOKEN}"
+  miniAppAutoReply:
+    enabled: true
+    botUsername: "your_bot_username"
+    miniAppShortName: "miniapp"
+    buttonText: "Open Mini App"
+    replyText: "Got your link. Open Mini App to continue."
+    onlyYoutubeLinks: false
+```
+
+Формат deep-link, который отправляет бот:
+
+```text
+https://t.me/<bot_username>/<mini_app_short_name>?startapp=<base64url(video_url)>
+```
+
+`tgminiapp` автоматически читает `start_param` / `tgWebAppStartParam` и подставляет ссылку в `Video URL`.
+
 ---
 
 ## ✅ Definition of Done (MVP)

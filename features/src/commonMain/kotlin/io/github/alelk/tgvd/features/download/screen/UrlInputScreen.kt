@@ -25,7 +25,9 @@ class UrlInputScreen : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val platformCallbacks = LocalPlatformCallbacks.current
 
-        var url by remember { mutableStateOf("") }
+        var url by remember(platformCallbacks.prefilledUrl) {
+            mutableStateOf(platformCallbacks.prefilledUrl.orEmpty())
+        }
         var isLoading by remember { mutableStateOf(false) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()

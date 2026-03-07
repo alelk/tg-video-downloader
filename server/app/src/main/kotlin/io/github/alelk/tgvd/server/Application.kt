@@ -34,6 +34,7 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.resources.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.github.alelk.tgvd.server.telegram.TelegramMiniAppAutoReplyBot
 import kotlinx.coroutines.launch
 import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
@@ -111,6 +112,7 @@ fun Application.configureApplication(config: AppConfig) {
 
     configureRouting()
     configureJobProcessor()
+    configureTelegramMiniAppAutoReplyBot(config)
 }
 
 private fun Application.configureJobProcessor() {
@@ -125,6 +127,23 @@ private fun Application.configureJobProcessor() {
     }
     monitor.subscribe(ApplicationStopping) {
         jobProcessor.stop()
+    }
+}
+
+private fun Application.configureTelegramMiniAppAutoReplyBot(config: AppConfig) {
+    val botConfig = config.telegram.miniAppAutoReply
+    if (!botConfig.enabled) return
+
+    val bot = TelegramMiniAppAutoReplyBot(
+        botToken = config.telegram.botToken,
+        config = botConfig
+    )
+
+    monitor.subscribe(ApplicationStarted) {
+        bot.start()
+    }
+    monitor.subscribe(ApplicationStopping) {
+        bot.stop()
     }
 }
 

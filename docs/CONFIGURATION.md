@@ -30,6 +30,15 @@ telegram:
   allowedUsernames:                     # по @username (удобнее — человек знает свой логин)
     - "my_username"
   devMode: false                        # NEVER true in production
+  miniAppAutoReply:
+    enabled: false                       # true => бот отвечает на сообщения со ссылками
+    botUsername: "my_downloader_bot"   # без @
+    appShortName: "tgvd"               # short name из BotFather (последний сегмент t.me/bot/appShortName)
+    buttonText: "Open Mini App"
+    replyText: "Got your link. Open Mini App to continue."
+    urlPatterns: []                      # список regex для фильтрации URL; пусто => любой URL
+                                         # пример: ["youtube\\.com", "youtu\\.be", "rutube\\.ru"]
+    pollingTimeoutSeconds: 60
 
 # Database
 db:
@@ -121,6 +130,19 @@ data class TelegramConfig(
     val allowedUserIds: List<String> = emptyList(),
     val allowedUsernames: List<String> = emptyList(),
     val devMode: Boolean = false,
+    val miniAppAutoReply: TelegramMiniAppAutoReplyConfig = TelegramMiniAppAutoReplyConfig(),
+)
+
+data class TelegramMiniAppAutoReplyConfig(
+    val enabled: Boolean = false,
+    val botUsername: String? = null,
+    /** Short name Mini App — последний сегмент в https://t.me/{botUsername}/{appShortName} */
+    val appShortName: String? = null,
+    val buttonText: String = "Open Mini App",
+    val replyText: String = "Got your link. Open Mini App to continue.",
+    /** Список regex для фильтрации URL. Если пуст — реагируем на любой URL */
+    val urlPatterns: List<String> = emptyList(),
+    val pollingTimeoutSeconds: Int = 60,
 )
 
 data class DbConfig(
@@ -220,17 +242,23 @@ private fun getProfile(): String {
 
 Hoplite автоматически мапит env variables:
 
-| Env Variable                | Config Path                                 |
-|-----------------------------|---------------------------------------------|
-| `SERVER_PORT`               | `server.port`                               |
-| `TELEGRAM_BOT_TOKEN`        | `telegram.botToken`                         |
-| `TELEGRAM_ALLOWED_USER_IDS` | `telegram.allowedUserIds` (comma-separated) |
-| `TELEGRAM_ALLOWED_USERNAMES`| `telegram.allowedUsernames` (comma-separated)|
-| `DB_URL`                    | `db.url`                                    |
-| `DB_USER`                   | `db.user`                                   |
-| `DB_PASSWORD`               | `db.password`                               |
-| `LLM_API_KEY`               | `llm.apiKey`                                |
-| `PROXY_PASSWORD`            | `proxy.password`                            |
+| Env Variable                                    | Config Path                                       |
+|-------------------------------------------------|---------------------------------------------------|
+| `SERVER_PORT`                                   | `server.port`                                     |
+| `TELEGRAM_BOT_TOKEN`                            | `telegram.botToken`                               |
+| `TELEGRAM_ALLOWED_USER_IDS`                     | `telegram.allowedUserIds` (comma-separated)       |
+| `TELEGRAM_ALLOWED_USERNAMES`                    | `telegram.allowedUsernames` (comma-separated)     |
+| `DB_URL`                                        | `db.url`                                          |
+| `DB_USER`                                       | `db.user`                                         |
+| `DB_PASSWORD`                                   | `db.password`                                     |
+| `LLM_API_KEY`                                   | `llm.apiKey`                                      |
+| `PROXY_PASSWORD`                                | `proxy.password`                                  |
+| `TELEGRAM_BOT_MINI_APP_ENABLED`                 | `telegram.miniAppAutoReply.enabled`               |
+| `TELEGRAM_BOT_USERNAME`                         | `telegram.miniAppAutoReply.botUsername`           |
+| `TELEGRAM_BOT_MINI_APP_SHORT_NAME`              | `telegram.miniAppAutoReply.appShortName`          |
+| `TELEGRAM_BOT_MINI_APP_BUTTON_TEXT`             | `telegram.miniAppAutoReply.buttonText`            |
+| `TELEGRAM_BOT_MINI_APP_REPLY_TEXT`              | `telegram.miniAppAutoReply.replyText`             |
+| `TELEGRAM_BOT_MINI_APP_POLLING_TIMEOUT_SECONDS` | `telegram.miniAppAutoReply.pollingTimeoutSeconds` |
 
 ---
 

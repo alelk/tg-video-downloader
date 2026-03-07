@@ -30,6 +30,8 @@ data class PlatformCallbacks(
     val onShowBackButton: ((Boolean) -> Unit)? = null,
     val onShowMainButton: ((text: String, onClick: () -> Unit) -> Unit)? = null,
     val onHideMainButton: (() -> Unit)? = null,
+    /** URL to prefill in download input when Mini App is opened from a bot button/deeplink. */
+    val prefilledUrl: String? = null,
     /**
      * Read text from clipboard using platform-specific API.
      * On Telegram Mini App uses `readTextFromClipboard` Telegram WebApp API (Bot API 6.4+).
@@ -150,4 +152,3 @@ fun TgvdTheme(
         )
     }
 }
-

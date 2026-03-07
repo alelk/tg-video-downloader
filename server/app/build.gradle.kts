@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.kotlinJvm)
+    alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.ktor)
     alias(libs.plugins.shadow)
 }
@@ -23,6 +24,9 @@ dependencies {
 
     // Ktor
     implementation(libs.ktor.server.netty)
+
+    // Telegram Bot API
+    implementation(libs.tgbotapi)
 
     // Configuration
     implementation(libs.hoplite.core)
@@ -61,4 +65,3 @@ tasks.shadowJar {
 tasks.build {
     dependsOn(tasks.shadowJar)
 }
-

@@ -55,6 +55,12 @@ services:
       TELEGRAM_ALLOWED_USERNAMES: "${TELEGRAM_ALLOWED_USERNAMES:-}"
       TELEGRAM_DEV_MODE: "${TELEGRAM_DEV_MODE:-true}"
       YTDLP_COOKIES_FILE: "${YTDLP_COOKIES_FILE:-}"
+      # Mini App auto-reply bot
+      TELEGRAM_BOT_MINI_APP_ENABLED: "${TELEGRAM_BOT_MINI_APP_ENABLED:-false}"
+      TELEGRAM_BOT_USERNAME: "${TELEGRAM_BOT_USERNAME:-}"
+      TELEGRAM_BOT_MINI_APP_SHORT_NAME: "${TELEGRAM_BOT_MINI_APP_SHORT_NAME:-}"
+      TELEGRAM_BOT_MINI_APP_BUTTON_TEXT: "${TELEGRAM_BOT_MINI_APP_BUTTON_TEXT:-Open Mini App}"
+      TELEGRAM_BOT_MINI_APP_REPLY_TEXT: "${TELEGRAM_BOT_MINI_APP_REPLY_TEXT:-Got your link. Open Mini App to continue.}"
     configs:
       - source: server-config
         target: /app/config/application.yaml
@@ -105,6 +111,14 @@ configs:
         allowedUserIds: []
         allowedUsernames: []
         devMode: $${TELEGRAM_DEV_MODE:-true}
+        miniAppAutoReply:
+          enabled: $${TELEGRAM_BOT_MINI_APP_ENABLED:-false}
+          botUsername: "$${TELEGRAM_BOT_USERNAME:-}"
+          appShortName: "$${TELEGRAM_BOT_MINI_APP_SHORT_NAME:-}"
+          buttonText: "$${TELEGRAM_BOT_MINI_APP_BUTTON_TEXT:-Open Mini App}"
+          replyText: "$${TELEGRAM_BOT_MINI_APP_REPLY_TEXT:-Got your link. Open Mini App to continue.}"
+          urlPatterns: []
+          pollingTimeoutSeconds: 60
 
       db:
         url: "jdbc:postgresql://db:5432/tgvd"

@@ -42,6 +42,9 @@ tgMiniApp = "1.0.0"
 # Gradle plugins
 shadow = "9.3.1"
 
+# Telegram Bot API
+tgBotApi = "30.0.2"
+
 [libraries]
 
 # Kotlinx
@@ -118,6 +121,9 @@ voyager-transitions = { module = "cafe.adriel.voyager:voyager-transitions", vers
 
 # Telegram Mini App
 tg-mini-app = { module = "io.github.alelk:tg-mini-app", version.ref = "tgMiniApp" }
+
+# Telegram Bot API
+tgbotapi = { module = "dev.inmo:tgbotapi", version.ref = "tgBotApi" }
 
 # Testing
 kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }

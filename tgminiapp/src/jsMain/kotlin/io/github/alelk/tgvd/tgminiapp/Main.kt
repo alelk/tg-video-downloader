@@ -64,7 +64,8 @@ fun main() {
                     secondaryBgColor = telegramStyle.colors.secondaryBackgroundColor,
                 )
             }
-            val platformCallbacks = remember { createPlatformCallbacks() }
+            // НЕ используем remember — читаем startParam при каждом открытии Mini App
+            val platformCallbacks = createPlatformCallbacks()
             val isDark = remember(telegramColors) { detectIsDarkTheme(telegramColors) }
 
             TgvdTheme(
@@ -119,10 +120,86 @@ private fun createPlatformCallbacks() = PlatformCallbacks(
     onHapticFeedback = {
         try { webApp.hapticFeedback.impactOccurred("light") } catch (_: Throwable) {}
     },
+    prefilledUrl = resolvePrefilledUrl(),
     readTextFromClipboard = { callback ->
         readClipboardText(callback)
     },
 )
+
+private fun resolvePrefilledUrl(): String? {
+    val startParam = try { webApp.initDataUnsafe.startParam } catch (_: Throwable) { null }
+    val urlSearch = try { js("window.location.search") as? String } catch (_: Throwable) { null }
+    js("console.log('[tgvd] resolvePrefilledUrl: startParam=' + startParam + ', search=' + urlSearch)")
+
+    val candidates = listOfNotNull(
+        // Preferred Telegram-provided parameter for deep links.
+        startParam,
+        readQueryParam("tgWebAppStartParam"),
+        // Useful fallback if bot passes custom query params.
+        readQueryParam("url"),
+        readQueryParam("video_url"),
+        readQueryParam("videoUrl"),
+    )
+
+    js("console.log('[tgvd] resolvePrefilledUrl candidates: ' + candidates)"  )
+
+    return candidates
+        .asSequence()
+        .mapNotNull { decodePrefilledUrl(it) }
+        .firstOrNull()
+        .also { js("console.log('[tgvd] resolvePrefilledUrl result: ' + it)") }
+}
+
+private fun readQueryParam(name: String): String? = try {
+    val search = js("window.location.search") as? String ?: ""
+    if (search.isBlank()) return null
+
+    val params = js("new URLSearchParams(search)")
+    val value = params.get(name) as? String
+    value?.trim()?.takeIf { it.isNotBlank() }
+} catch (_: Throwable) {
+    null
+}
+
+private fun decodePrefilledUrl(raw: String): String? {
+    val value = raw.trim().takeIf { it.isNotBlank() } ?: return null
+
+    if (isHttpUrl(value)) return value
+
+    val decodedComponent = decodeUriComponentSafely(value)
+    if (isHttpUrl(decodedComponent)) return decodedComponent
+
+    val base64Decoded = decodeBase64UrlSafely(value)
+    if (isHttpUrl(base64Decoded)) return base64Decoded
+    // Сервер убирает https:// перед кодированием (экономия символов, лимит startapp = 64).
+    // Восстанавливаем схему если декодированная строка похожа на hostname.
+    if (base64Decoded != null) return "https://$base64Decoded"
+
+    val componentThenBase64 = decodeBase64UrlSafely(decodedComponent)
+    if (isHttpUrl(componentThenBase64)) return componentThenBase64
+    if (componentThenBase64 != null) return "https://$componentThenBase64"
+
+    return null
+}
+
+private fun isHttpUrl(value: String?): Boolean {
+    val url = value?.trim() ?: return false
+    return url.startsWith("https://", ignoreCase = true) || url.startsWith("http://", ignoreCase = true)
+}
+
+private fun decodeUriComponentSafely(value: String): String = try {
+    (js("decodeURIComponent") as (String) -> String)(value)
+} catch (_: Throwable) {
+    value
+}
+
+private fun decodeBase64UrlSafely(value: String): String? = try {
+    val normalized = value.replace('-', '+').replace('_', '/')
+    val padded = normalized + "=".repeat((4 - normalized.length % 4) % 4)
+    ((js("atob") as (String) -> String)(padded)).trim().takeIf { it.isNotBlank() }
+} catch (_: Throwable) {
+    null
+}
 
 /**
  * Reads text from clipboard using Telegram WebApp typed API (preferred on iOS).
