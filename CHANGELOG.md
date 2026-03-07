@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.9.0](https://github.com/alelk/tg-video-downloader/compare/v1.8.0...v1.9.0) (2026-03-07)
+
+
+### Features
+
+* fix clipboard paste on ios ([0f6eae0](https://github.com/alelk/tg-video-downloader/commit/0f6eae09c43eae7c5bd93231f8e966616ce2416b))
+
 # [1.8.0](https://github.com/alelk/tg-video-downloader/compare/v1.7.0...v1.8.0) (2026-03-06)
 
 
