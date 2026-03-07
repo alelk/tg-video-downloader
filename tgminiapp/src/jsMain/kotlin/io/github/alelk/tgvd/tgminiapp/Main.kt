@@ -132,22 +132,37 @@ private fun createPlatformCallbacks() = PlatformCallbacks(
  * (e.g. a click) and requires Bot API 6.4+.
  */
 private fun readClipboardText(callback: (String?) -> Unit) {
-    // Try Telegram WebApp typed API first
-    try {
-        if (webApp.isVersionAtLeast("6.4")) {
-            webApp.readTextFromClipboard { text ->
-                callback(text.takeIf { it.isNotBlank() })
+    // In Telegram Mini App, prefer Telegram API only.
+    // navigator.clipboard is often blocked in WebView and throws NotAllowedError.
+    val telegramWebApp: dynamic = try {
+        val telegram: dynamic = js("window.Telegram")
+        telegram?.WebApp
+    } catch (_: Throwable) {
+        null
+    }
+
+    if (telegramWebApp != null && telegramWebApp.readTextFromClipboard != null) {
+        try {
+            telegramWebApp.readTextFromClipboard { text: dynamic ->
+                val value = (text as? String)?.trim()
+                callback(value?.takeIf { it.isNotBlank() })
             }
             return
+        } catch (_: Throwable) {
+            callback(null)
+            return
         }
-    } catch (_: Throwable) {}
+    }
 
-    // Fallback: Web Clipboard API (works in desktop browsers)
+    // Non-Telegram fallback: regular browsers/dev mode.
     try {
         val clipboard: dynamic = js("navigator.clipboard")
         if (clipboard != null && clipboard != undefined) {
             clipboard.readText()
-                .then { text: dynamic -> callback(text as? String) }
+                .then { text: dynamic ->
+                    val value = (text as? String)?.trim()
+                    callback(value?.takeIf { it.isNotBlank() })
+                }
                 .catch { _: dynamic -> callback(null) }
             return
         }

@@ -30,7 +30,7 @@ class UrlInputScreen : Screen {
         var errorMessage by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
 
-        val hasPasteSupport = platformCallbacks.readTextFromClipboard != null
+        val readClipboard = platformCallbacks.readTextFromClipboard
 
         Column(
             modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -50,14 +50,16 @@ class UrlInputScreen : Screen {
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !isLoading,
-                trailingIcon = if (hasPasteSupport) {
+                trailingIcon = readClipboard?.let { onReadClipboard ->
                     {
                         IconButton(
                             onClick = {
-                                platformCallbacks.readTextFromClipboard?.invoke { text ->
+                                onReadClipboard { text ->
                                     if (!text.isNullOrBlank()) {
                                         url = text.trim()
                                         errorMessage = null
+                                    } else {
+                                        errorMessage = "Clipboard is unavailable in this Telegram context. Try launching Mini App from attachment menu."
                                     }
                                 }
                             },
@@ -70,7 +72,7 @@ class UrlInputScreen : Screen {
                             )
                         }
                     }
-                } else null,
+                },
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -111,4 +113,3 @@ class UrlInputScreen : Screen {
         }
     }
 }
-

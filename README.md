@@ -113,6 +113,22 @@ docker compose up -d postgres
 ./gradlew :tgminiapp:jsBrowserDevelopmentRun
 ```
 
+### Локальная проверка Mini App в Telegram (без HMR)
+
+Если WebView в Telegram (особенно iOS) подвисает на dev-server, используйте production bundle:
+
+```bash
+# 1. Собрать production distribution Mini App
+./gradlew :tgminiapp:jsBrowserDistribution
+
+# 2. Отдавать статические файлы
+npx serve tgminiapp/build/dist/js/productionExecutable -l 8081
+```
+
+Важно:
+- Если на `http://localhost:8081/` приходит `404`, обычно указан не тот каталог для `serve`.
+- Перед запуском убедитесь, что заполнен `tgminiapp/src/jsMain/resources/config.js` (например, `API_BASE_URL`).
+
 ### Конфигурация
 
 Создать `application-local.yaml`:
