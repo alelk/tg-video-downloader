@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.11.0](https://github.com/alelk/tg-video-downloader/compare/v1.10.0...v1.11.0) (2026-03-07)
+
+
+### Features
+
+* update tgMiniApp version to 1.0.0 ([391d2e3](https://github.com/alelk/tg-video-downloader/commit/391d2e396517c20070cef0d30ba4aab0bcabf930))
+
 # [1.10.0](https://github.com/alelk/tg-video-downloader/compare/v1.9.0...v1.10.0) (2026-03-07)
 
 
