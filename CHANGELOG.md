@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.12.0](https://github.com/alelk/tg-video-downloader/compare/v1.11.0...v1.12.0) (2026-03-07)
+
+
+### Features
+
+* enhance clipboard handling in Telegram Mini App and update README ([993ef1a](https://github.com/alelk/tg-video-downloader/commit/993ef1adbad830620305e59080dbfc8acf8984b0))
+
 # [1.11.0](https://github.com/alelk/tg-video-downloader/compare/v1.10.0...v1.11.0) (2026-03-07)
 
 
