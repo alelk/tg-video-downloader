@@ -19,6 +19,9 @@
 #   docker run --device /dev/dri:/dev/dri --group-add video ...
 # ============================================================
 
+# GPU_VARIANT: "base" (default, software-only) | "intel" (QSV/VAAPI)
+ARG GPU_VARIANT=base
+
 # ── Base runtime (software-only) ──
 FROM eclipse-temurin:21-jre-noble AS base
 
@@ -77,6 +80,4 @@ ENV LIBVA_DRIVER_NAME=iHD
 USER appuser
 
 # ── Final stage selector ──
-# GPU_VARIANT: "base" (default, software-only) | "intel" (QSV/VAAPI)
-ARG GPU_VARIANT=base
 FROM ${GPU_VARIANT}

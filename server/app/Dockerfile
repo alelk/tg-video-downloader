@@ -1,6 +1,10 @@
 # ============================================================
 # Multi-stage Dockerfile — tgvd-server (JVM fat JAR)
+#
+# GPU_VARIANT: "base" (default, software-only) | "intel" (QSV/VAAPI)
 # ============================================================
+
+ARG GPU_VARIANT=base
 
 # ---- Stage 1: Build ----
 # linux/amd64 — фиксируем платформу builder-стадии, чтобы Node.js (скачиваемый
@@ -110,8 +114,5 @@ USER appuser
 
 
 # ---- Final stage selector ----
-# GPU_VARIANT: "base" (default, software-only) | "intel" (QSV/VAAPI)
-ARG GPU_VARIANT=base
 FROM ${GPU_VARIANT}
-
 
