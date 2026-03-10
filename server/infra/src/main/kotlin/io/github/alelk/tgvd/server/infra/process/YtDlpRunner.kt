@@ -56,6 +56,30 @@ class YtDlpRunner(
         config.cookiesFile?.takeIf { it.isNotBlank() }?.let { add("--cookies"); add(it) }
     }
 
+    /**
+     * Format selector for a given quality.
+     * Uses bestvideo wildcard formats to include adaptive formats (VP9, AV1, etc.),
+     * and --format-sort res,tbr,fps to guarantee the highest resolution is chosen first.
+     */
+    private fun MutableList<String>.addFormatArgs(quality: DownloadPolicy.VideoQuality) {
+        when (quality) {
+            DownloadPolicy.VideoQuality.BEST -> {
+                add("-f"); add("bestvideo*+bestaudio*/best*")
+            }
+            DownloadPolicy.VideoQuality.HD_1080 -> {
+                add("-f"); add("bestvideo*[height<=1080]+bestaudio*/best*[height<=1080]")
+            }
+            DownloadPolicy.VideoQuality.HD_720 -> {
+                add("-f"); add("bestvideo*[height<=720]+bestaudio*/best*[height<=720]")
+            }
+            DownloadPolicy.VideoQuality.SD_480 -> {
+                add("-f"); add("bestvideo*[height<=480]+bestaudio*/best*[height<=480]")
+            }
+        }
+        // Sort by resolution first, then total bitrate and fps — ensures highest quality wins
+        add("--format-sort"); add("res,tbr,fps")
+    }
+
     override suspend fun extract(url: String): Either<DomainError, VideoInfo> = withContext(Dispatchers.IO) {
         try {
             val args = buildList {
@@ -129,14 +153,7 @@ class YtDlpRunner(
                 add("--fragment-retries"); add(config.fragmentRetries.toString())
                 add("--no-playlist")
                 addCookiesArgs()
-
-                when (policy.maxQuality) {
-                    DownloadPolicy.VideoQuality.BEST -> { add("-f"); add("bestvideo+bestaudio/best") }
-                    DownloadPolicy.VideoQuality.HD_1080 -> { add("-f"); add("bestvideo[height<=1080]+bestaudio/best[height<=1080]") }
-                    DownloadPolicy.VideoQuality.HD_720 -> { add("-f"); add("bestvideo[height<=720]+bestaudio/best[height<=720]") }
-                    DownloadPolicy.VideoQuality.SD_480 -> { add("-f"); add("bestvideo[height<=480]+bestaudio/best[height<=480]") }
-                }
-
+                addFormatArgs(policy.maxQuality)
                 policy.preferredContainer?.let { add("--merge-output-format"); add(it.extension) }
                 proxyConfig.toUrl()?.let { add("--proxy"); add(it) }
 
@@ -183,14 +200,7 @@ class YtDlpRunner(
             add("--fragment-retries"); add(config.fragmentRetries.toString())
             add("--no-playlist")
             addCookiesArgs()
-
-            when (policy.maxQuality) {
-                DownloadPolicy.VideoQuality.BEST -> { add("-f"); add("bestvideo+bestaudio/best") }
-                DownloadPolicy.VideoQuality.HD_1080 -> { add("-f"); add("bestvideo[height<=1080]+bestaudio/best[height<=1080]") }
-                DownloadPolicy.VideoQuality.HD_720 -> { add("-f"); add("bestvideo[height<=720]+bestaudio/best[height<=720]") }
-                DownloadPolicy.VideoQuality.SD_480 -> { add("-f"); add("bestvideo[height<=480]+bestaudio/best[height<=480]") }
-            }
-
+            addFormatArgs(policy.maxQuality)
             policy.preferredContainer?.let { add("--merge-output-format"); add(it.extension) }
 
             if (policy.writeThumbnail) {
