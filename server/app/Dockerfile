@@ -48,16 +48,17 @@ COPY server/di/src       ./server/di/src
 
 RUN gradle :server:app:shadowJar --no-daemon
 
-# ---- Stage 2: Runtime ----
+# ---- Stage 2: Runtime (software-only) ----
 # Debian-based (not Alpine): standalone yt-dlp binary requires glibc.
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:21-jre-noble AS base
 
 LABEL org.opencontainers.image.source="https://github.com/alelk/tg-video-downloader"
 LABEL org.opencontainers.image.description="TG Video Downloader — Ktor HTTP Server"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# ffmpeg — required for yt-dlp post-processing
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && \
+# ffmpeg — required for yt-dlp post-processing and video conversion
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 # Non-root user
@@ -88,4 +89,29 @@ ENV JAVA_OPTS="\
   -Djava.security.egd=file:/dev/./urandom"
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
+
+
+# ---- Stage 3: Intel QSV/VAAPI variant ----
+FROM base AS intel
+
+USER root
+
+# intel-media-va-driver-non-free — Intel iHD driver for VAAPI/QSV (Broadwell+, incl. Alder Lake-N)
+# vainfo — VAAPI diagnostic tool
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        vainfo \
+        intel-media-va-driver-non-free && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV LIBVA_DRIVER_NAME=iHD
+
+USER appuser
+
+
+# ---- Final stage selector ----
+# GPU_VARIANT: "base" (default, software-only) | "intel" (QSV/VAAPI)
+ARG GPU_VARIANT=base
+FROM ${GPU_VARIANT}
+
 

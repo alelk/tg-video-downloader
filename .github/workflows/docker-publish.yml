@@ -6,7 +6,14 @@ name: Publish Docker Images
 # Inputs:
 #   release_tag — тег релиза из которого брать артефакты (например: v1.2.3)
 #   target      — какой образ опубликовать: server | webapp | both
+#   gpu_variant — GPU-вариант серверного образа: base (software) | intel (QSV/VAAPI) | both
 #   extra_tag   — дополнительный тег образа (например: latest)
+#
+# Результирующие теги для server (при gpu_variant=both, release_tag=v1.2.3):
+#   ghcr.io/.../tg-video-downloader-server:v1.2.3        — software-only
+#   ghcr.io/.../tg-video-downloader-server:v1.2.3-intel  — Intel QSV/VAAPI
+#   ghcr.io/.../tg-video-downloader-server:latest        — software-only
+#   ghcr.io/.../tg-video-downloader-server:latest-intel  — Intel QSV/VAAPI
 
 on:
   workflow_dispatch:
@@ -24,6 +31,15 @@ on:
           - server
           - webapp
           - both
+      gpu_variant:
+        description: "Server GPU variant (base = software-only, intel = QSV/VAAPI, both = publish both tags)"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - base
+          - intel
       extra_tag:
         description: "Additional Docker tag (e.g. latest)"
         required: false
@@ -39,9 +55,17 @@ env:
 
 jobs:
   publish-server:
-    name: Publish server image
+    name: "Publish server image (${{ matrix.gpu }})"
     runs-on: ubuntu-latest
     if: ${{ inputs.target == 'server' || inputs.target == 'both' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        gpu: ${{ fromJSON(
+          inputs.gpu_variant == 'both' && '["base","intel"]' ||
+          format('["{0}"]', inputs.gpu_variant)
+          ) }}
 
     steps:
       - name: Checkout
@@ -77,12 +101,15 @@ jobs:
       - name: Extract metadata (server)
         id: meta
         uses: docker/metadata-action@v5
+        env:
+          # Intel variant gets "-intel" suffix on all tags
+          TAG_SUFFIX: ${{ matrix.gpu == 'intel' && '-intel' || '' }}
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}-server
           tags: |
-            type=raw,value=${{ inputs.extra_tag }},enable=${{ inputs.extra_tag != '' }}
-            type=raw,value=${{ steps.version.outputs.version }}
-            type=raw,value=${{ inputs.release_tag }}
+            type=raw,value=${{ inputs.extra_tag }}${{ env.TAG_SUFFIX }},enable=${{ inputs.extra_tag != '' }}
+            type=raw,value=${{ steps.version.outputs.version }}${{ env.TAG_SUFFIX }}
+            type=raw,value=${{ inputs.release_tag }}${{ env.TAG_SUFFIX }}
 
       - name: Build and push server image
         uses: docker/build-push-action@v6
@@ -92,14 +119,17 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: JAR_PATH=tgvd-server.jar
-          cache-from: type=gha,scope=server-ci
-          cache-to: type=gha,mode=max,scope=server-ci
+          build-args: |
+            JAR_PATH=tgvd-server.jar
+            GPU_VARIANT=${{ matrix.gpu }}
+          cache-from: type=gha,scope=server-ci-${{ matrix.gpu }}
+          cache-to: type=gha,mode=max,scope=server-ci-${{ matrix.gpu }}
 
       - name: Summary
         run: |
-          echo "### ✅ Server image published" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Server image published (${{ matrix.gpu }})" >> $GITHUB_STEP_SUMMARY
           echo "**Release:** ${{ inputs.release_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**GPU variant:** ${{ matrix.gpu }}" >> $GITHUB_STEP_SUMMARY
           echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
           echo '${{ steps.meta.outputs.tags }}' | tr ',' '\n' | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
 

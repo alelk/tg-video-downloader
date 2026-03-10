@@ -14,6 +14,8 @@ import io.github.alelk.tgvd.server.infra.config.FfmpegConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.uuid.ExperimentalUuidApi
 
 private val logger = KotlinLogging.logger {}
@@ -21,6 +23,148 @@ private val logger = KotlinLogging.logger {}
 class FfmpegRunner(
     private val config: FfmpegConfig,
 ) {
+
+    /**
+     * Resolved render device path (e.g. `/dev/dri/renderD128`).
+     * Resolved lazily on first use.
+     */
+    private val renderDevice: String? by lazy { resolveRenderDevice() }
+
+    /**
+     * Cache of HW accel probe results: HwAccel → true/false.
+     * Populated lazily — each HW type probed at most once.
+     */
+    private val hwProbeCache = AtomicReference(emptyMap<VideoEncodeSettings.HwAccel, Boolean>())
+
+    /**
+     * Resolve the render device path:
+     * 1. Use explicit config value if provided
+     * 2. Auto-detect from /dev/dri/renderD*
+     */
+    private fun resolveRenderDevice(): String? {
+        config.renderDevice?.let { explicit ->
+            if (File(explicit).exists()) {
+                logger.info { "Using configured render device: $explicit" }
+                return explicit
+            } else {
+                logger.warn { "Configured render device not found: $explicit" }
+            }
+        }
+
+        // Auto-detect: look for /dev/dri/renderD* devices
+        val driDir = File("/dev/dri")
+        if (!driDir.exists()) {
+            logger.info { "No /dev/dri directory found — hardware encoding not available" }
+            return null
+        }
+
+        val renderDevices = driDir.listFiles()
+            ?.filter { it.name.startsWith("renderD") }
+            ?.sortedBy { it.name }
+            ?: emptyList()
+
+        return when {
+            renderDevices.isEmpty() -> {
+                logger.info { "No render devices found in /dev/dri — hardware encoding not available" }
+                null
+            }
+            else -> {
+                val device = renderDevices.first().absolutePath
+                logger.info { "Auto-detected render device: $device (${renderDevices.size} device(s) found)" }
+                device
+            }
+        }
+    }
+
+    /**
+     * Probe whether a specific HW accel type actually works.
+     * Runs a quick ffmpeg test with a 1-frame synthetic input.
+     * Result is cached so each type is probed at most once.
+     */
+    private fun probeHwAccel(hwAccel: VideoEncodeSettings.HwAccel, codec: VideoEncodeSettings.VideoCodec): Boolean {
+        val cached = hwProbeCache.get()[hwAccel]
+        if (cached != null) return cached
+
+        val device = renderDevice
+        if (device == null) {
+            cacheProbeResult(hwAccel, false)
+            return false
+        }
+
+        val encoder = hwAccel.encoderFor(codec)
+        if (encoder == null) {
+            cacheProbeResult(hwAccel, false)
+            return false
+        }
+
+        logger.info { "Probing HW accel $hwAccel (encoder=$encoder, device=$device)..." }
+
+        val result = try {
+            val args = buildList {
+                add(config.path)
+                add("-hide_banner")
+                when (hwAccel) {
+                    VideoEncodeSettings.HwAccel.QSV -> {
+                        add("-init_hw_device"); add("vaapi=va:$device")
+                        add("-init_hw_device"); add("qsv=qs@va")
+                        add("-filter_hw_device"); add("qs")
+                        add("-hwaccel"); add("vaapi")
+                        add("-hwaccel_output_format"); add("vaapi")
+                    }
+                    VideoEncodeSettings.HwAccel.VAAPI -> {
+                        add("-init_hw_device"); add("vaapi=va:$device")
+                        add("-filter_hw_device"); add("va")
+                        add("-hwaccel"); add("vaapi")
+                        add("-hwaccel_output_format"); add("vaapi")
+                    }
+                    VideoEncodeSettings.HwAccel.NVENC -> {
+                        add("-hwaccel"); add("cuda")
+                    }
+                    else -> {}
+                }
+                add("-f"); add("lavfi")
+                add("-i"); add("testsrc=duration=0.1:size=64x64:rate=1")
+                when (hwAccel) {
+                    VideoEncodeSettings.HwAccel.QSV -> {
+                        add("-vf"); add("format=nv12,hwupload,hwmap=derive_device=qsv,format=qsv")
+                    }
+                    VideoEncodeSettings.HwAccel.VAAPI -> {
+                        add("-vf"); add("format=nv12,hwupload")
+                    }
+                    else -> {}
+                }
+                add("-c:v"); add(encoder)
+                add("-frames:v"); add("1")
+                add("-f"); add("null")
+                add("-")
+            }
+
+            val process = ProcessBuilder(args)
+                .redirectErrorStream(true)
+                .start()
+
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            val exitCode = process.waitFor()
+
+            if (exitCode == 0) {
+                logger.info { "HW accel $hwAccel probe succeeded (encoder=$encoder)" }
+                true
+            } else {
+                logger.warn { "HW accel $hwAccel probe failed (exit=$exitCode): ${output.takeLast(300)}" }
+                false
+            }
+        } catch (e: Exception) {
+            logger.warn { "HW accel $hwAccel probe error: ${e.message}" }
+            false
+        }
+
+        cacheProbeResult(hwAccel, result)
+        return result
+    }
+
+    private fun cacheProbeResult(hwAccel: VideoEncodeSettings.HwAccel, result: Boolean) {
+        hwProbeCache.updateAndGet { it + (hwAccel to result) }
+    }
 
     suspend fun convertVideo(
         input: FilePath,
@@ -30,7 +174,10 @@ class FfmpegRunner(
         maxHeight: Int? = null,
         encodeSettings: VideoEncodeSettings? = null,
     ): Either<DomainError, FilePath> {
-        val settings = encodeSettings ?: VideoEncodeSettings()
+        val rawSettings = encodeSettings ?: VideoEncodeSettings()
+
+        // Resolve effective HW accel: probe requested HW, downgrade if unavailable
+        val settings = resolveEffectiveSettings(rawSettings)
 
         // Determine if transcoding is actually needed:
         // If maxHeight is set, check source resolution — skip transcoding if source is already within limits
@@ -52,29 +199,7 @@ class FfmpegRunner(
         val args = buildList {
             // HW accel init args (must come before -i)
             if (needsTranscode) {
-                settings.hwAccel?.let { hw ->
-                    when (hw) {
-                        VideoEncodeSettings.HwAccel.VIDEOTOOLBOX -> {} // no init flag needed
-                        VideoEncodeSettings.HwAccel.NVENC -> { add("-hwaccel"); add("cuda") }
-                        VideoEncodeSettings.HwAccel.QSV -> {
-                            // Intel QSV via VAAPI → QSV chain (mirrors Jellyfin approach):
-                            // 1. init_hw_device vaapi=va — VAAPI device (auto-detect driver)
-                            // 2. init_hw_device qsv=qs@va — QSV device derived from VAAPI
-                            // 3. filter_hw_device qs — use QSV device for vf filters
-                            // 4. hwaccel vaapi — decode via VAAPI
-                            // 5. hwaccel_output_format vaapi — decoded frames stay on VAAPI surface
-                            // 6. extra_hw_frames — reserve extra surfaces for filter pipeline
-                            add("-init_hw_device"); add("vaapi=va:")
-                            add("-init_hw_device"); add("qsv=qs@va")
-                            add("-filter_hw_device"); add("qs")
-                            add("-hwaccel"); add("vaapi")
-                            add("-hwaccel_output_format"); add("vaapi")
-                            add("-extra_hw_frames"); add("64")
-                        }
-                        VideoEncodeSettings.HwAccel.VAAPI -> { add("-hwaccel"); add("vaapi"); add("-hwaccel_output_format"); add("vaapi") }
-                        VideoEncodeSettings.HwAccel.AMF -> {} // no init flag needed
-                    }
-                }
+                addHwAccelInitArgs(settings.hwAccel)
             }
 
             add("-i"); add(input.value)
@@ -88,33 +213,7 @@ class FfmpegRunner(
                 // Video encoder
                 add("-c:v"); add(settings.resolveEncoder())
                 // Quality
-                val isHw = settings.hwAccel != null
-                if (isHw) {
-                    when (settings.hwAccel) {
-                        VideoEncodeSettings.HwAccel.VIDEOTOOLBOX -> {
-                            // VideoToolbox uses -q:v with INVERTED scale: 1 = worst, 100 = best (lossless)
-                            // CRF uses: 0 = lossless, 51 = worst
-                            // Convert: q:v = round((51 - crf) / 51 * 99) + 1
-                            val vtQuality = ((51 - settings.crf).toDouble() / 51.0 * 99.0 + 1.0).toInt().coerceIn(1, 100)
-                            add("-q:v"); add("$vtQuality")
-                        }
-                        VideoEncodeSettings.HwAccel.NVENC -> {
-                            // NVENC -cq uses same 0-51 scale as CRF (0 = lossless, 51 = worst)
-                            add("-cq"); add("${settings.crf}")
-                            // Map user preset to NVENC p1-p7 scale
-                            add("-preset"); add(nvencPreset(settings.preset))
-                        }
-                        VideoEncodeSettings.HwAccel.QSV -> {
-                            add("-low_power"); add("1")
-                            add("-preset"); add("medium")
-                            add("-global_quality"); add("${settings.crf}")
-                        }
-                        else -> { add("-crf"); add("${settings.crf}") }
-                    }
-                } else {
-                    add("-crf"); add("${settings.crf}")
-                    add("-preset"); add(settings.preset.ffmpegValue)
-                }
+                addEncoderQualityArgs(settings)
                 // Audio
                 add("-c:a"); add(settings.resolveAudioCodec(container))
                 add("-b:a"); add(settings.audioBitrate)
@@ -137,8 +236,12 @@ class FfmpegRunner(
 
         val result = runFfmpeg(args = args, description = desc)
 
-        // If hardware encoder failed — retry with software fallback
-        if (result.isLeft() && settings.hwAccel != null) {
+        // If hardware encoder failed at runtime — invalidate cache, retry with software fallback
+        val hwAccel = settings.hwAccel
+        if (result.isLeft() && hwAccel != null) {
+            // Mark this HW accel as failed so we don't try again
+            cacheProbeResult(hwAccel, false)
+
             val fallbackSettings = settings.copy(hwAccel = null)
             logger.warn { "Hardware encoder (${settings.hwAccel}) failed, retrying with software encoder (${fallbackSettings.resolveEncoder()})" }
             val fallbackArgs = buildList {
@@ -164,8 +267,116 @@ class FfmpegRunner(
             return runFfmpeg(args = fallbackArgs, description = fallbackDesc).map { output }
         }
 
-        @Suppress("UNCHECKED_CAST")
-        return result.map { output } as Either<DomainError, FilePath>
+        return result.map { output }
+    }
+
+    /**
+     * Resolve effective encode settings: probe requested HW accel and downgrade if unavailable.
+     *
+     * Downgrade chain: QSV → VAAPI → software, NVENC → software, etc.
+     */
+    private fun resolveEffectiveSettings(settings: VideoEncodeSettings): VideoEncodeSettings {
+        val hw = settings.hwAccel ?: return settings
+
+        // Probe requested HW
+        if (probeHwAccel(hw, settings.codec)) {
+            logger.info { "HW accel $hw is available, using encoder ${settings.resolveEncoder()}" }
+            return settings
+        }
+
+        // QSV failed → try VAAPI as fallback
+        if (hw == VideoEncodeSettings.HwAccel.QSV) {
+            val vaapiSettings = settings.copy(hwAccel = VideoEncodeSettings.HwAccel.VAAPI)
+            if (probeHwAccel(VideoEncodeSettings.HwAccel.VAAPI, settings.codec)) {
+                logger.info { "QSV not available, falling back to VAAPI (${vaapiSettings.resolveEncoder()})" }
+                return vaapiSettings
+            }
+        }
+
+        // All HW failed → software
+        logger.info { "HW accel $hw not available, falling back to software encoder (${settings.codec.ffmpegEncoder})" }
+        return settings.copy(hwAccel = null)
+    }
+
+    /**
+     * Add ffmpeg HW accel initialization args (must come before -i).
+     * Uses explicit render device path to avoid VAAPI init failures in Docker.
+     */
+    private fun MutableList<String>.addHwAccelInitArgs(hwAccel: VideoEncodeSettings.HwAccel?) {
+        val device = renderDevice
+        when (hwAccel) {
+            VideoEncodeSettings.HwAccel.QSV -> {
+                if (device == null) {
+                    logger.warn { "QSV requested but no render device available — skipping HW init" }
+                    return
+                }
+                // Intel QSV via VAAPI → QSV chain (mirrors Jellyfin approach):
+                // 1. init_hw_device vaapi=va:<device> — VAAPI device with explicit path
+                // 2. init_hw_device qsv=qs@va — QSV device derived from VAAPI
+                // 3. filter_hw_device qs — use QSV device for vf filters
+                // 4. hwaccel vaapi — decode via VAAPI
+                // 5. hwaccel_output_format vaapi — decoded frames stay on VAAPI surface
+                // 6. extra_hw_frames — reserve extra surfaces for filter pipeline
+                add("-init_hw_device"); add("vaapi=va:$device")
+                add("-init_hw_device"); add("qsv=qs@va")
+                add("-filter_hw_device"); add("qs")
+                add("-hwaccel"); add("vaapi")
+                add("-hwaccel_output_format"); add("vaapi")
+                add("-extra_hw_frames"); add("64")
+            }
+            VideoEncodeSettings.HwAccel.VAAPI -> {
+                if (device == null) {
+                    logger.warn { "VAAPI requested but no render device available — skipping HW init" }
+                    return
+                }
+                add("-init_hw_device"); add("vaapi=va:$device")
+                add("-filter_hw_device"); add("va")
+                add("-hwaccel"); add("vaapi")
+                add("-hwaccel_output_format"); add("vaapi")
+                add("-extra_hw_frames"); add("64")
+            }
+            VideoEncodeSettings.HwAccel.NVENC -> {
+                add("-hwaccel"); add("cuda")
+            }
+            VideoEncodeSettings.HwAccel.VIDEOTOOLBOX -> {} // no init flag needed
+            VideoEncodeSettings.HwAccel.AMF -> {} // no init flag needed
+            null -> {} // software — no init needed
+        }
+    }
+
+    /**
+     * Add encoder-specific quality args (CRF / global_quality / etc.)
+     */
+    private fun MutableList<String>.addEncoderQualityArgs(settings: VideoEncodeSettings) {
+        val isHw = settings.hwAccel != null
+        if (isHw) {
+            when (settings.hwAccel) {
+                VideoEncodeSettings.HwAccel.VIDEOTOOLBOX -> {
+                    // VideoToolbox uses -q:v with INVERTED scale: 1 = worst, 100 = best (lossless)
+                    val vtQuality = ((51 - settings.crf).toDouble() / 51.0 * 99.0 + 1.0).toInt().coerceIn(1, 100)
+                    add("-q:v"); add("$vtQuality")
+                }
+                VideoEncodeSettings.HwAccel.NVENC -> {
+                    add("-cq"); add("${settings.crf}")
+                    add("-preset"); add(nvencPreset(settings.preset))
+                }
+                VideoEncodeSettings.HwAccel.QSV -> {
+                    add("-low_power"); add("1")
+                    add("-preset"); add("medium")
+                    add("-global_quality"); add("${settings.crf}")
+                }
+                VideoEncodeSettings.HwAccel.VAAPI -> {
+                    // VAAPI uses quality level via rc_mode + quality param
+                    // -rc_mode CQP with -global_quality works similarly to CRF
+                    add("-rc_mode"); add("CQP")
+                    add("-global_quality"); add("${settings.crf}")
+                }
+                else -> { add("-crf"); add("${settings.crf}") }
+            }
+        } else {
+            add("-crf"); add("${settings.crf}")
+            add("-preset"); add(settings.preset.ffmpegValue)
+        }
     }
 
     /**
