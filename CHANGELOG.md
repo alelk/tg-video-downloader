@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.17.0](https://github.com/alelk/tg-video-downloader/compare/v1.16.0...v1.17.0) (2026-03-10)
+
+
+### Features
+
+* simplify Dockerfile user creation ([8527a4c](https://github.com/alelk/tg-video-downloader/commit/8527a4c6af1275c1b07e9a1fa22d7e7d7b6b14a1))
+
 # [1.16.0](https://github.com/alelk/tg-video-downloader/compare/v1.15.0...v1.16.0) (2026-03-10)
 
 
