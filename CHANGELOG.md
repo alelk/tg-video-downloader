@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.20.0](https://github.com/alelk/tg-video-downloader/compare/v1.19.0...v1.20.0) (2026-03-10)
+
+
+### Features
+
+* enhance format selection strategy and logging in YtDlpRunner ([c24da1c](https://github.com/alelk/tg-video-downloader/commit/c24da1c051f3e16f1c1541fed01c9b870c59c3a6))
+
 # [1.19.0](https://github.com/alelk/tg-video-downloader/compare/v1.18.0...v1.19.0) (2026-03-10)
 
 
