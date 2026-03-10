@@ -43,6 +43,7 @@ kotlin {
             dependencies {
                 implementation(project(":api:contract"))
                 implementation(project(":api:client"))
+                implementation(project(":domain"))
 
                 // Compose
                 implementation(compose.runtime)

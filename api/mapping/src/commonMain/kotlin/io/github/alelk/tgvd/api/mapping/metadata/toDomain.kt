@@ -7,6 +7,7 @@ import io.github.alelk.tgvd.api.contract.metadata.MetadataSourceDto
 import io.github.alelk.tgvd.api.contract.metadata.MetadataTemplateDto
 import io.github.alelk.tgvd.api.contract.metadata.ResolvedMetadataDto
 import io.github.alelk.tgvd.domain.common.DomainError
+import io.github.alelk.tgvd.domain.common.FileNameValidator
 import io.github.alelk.tgvd.domain.common.LocalDate
 import io.github.alelk.tgvd.domain.metadata.MetadataSource
 import io.github.alelk.tgvd.domain.metadata.MetadataTemplate
@@ -26,6 +27,9 @@ fun ResolvedMetadataDto.toDomain(): Either<DomainError.ValidationError, Resolved
     is ResolvedMetadataDto.MusicVideo -> either {
         ensure(artist.isNotBlank()) { DomainError.ValidationError("artist", "Cannot be blank") }
         ensure(title.isNotBlank()) { DomainError.ValidationError("title", "Cannot be blank") }
+        FileNameValidator.validate("title", title)?.let { raise(it) }
+        FileNameValidator.validate("artist", artist)?.let { raise(it) }
+        FileNameValidator.validate("album", album ?: "", allowEmpty = true)?.let { raise(it) }
         ResolvedMetadata.MusicVideo(
             artist = artist, title = title, album = album, releaseDate = releaseDate?.let { LocalDate(it) },
             tags = tags, comment = comment,
@@ -34,6 +38,10 @@ fun ResolvedMetadataDto.toDomain(): Either<DomainError.ValidationError, Resolved
     is ResolvedMetadataDto.SeriesEpisode -> either {
         ensure(seriesName.isNotBlank()) { DomainError.ValidationError("seriesName", "Cannot be blank") }
         ensure(title.isNotBlank()) { DomainError.ValidationError("title", "Cannot be blank") }
+        FileNameValidator.validate("title", title)?.let { raise(it) }
+        FileNameValidator.validate("seriesName", seriesName)?.let { raise(it) }
+        FileNameValidator.validate("season", season ?: "", allowEmpty = true)?.let { raise(it) }
+        FileNameValidator.validate("episode", episode ?: "", allowEmpty = true)?.let { raise(it) }
         ResolvedMetadata.SeriesEpisode(
             seriesName = seriesName, season = season, episode = episode,
             title = title, releaseDate = releaseDate?.let { LocalDate(it) },
@@ -42,6 +50,7 @@ fun ResolvedMetadataDto.toDomain(): Either<DomainError.ValidationError, Resolved
     }
     is ResolvedMetadataDto.Other -> either {
         ensure(title.isNotBlank()) { DomainError.ValidationError("title", "Cannot be blank") }
+        FileNameValidator.validate("title", title)?.let { raise(it) }
         ResolvedMetadata.Other(
             title = title, releaseDate = releaseDate?.let { LocalDate(it) },
             tags = tags, comment = comment,

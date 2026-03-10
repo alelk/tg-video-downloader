@@ -43,6 +43,7 @@ fun Route.jobRoutes() {
             val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
             val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
             val metadata = request.metadata.toDomain().bind()
+            validateStoragePaths(request.storagePlan.original.path, request.storagePlan.additional.map { it.path }).bind()
             val createRequest = CreateJobUseCase.CreateJobRequest(
                 workspaceId = ws.id,
                 source = request.source.toDomain(),
@@ -107,3 +108,42 @@ fun Route.jobRoutes() {
         call.respondEither<JobDto, _>(result) { it.toDto() }
     }
 }
+
+/**
+ * Validate that file paths do not contain path traversal sequences.
+ * Individual path segments (file names) are checked for unsafe characters.
+ * The directory separators / and \ are allowed in the full path string.
+ */
+private fun validateStoragePaths(
+    originalPath: String,
+    additionalPaths: List<String>,
+): arrow.core.Either<DomainError.ValidationError, Unit> = arrow.core.Either.catch {
+    val allPaths = listOf("storagePlan.original" to originalPath) +
+        additionalPaths.mapIndexed { i, p -> "storagePlan.additional[$i]" to p }
+
+    for ((field, path) in allPaths) {
+        // Reject path traversal in any segment
+        if (path.contains("..")) {
+            return arrow.core.Either.Left(
+                DomainError.ValidationError(field, "Path traversal ('..') is not allowed in '$field'")
+            )
+        }
+        // Check each filename segment (split by / and \)
+        val segments = path.split("/", "\\").filter { it.isNotBlank() }
+        for (segment in segments) {
+            // Only check for characters that are unsafe in a file name, not path separators
+            val unsafeFileNameChars = "[:*?\"<>|]".toRegex()
+            val found = unsafeFileNameChars.find(segment)?.value
+            if (found != null) {
+                return arrow.core.Either.Left(
+                    DomainError.ValidationError(
+                        field,
+                        "Path segment '$segment' in '$field' contains forbidden character '$found'"
+                    )
+                )
+            }
+        }
+    }
+}.mapLeft { DomainError.ValidationError("storagePlan", it.message ?: "Path validation failed") }
+    .map { }
+

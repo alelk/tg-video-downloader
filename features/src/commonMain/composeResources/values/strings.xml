@@ -184,5 +184,9 @@
     <!-- Match Types (new) -->
     <string name="match_channel_tag">Channel Tag</string>
     <string name="match_category_equals">Category</string>
+
+    <!-- Validation -->
+    <string name="validation_forbidden_chars">Contains forbidden characters: / \\ : * ? &quot; &lt; &gt; |</string>
+    <string name="validation_field_has_errors">Some fields have errors — fix them before downloading</string>
 </resources>
 

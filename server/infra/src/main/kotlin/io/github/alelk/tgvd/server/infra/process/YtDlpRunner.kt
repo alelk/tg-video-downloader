@@ -58,22 +58,28 @@ class YtDlpRunner(
 
     /**
      * Format selector for a given quality.
-     * Uses bestvideo wildcard formats to include adaptive formats (VP9, AV1, etc.),
-     * and --format-sort res,tbr,fps to guarantee the highest resolution is chosen first.
+     *
+     * Format explanation:
+     * - `bestvideo*` — best video stream, including formats that may also contain audio
+     *   (the `*` suffix allows AV1/VP9 adaptive formats that yt-dlp normally skips)
+     * - `bestaudio` — best audio-only stream (NO `*` — avoids picking a video stream as "audio")
+     * - `/best` — fallback: best single file with both video+audio already muxed
+     *
+     * `--format-sort res,tbr,fps` guarantees the highest resolution is chosen first.
      */
     private fun MutableList<String>.addFormatArgs(quality: DownloadPolicy.VideoQuality) {
         when (quality) {
             DownloadPolicy.VideoQuality.BEST -> {
-                add("-f"); add("bestvideo*+bestaudio*/best*")
+                add("-f"); add("bestvideo*+bestaudio/best")
             }
             DownloadPolicy.VideoQuality.HD_1080 -> {
-                add("-f"); add("bestvideo*[height<=1080]+bestaudio*/best*[height<=1080]")
+                add("-f"); add("bestvideo*[height<=1080]+bestaudio/best[height<=1080]")
             }
             DownloadPolicy.VideoQuality.HD_720 -> {
-                add("-f"); add("bestvideo*[height<=720]+bestaudio*/best*[height<=720]")
+                add("-f"); add("bestvideo*[height<=720]+bestaudio/best[height<=720]")
             }
             DownloadPolicy.VideoQuality.SD_480 -> {
-                add("-f"); add("bestvideo*[height<=480]+bestaudio*/best*[height<=480]")
+                add("-f"); add("bestvideo*[height<=480]+bestaudio/best[height<=480]")
             }
         }
         // Sort by resolution first, then total bitrate and fps — ensures highest quality wins

@@ -34,6 +34,7 @@ import io.github.alelk.tgvd.features.common.util.categoryLabel
 import io.github.alelk.tgvd.features.common.util.formatDuration
 import io.github.alelk.tgvd.features.generated.resources.Res
 import io.github.alelk.tgvd.features.generated.resources.*
+import io.github.alelk.tgvd.domain.common.FileNameValidator
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -117,6 +118,27 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                     normalizeAudio = it.normalizeAudio,
                 )
             }.toTypedArray())
+        }
+
+        // --- Field-level validation errors (unsafe characters) ---
+        val fieldErrors: Map<String, String> by remember {
+            derivedStateOf {
+                buildMap {
+                    FileNameValidator.validate("title", title)?.let { put("title", it.message) }
+                    when (metadataType) {
+                        CategoryDto.MUSIC_VIDEO -> {
+                            FileNameValidator.validate("artist", artist)?.let { put("artist", it.message) }
+                            if (album.isNotBlank()) FileNameValidator.validate("album", album)?.let { put("album", it.message) }
+                        }
+                        CategoryDto.SERIES_EPISODE -> {
+                            FileNameValidator.validate("seriesName", seriesName)?.let { put("seriesName", it.message) }
+                            if (season.isNotBlank()) FileNameValidator.validate("season", season)?.let { put("season", it.message) }
+                            if (episode.isNotBlank()) FileNameValidator.validate("episode", episode)?.let { put("episode", it.message) }
+                        }
+                        CategoryDto.OTHER -> {}
+                    }
+                }
+            }
         }
 
         // In-flight re-preview job (for cancellation)
@@ -360,6 +382,8 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                         label = { Text("Title") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
+                        isError = "title" in fieldErrors,
+                        supportingText = fieldErrors["title"]?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                     )
 
                     // Type-specific fields
@@ -376,6 +400,8 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                 label = { Text("Artist") },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
+                                isError = "artist" in fieldErrors,
+                                supportingText = fieldErrors["artist"]?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(
@@ -388,6 +414,8 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                 label = { Text("Album (optional)") },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
+                                isError = "album" in fieldErrors,
+                                supportingText = fieldErrors["album"]?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                             )
                         }
                         CategoryDto.SERIES_EPISODE -> {
@@ -402,6 +430,8 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                 label = { Text("Series Name") },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
+                                isError = "seriesName" in fieldErrors,
+                                supportingText = fieldErrors["seriesName"]?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -415,6 +445,8 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                     label = { Text("Season") },
                                     singleLine = true,
                                     modifier = Modifier.weight(1f),
+                                    isError = "season" in fieldErrors,
+                                    supportingText = fieldErrors["season"]?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                                 )
                                 OutlinedTextField(
                                     value = episode,
@@ -426,6 +458,8 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                     label = { Text("Episode") },
                                     singleLine = true,
                                     modifier = Modifier.weight(1f),
+                                    isError = "episode" in fieldErrors,
+                                    supportingText = fieldErrors["episode"]?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                                 )
                             }
                         }
@@ -640,6 +674,33 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
+                // Validation summary — show when there are field errors
+                if (fieldErrors.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                TgvdIcons.ErrorIcon,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                stringResource(Res.string.validation_field_has_errors),
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
                 // Download Button
                 Button(
                     onClick = {
@@ -679,7 +740,7 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                             }
                         }
                     },
-                    enabled = !isCreating && !isRefreshing,
+                    enabled = !isCreating && !isRefreshing && fieldErrors.isEmpty(),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     if (isCreating) {
