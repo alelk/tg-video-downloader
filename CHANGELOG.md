@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.16.0](https://github.com/alelk/tg-video-downloader/compare/v1.15.0...v1.16.0) (2026-03-10)
+
+
+### Features
+
+* update Dockerfile to add video and render groups for appuser ([86860f8](https://github.com/alelk/tg-video-downloader/commit/86860f8783f58138123a758bda2f94e60f6f0dbb))
+
 # [1.15.0](https://github.com/alelk/tg-video-downloader/compare/v1.14.0...v1.15.0) (2026-03-07)
 
 
