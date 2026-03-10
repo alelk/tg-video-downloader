@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.21.0](https://github.com/alelk/tg-video-downloader/compare/v1.20.0...v1.21.0) (2026-03-10)
+
+
+### Features
+
+* add GPU variant support for Docker images and enhance ffmpeg configuration ([569a87a](https://github.com/alelk/tg-video-downloader/commit/569a87ad05fb1b581bc804760efc72dbe9888af8))
+
 # [1.20.0](https://github.com/alelk/tg-video-downloader/compare/v1.19.0...v1.20.0) (2026-03-10)
 
 
