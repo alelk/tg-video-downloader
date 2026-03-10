@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.18.0](https://github.com/alelk/tg-video-downloader/compare/v1.17.0...v1.18.0) (2026-03-10)
+
+
+### Features
+
+* enhance video quality selection with adaptive format support ([cf876ed](https://github.com/alelk/tg-video-downloader/commit/cf876edd158fd517d821b15773853429cd302dd3))
+
 # [1.17.0](https://github.com/alelk/tg-video-downloader/compare/v1.16.0...v1.17.0) (2026-03-10)
 
 
