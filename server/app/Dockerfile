@@ -61,8 +61,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 # Non-root user
-RUN groupadd -g 1001 appgroup && \
-    useradd  -u 1001 -g appgroup -s /bin/false appuser
+RUN groupadd -g 44 video && \
+    groupadd -g 105 render && \
+    groupadd -g 1001 appgroup && \
+    useradd -u 1001 -g appgroup -G video,render -s /bin/false appuser
 
 WORKDIR /app
 
