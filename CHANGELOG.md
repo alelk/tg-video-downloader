@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.19.0](https://github.com/alelk/tg-video-downloader/compare/v1.18.0...v1.19.0) (2026-03-10)
+
+
+### Features
+
+* add file name validation for metadata fields ([35b635f](https://github.com/alelk/tg-video-downloader/commit/35b635f9870a071977eeb344ba4775edfffd24f1))
+
 # [1.18.0](https://github.com/alelk/tg-video-downloader/compare/v1.17.0...v1.18.0) (2026-03-10)
 
 
