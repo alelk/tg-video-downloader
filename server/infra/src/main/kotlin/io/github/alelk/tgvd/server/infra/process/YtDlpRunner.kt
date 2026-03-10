@@ -59,31 +59,39 @@ class YtDlpRunner(
     /**
      * Format selector for a given quality.
      *
-     * Format explanation:
-     * - `bestvideo*` — best video stream, including formats that may also contain audio
-     *   (the `*` suffix allows AV1/VP9 adaptive formats that yt-dlp normally skips)
-     * - `bestaudio` — best audio-only stream (NO `*` — avoids picking a video stream as "audio")
-     * - `/best` — fallback: best single file with both video+audio already muxed
-     *
-     * `--format-sort res,tbr,fps` guarantees the highest resolution is chosen first.
+     * Strategy:
+     * 1. Always use `bestvideo*+bestaudio/best` as format selector — this guarantees
+     *    the best video stream (with or without audio) merged with the best audio stream,
+     *    falling back to the best muxed format.
+     * 2. Use `-S` (--format-sort) to control maximum resolution:
+     *    - `res:1080` means "prefer formats closest to 1080p but not higher"
+     *    - This avoids the pitfall of `-f` height filters which can fall back to
+     *      low-quality muxed formats (e.g. 360p) when adaptive streams are unavailable.
+     * 3. The `*` suffix on `bestvideo*` allows formats that contain both video and audio
+     *    (e.g. AV1/VP9 adaptive formats).
+     * 4. `bestaudio` (without `*`) ensures only audio-only streams are considered for
+     *    the audio part, preventing a video stream from being picked as "audio".
      */
     private fun MutableList<String>.addFormatArgs(quality: DownloadPolicy.VideoQuality) {
+        // Always select best video + best audio, with fallback to best muxed format
+        add("-f"); add("bestvideo*+bestaudio/best")
+
         when (quality) {
             DownloadPolicy.VideoQuality.BEST -> {
-                add("-f"); add("bestvideo*+bestaudio/best")
+                // No resolution cap — just pick the highest quality available
+                add("-S"); add("res,tbr,fps")
             }
             DownloadPolicy.VideoQuality.HD_1080 -> {
-                add("-f"); add("bestvideo*[height<=1080]+bestaudio/best[height<=1080]")
+                // Cap at 1080p — yt-dlp will pick the closest resolution ≤1080
+                add("-S"); add("res:1080,tbr,fps")
             }
             DownloadPolicy.VideoQuality.HD_720 -> {
-                add("-f"); add("bestvideo*[height<=720]+bestaudio/best[height<=720]")
+                add("-S"); add("res:720,tbr,fps")
             }
             DownloadPolicy.VideoQuality.SD_480 -> {
-                add("-f"); add("bestvideo*[height<=480]+bestaudio/best[height<=480]")
+                add("-S"); add("res:480,tbr,fps")
             }
         }
-        // Sort by resolution first, then total bitrate and fps — ensures highest quality wins
-        add("--format-sort"); add("res,tbr,fps")
     }
 
     override suspend fun extract(url: String): Either<DomainError, VideoInfo> = withContext(Dispatchers.IO) {
@@ -166,7 +174,7 @@ class YtDlpRunner(
                 add(url.value)
             }
 
-            logger.info { "Downloading: yt-dlp -o ${outputPath.value} ${url.value}" }
+            logger.info { "yt-dlp command: ${args.joinToString(" ")}" }
             val process = ProcessBuilder(args)
                 .redirectErrorStream(true)
                 .enrichPath()
@@ -216,6 +224,8 @@ class YtDlpRunner(
             add(url.value)
         }
 
+        logger.info { "yt-dlp command: ${args.joinToString(" ")}" }
+
         val process = ProcessBuilder(args)
             .redirectErrorStream(true)
             .enrichPath()
@@ -225,6 +235,10 @@ class YtDlpRunner(
         process.inputStream.bufferedReader().useLines { lines ->
             for (line in lines) {
                 outputLines += line
+                // Log informational lines about format selection and merging
+                if (line.contains("[info]") || line.contains("[merger]") || line.contains("[download] Destination")) {
+                    logger.info { "yt-dlp: $line" }
+                }
                 parseProgressLine(line)?.let { emit(it) }
             }
         }
@@ -233,6 +247,8 @@ class YtDlpRunner(
         if (exitCode != 0) {
             val output = outputLines.takeLast(50).joinToString("\n")
             logger.error { "yt-dlp download failed (exit=$exitCode):\n$output" }
+        } else {
+            logger.info { "yt-dlp download completed successfully: ${outputPath.value}" }
         }
     }.flowOn(Dispatchers.IO)
 
