@@ -103,18 +103,25 @@ FROM base AS intel
 USER root
 
 # Add Debian Trixie repo for fresh Intel media driver (25.x)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl gpg && \
+    mkdir -p /tmp/debian-keys && \
+    for key in archive-key-13.asc archive-key-13-security.asc release-13.asc; do \
+      curl -fsSL "https://ftp-master.debian.org/keys/$key" -o "/tmp/debian-keys/$key" 2>/dev/null || true; \
+    done && \
+    cat /tmp/debian-keys/*.asc | gpg --dearmor -o /usr/share/keyrings/debian-archive-trixie.gpg && \
+    rm -rf /tmp/debian-keys /var/lib/apt/lists/*
+
 RUN echo "Types: deb" > /etc/apt/sources.list.d/debian-trixie.sources && \
     echo "URIs: http://deb.debian.org/debian" >> /etc/apt/sources.list.d/debian-trixie.sources && \
     echo "Suites: trixie" >> /etc/apt/sources.list.d/debian-trixie.sources && \
     echo "Components: main non-free non-free-firmware" >> /etc/apt/sources.list.d/debian-trixie.sources && \
-    echo "Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg" >> /etc/apt/sources.list.d/debian-trixie.sources && \
+    echo "Signed-By: /usr/share/keyrings/debian-archive-trixie.gpg" >> /etc/apt/sources.list.d/debian-trixie.sources && \
     echo 'Package: *' > /etc/apt/preferences.d/debian-trixie && \
     echo 'Pin: release n=trixie' >> /etc/apt/preferences.d/debian-trixie && \
     echo 'Pin-Priority: 100' >> /etc/apt/preferences.d/debian-trixie
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends debian-archive-keyring && \
-    apt-get update && \
     apt-get install -y --no-install-recommends -t trixie \
         vainfo \
         intel-media-va-driver-non-free \
