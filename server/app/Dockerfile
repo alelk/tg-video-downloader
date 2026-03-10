@@ -96,16 +96,31 @@ ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
 
 
 # ---- Stage 3: Intel QSV/VAAPI variant ----
+# Ubuntu Noble ships intel-media-va-driver-non-free 24.1.0 which does NOT support
+# Alder Lake-N (Intel N150). Debian Trixie has version 25.2.3 which does.
 FROM base AS intel
 
 USER root
 
-# intel-media-va-driver-non-free — Intel iHD driver for VAAPI/QSV (Broadwell+, incl. Alder Lake-N)
-# vainfo — VAAPI diagnostic tool
+# Add Debian Trixie repo for fresh Intel media driver (25.x)
+RUN echo "Types: deb" > /etc/apt/sources.list.d/debian-trixie.sources && \
+    echo "URIs: http://deb.debian.org/debian" >> /etc/apt/sources.list.d/debian-trixie.sources && \
+    echo "Suites: trixie" >> /etc/apt/sources.list.d/debian-trixie.sources && \
+    echo "Components: main non-free non-free-firmware" >> /etc/apt/sources.list.d/debian-trixie.sources && \
+    echo "Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg" >> /etc/apt/sources.list.d/debian-trixie.sources && \
+    echo 'Package: *' > /etc/apt/preferences.d/debian-trixie && \
+    echo 'Pin: release n=trixie' >> /etc/apt/preferences.d/debian-trixie && \
+    echo 'Pin-Priority: 100' >> /etc/apt/preferences.d/debian-trixie
+
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+    apt-get install -y --no-install-recommends debian-archive-keyring && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends -t trixie \
         vainfo \
-        intel-media-va-driver-non-free && \
+        intel-media-va-driver-non-free \
+        libva2 \
+        libva-drm2 \
+        libigdgmm12 && \
     rm -rf /var/lib/apt/lists/*
 
 ENV LIBVA_DRIVER_NAME=iHD
@@ -115,4 +130,5 @@ USER appuser
 
 # ---- Final stage selector ----
 FROM ${GPU_VARIANT}
+
 

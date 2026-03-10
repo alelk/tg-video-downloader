@@ -97,7 +97,8 @@ class FfmpegRunner(
             return false
         }
 
-        logger.info { "Probing HW accel $hwAccel (encoder=$encoder, device=$device)..." }
+        val libvaDriver = System.getenv("LIBVA_DRIVER_NAME")
+        logger.info { "Probing HW accel $hwAccel (encoder=$encoder, device=$device, LIBVA_DRIVER_NAME=$libvaDriver)..." }
 
         val result = try {
             val args = buildList {
@@ -557,6 +558,14 @@ class FfmpegRunner(
             val exitCode = process.waitFor()
 
             if (exitCode != 0) {
+                // Log driver/VAAPI-related lines separately for diagnostics
+                val hwLines = output.lines().filter {
+                    it.contains("libva") || it.contains("VAAPI") || it.contains("drv_video") ||
+                        it.contains("init_hw_device") || it.contains("Device creation")
+                }
+                if (hwLines.isNotEmpty()) {
+                    logger.error { "ffmpeg HW diagnostics ($description):\n${hwLines.joinToString("\n")}" }
+                }
                 logger.error { "ffmpeg failed (exit=$exitCode, $description): ${output.takeLast(500)}" }
                 DomainError.PostProcessingFailed(
                     jobId = JobId(kotlin.uuid.Uuid.random()),
