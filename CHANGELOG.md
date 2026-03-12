@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.22.0](https://github.com/alelk/tg-video-downloader/compare/v1.21.0...v1.22.0) (2026-03-12)
+
+
+### Features
+
+* improve yt-dlp download resilience and quality selection ([4079ee0](https://github.com/alelk/tg-video-downloader/commit/4079ee0e9b17b12b396444aaf1cddb3c34604760))
+
 # [1.21.0](https://github.com/alelk/tg-video-downloader/compare/v1.20.0...v1.21.0) (2026-03-10)
 
 
