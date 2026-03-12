@@ -60,21 +60,23 @@ class YtDlpRunner(
      * Format selector for a given quality.
      *
      * Strategy:
-     * 1. Always use `bestvideo*+bestaudio/best` as format selector — this guarantees
-     *    the best video stream (with or without audio) merged with the best audio stream,
-     *    falling back to the best muxed format.
-     * 2. Use `-S` (--format-sort) to control maximum resolution:
+     * 1. Use `bestvideo*+bestaudio/bestvideo*` as format selector — this selects
+     *    the best video stream (with or without audio) merged with the best audio stream.
+     *    The fallback `bestvideo*` (without separate audio) is used only when no audio
+     *    stream is available (e.g. some extractors).
+     * 2. IMPORTANT: We intentionally do NOT fall back to `best` (muxed format).
+     *    YouTube and similar sites serve muxed progressive formats only in low quality
+     *    (typically 360p/480p). When the network is slow/unstable, yt-dlp might fail
+     *    to download DASH fragments and silently fall back to `best`, resulting in
+     *    very poor quality. It is better to fail and retry than to silently download 360p.
+     * 3. Use `-S` (--format-sort) to control maximum resolution:
      *    - `res:1080` means "prefer formats closest to 1080p but not higher"
-     *    - This avoids the pitfall of `-f` height filters which can fall back to
-     *      low-quality muxed formats (e.g. 360p) when adaptive streams are unavailable.
-     * 3. The `*` suffix on `bestvideo*` allows formats that contain both video and audio
+     * 4. The `*` suffix on `bestvideo*` allows formats that contain both video and audio
      *    (e.g. AV1/VP9 adaptive formats).
-     * 4. `bestaudio` (without `*`) ensures only audio-only streams are considered for
-     *    the audio part, preventing a video stream from being picked as "audio".
      */
     private fun MutableList<String>.addFormatArgs(quality: DownloadPolicy.VideoQuality) {
-        // Always select best video + best audio, with fallback to best muxed format
-        add("-f"); add("bestvideo*+bestaudio/best")
+        // Select best video + best audio; fallback to bestvideo* (no audio) — never to low-quality muxed 'best'
+        add("-f"); add("bestvideo*+bestaudio/bestvideo*")
 
         when (quality) {
             DownloadPolicy.VideoQuality.BEST -> {
@@ -92,6 +94,18 @@ class YtDlpRunner(
                 add("-S"); add("res:480,tbr,fps")
             }
         }
+    }
+
+    /** Append retry/resilience arguments for robust downloads on slow/unstable networks. */
+    private fun MutableList<String>.addResilienceArgs() {
+        // Retry individual fragment downloads more aggressively
+        add("--extractor-retries"); add("5")
+        // Sleep between fragment retries to avoid rate limiting and let transient issues resolve
+        add("--retry-sleep"); add("fragment:exp=1:5:30")
+        // Sleep between file-level retries
+        add("--retry-sleep"); add("http:exp=1:2:30")
+        // Socket timeout — longer than default (20s) to tolerate slow connections
+        add("--socket-timeout"); add("30")
     }
 
     override suspend fun extract(url: String): Either<DomainError, VideoInfo> = withContext(Dispatchers.IO) {
@@ -168,6 +182,7 @@ class YtDlpRunner(
                 add("--no-playlist")
                 addCookiesArgs()
                 addFormatArgs(policy.maxQuality)
+                addResilienceArgs()
                 policy.preferredContainer?.let { add("--merge-output-format"); add(it.extension) }
                 proxyConfig.toUrl()?.let { add("--proxy"); add(it) }
 
@@ -215,6 +230,7 @@ class YtDlpRunner(
             add("--no-playlist")
             addCookiesArgs()
             addFormatArgs(policy.maxQuality)
+            addResilienceArgs()
             policy.preferredContainer?.let { add("--merge-output-format"); add(it.extension) }
 
             if (policy.writeThumbnail) {
@@ -235,8 +251,9 @@ class YtDlpRunner(
         process.inputStream.bufferedReader().useLines { lines ->
             for (line in lines) {
                 outputLines += line
-                // Log informational lines about format selection and merging
-                if (line.contains("[info]") || line.contains("[merger]") || line.contains("[download] Destination")) {
+                // Log informational lines about format selection, merging, and warnings
+                if (line.contains("[info]") || line.contains("[merger]") || line.contains("[download] Destination")
+                    || line.contains("Downloading format") || line.contains("[warning]") || line.contains("[error]")) {
                     logger.info { "yt-dlp: $line" }
                 }
                 parseProgressLine(line)?.let { emit(it) }
@@ -247,6 +264,7 @@ class YtDlpRunner(
         if (exitCode != 0) {
             val output = outputLines.takeLast(50).joinToString("\n")
             logger.error { "yt-dlp download failed (exit=$exitCode):\n$output" }
+            throw RuntimeException("yt-dlp download failed (exit=$exitCode): ${output.takeLast(500)}")
         } else {
             logger.info { "yt-dlp download completed successfully: ${outputPath.value}" }
         }
