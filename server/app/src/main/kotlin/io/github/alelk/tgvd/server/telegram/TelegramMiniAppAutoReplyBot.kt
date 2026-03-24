@@ -9,15 +9,30 @@ import dev.inmo.tgbotapi.types.buttons.InlineKeyboardButtons.URLInlineKeyboardBu
 import dev.inmo.tgbotapi.types.message.content.TextContent
 import dev.inmo.tgbotapi.utils.matrix
 import dev.inmo.tgbotapi.utils.row
+import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.TelegramMiniAppAutoReplyConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.engine.ProxyBuilder
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.request.header
+import io.ktor.http.HttpHeaders
+import io.ktor.http.Url
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlin.io.encoding.Base64
 
 private val logger = KotlinLogging.logger {}
+
+private fun ProxyConfig.toKtorProxyConfig() =
+    takeIf { enabled }?.let { cfg ->
+        when (cfg.type) {
+            ProxyConfig.ProxyType.HTTP -> ProxyBuilder.http(Url("${cfg.host}:${cfg.port}"))
+            ProxyConfig.ProxyType.SOCKS5 -> ProxyBuilder.socks(cfg.host, cfg.port)
+        }
+    }
 
 /**
  * Long-polling bot на базе dev.inmo:tgbotapi:
@@ -27,7 +42,8 @@ private val logger = KotlinLogging.logger {}
  */
 class TelegramMiniAppAutoReplyBot(
     private val botToken: String,
-    private val config: TelegramMiniAppAutoReplyConfig
+    private val config: TelegramMiniAppAutoReplyConfig,
+    private val proxyConfig: ProxyConfig? = null
 ) {
     // Собственный изолированный scope — не связан с application scope
     private val botScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -50,10 +66,22 @@ class TelegramMiniAppAutoReplyBot(
 
         logger.info {
             "Telegram Mini App auto-reply bot starting " +
-                "(bot=@$botUsername, app=$appShortName, urlPatterns=${config.urlPatterns})"
+                    "(bot=@$botUsername, app=$appShortName, urlPatterns=${config.urlPatterns})"
         }
 
-        val bot = telegramBot(botToken)
+        val bot = telegramBot(botToken) {
+            if (proxyConfig != null && proxyConfig.enabled) {
+                client.engineConfig.proxy = proxyConfig.toKtorProxyConfig()
+                if (proxyConfig.username != null && proxyConfig.password != null) {
+                    val credentials = Base64.encode("${proxyConfig.username}:${proxyConfig.password}".toByteArray())
+                    client.config {
+                        defaultRequest {
+                            header(HttpHeaders.ProxyAuthorization, "Basic $credentials")
+                        }
+                    }
+                }
+            }
+        }
 
         // Запускаем в botScope без блокировки — polling живёт сам по себе
         botScope.launch {

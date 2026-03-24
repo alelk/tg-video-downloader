@@ -7,6 +7,7 @@ import com.sksamuel.hoplite.addResourceSource
 import io.github.alelk.tgvd.api.contract.common.apiJson
 import io.github.alelk.tgvd.server.di.serverModules
 import io.github.alelk.tgvd.server.infra.config.AppConfig
+import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.TelegramConfig
 import io.github.alelk.tgvd.server.transport.auth.TelegramAuthPlugin
 import io.github.alelk.tgvd.server.transport.auth.TelegramAuthValidator
@@ -35,6 +36,8 @@ import io.ktor.server.resources.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.github.alelk.tgvd.server.telegram.TelegramMiniAppAutoReplyBot
+import io.ktor.client.engine.ProxyBuilder
+import io.ktor.client.engine.http
 import kotlinx.coroutines.launch
 import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
@@ -136,7 +139,8 @@ private fun Application.configureTelegramMiniAppAutoReplyBot(config: AppConfig) 
 
     val bot = TelegramMiniAppAutoReplyBot(
         botToken = config.telegram.botToken,
-        config = botConfig
+        config = botConfig,
+        proxyConfig = config.proxy
     )
 
     monitor.subscribe(ApplicationStarted) {
