@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.23.0](https://github.com/alelk/tg-video-downloader/compare/v1.22.0...v1.23.0) (2026-03-24)
+
+
+### Features
+
+* add proxy support to TelegramMiniAppAutoReplyBot ([784b320](https://github.com/alelk/tg-video-downloader/commit/784b320155cab25d55373a01e8f7e5b9fc52633d))
+
 # [1.22.0](https://github.com/alelk/tg-video-downloader/compare/v1.21.0...v1.22.0) (2026-03-12)
 
 
