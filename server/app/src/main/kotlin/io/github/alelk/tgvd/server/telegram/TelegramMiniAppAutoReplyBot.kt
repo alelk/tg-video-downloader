@@ -1,6 +1,7 @@
 package io.github.alelk.tgvd.server.telegram
 
 import dev.inmo.tgbotapi.bot.ktor.telegramBot
+import dev.inmo.tgbotapi.bot.settings.limiters.RequestLimiter
 import dev.inmo.tgbotapi.extensions.api.send.sendMessage
 import dev.inmo.tgbotapi.extensions.behaviour_builder.buildBehaviourWithLongPolling
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onContentMessage
@@ -12,11 +13,15 @@ import dev.inmo.tgbotapi.utils.row
 import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.TelegramMiniAppAutoReplyConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.HttpClient
 import io.ktor.client.engine.ProxyBuilder
+import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.header
 import io.ktor.http.HttpHeaders
+import io.ktor.http.URLProtocol
 import io.ktor.http.Url
+import io.ktor.http.buildUrl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,7 +34,15 @@ private val logger = KotlinLogging.logger {}
 private fun ProxyConfig.toKtorProxyConfig() =
     takeIf { enabled }?.let { cfg ->
         when (cfg.type) {
-            ProxyConfig.ProxyType.HTTP -> ProxyBuilder.http(Url("${cfg.host}:${cfg.port}"))
+            ProxyConfig.ProxyType.HTTP ->
+                ProxyBuilder.http(
+                    buildUrl {
+                        protocol = URLProtocol.HTTP
+                        host = cfg.host
+                        port = cfg.port
+                    }
+                )
+
             ProxyConfig.ProxyType.SOCKS5 -> ProxyBuilder.socks(cfg.host, cfg.port)
         }
     }
@@ -70,11 +83,14 @@ class TelegramMiniAppAutoReplyBot(
         }
 
         val bot = telegramBot(botToken) {
-            if (proxyConfig != null && proxyConfig.enabled) {
-                client.engineConfig.proxy = proxyConfig.toKtorProxyConfig()
-                if (proxyConfig.username != null && proxyConfig.password != null) {
-                    val credentials = Base64.encode("${proxyConfig.username}:${proxyConfig.password}".toByteArray())
-                    client.config {
+            client = HttpClient(CIO) {
+                if (proxyConfig != null && proxyConfig.enabled) {
+                    engine {
+                        proxy = proxyConfig.toKtorProxyConfig()
+                    }
+                    if (proxyConfig.username != null && proxyConfig.password != null) {
+                        val credentials =
+                            Base64.encode("${proxyConfig.username}:${proxyConfig.password}".toByteArray())
                         defaultRequest {
                             header(HttpHeaders.ProxyAuthorization, "Basic $credentials")
                         }
