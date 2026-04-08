@@ -1,137 +1,135 @@
-# TG Video Downloader — Документация
+# TG Video Downloader
 
-> **Версия**: 0.1.0-SNAPSHOT  
-> **Статус**: В разработке (MVP)  
-> **Последнее обновление**: 2026-02-25
+> **Version**: 0.1.0-SNAPSHOT | **Status**: In Development (MVP)
 
----
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.3%2B-7F52FF?logo=kotlin)](https://kotlinlang.org)
+[![Ktor](https://img.shields.io/badge/Ktor-3.x-087CFA?logo=ktor)](https://ktor.io)
+[![Compose Multiplatform](https://img.shields.io/badge/Compose-Multiplatform-4285F4)](https://www.jetbrains.com/lp/compose-multiplatform/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2B-4169E1?logo=postgresql)](https://www.postgresql.org)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-## 📋 О проекте
-
-**TG Video Downloader** — сервис для скачивания видео с различных платформ 
-(YouTube, RuTube, VK Video, и [1000+ других](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)) 
-с управлением через Telegram Mini App. 
-Поддерживает умное определение метаданных через LLM (Gemini/OpenAI) и HTTP/SOCKS5 прокси.
-
-### Ключевые возможности
-
-- 🎬 Скачивание видео через `yt-dlp` (YouTube, RuTube, VK Video, 1000+ сайтов)
-- 🏷️ Автоматическое распознавание метаданных (исполнитель, название, сезон/серия)
-- 🧠 Умное определение метаданных через LLM (Gemini/OpenAI) для новых каналов
-- 📁 Умная раскладка по папкам на основе правил
-- 📺 Справочник каналов — теги, per-channel metadata overrides, тег-матчинг в правилах
-- ✏️ Редактирование метаданных перед скачиванием
-- 💾 Сохранение настроек как правило для будущих видео
-- 🔄 Очередь задач с прогрессом и повторами
-- 🌐 Поддержка HTTP/SOCKS5 прокси
-- 🔐 Авторизация через Telegram initData
-- 📱 Kotlin Multiplatform — единая кодовая база для сервера и клиентов
+A self-hosted service for downloading videos from YouTube, RuTube, VK Video, and [1000+ other platforms](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md), managed through a Telegram Mini App. Supports smart metadata extraction via LLM (Gemini/OpenAI) and HTTP/SOCKS5 proxies.
 
 ---
 
-## 🗂️ Структура документации
+## ✨ Features
 
-| Документ                                  | Описание                                                  |
-|-------------------------------------------|-----------------------------------------------------------|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md)   | Модульная архитектура, KMP-стратегия, зависимости         |
-| [DOMAIN.md](docs/DOMAIN.md)               | Доменная модель: sealed-классы, value objects, инварианты |
-| [API_CONTRACT.md](docs/API_CONTRACT.md)   | HTTP API: эндпоинты, DTO, сериализация, ошибки            |
-| [DATABASE.md](docs/DATABASE.md)           | Схема PostgreSQL, миграции, индексы                       |
-| [CONFIGURATION.md](docs/CONFIGURATION.md) | Параметры конфигурации                                    |
-| [SECURITY.md](docs/SECURITY.md)           | Авторизация, Telegram initData, безопасность              |
-| [TESTING.md](docs/TESTING.md)             | Стратегия тестирования, KMP-тесты, примеры                |
-| [DEPLOYMENT.md](docs/DEPLOYMENT.md)       | Docker, docker-compose, CI/CD                             |
-| [MAINTENANCE.md](docs/MAINTENANCE.md)     | Обслуживание, обновление yt-dlp                           |
-| [ADR/](docs/ADR/)                         | Architecture Decision Records                             |
-
----
-
-## 🛠️ Технологический стек
-
-| Область           | Технология                                 |
-|-------------------|--------------------------------------------|
-| Язык              | Kotlin 2.3+ (Multiplatform)                |
-| JVM               | 21 LTS                                     |
-| Backend framework | Ktor 3.x                                   |
-| DI                | Koin 4.x                                   |
-| Сериализация      | kotlinx.serialization                      |
-| База данных       | PostgreSQL 16+                             |
-| ORM / SQL         | Exposed + exposed-json                    |
-| Миграции          | Flyway                                     |
-| UI                | Compose Multiplatform                      |
-| HTTP Client       | Ktor Client (KMP)                          |
-| Внешние процессы  | yt-dlp, ffmpeg                             |
-| Конфигурация      | Hoplite                                    |
-| Логирование       | kotlin-logging + Logback                   |
-| Тесты             | Kotest 6, MockK, Testcontainers            |
+- 🎬 **Video downloads** via `yt-dlp` (YouTube, RuTube, VK Video, 1000+ sites)
+- 🏷️ **Automatic metadata recognition** — artist, title, season/episode
+- 🧠 **Smart metadata via LLM** (Gemini/OpenAI) for new, unknown channels
+- 📁 **Rule-based file organization** — flexible folder structure
+- 📺 **Channel directory** — tags, per-channel metadata overrides, tag-based rule matching
+- ✏️ **Metadata editor** — review and adjust before downloading
+- 💾 **Save as rule** — one click to save current settings as a rule for future videos
+- 🔄 **Job queue** — progress tracking and automatic retries
+- 🌐 **Proxy support** — HTTP and SOCKS5
+- 🔐 **Telegram authorization** — via `initData`, user allowlist
+- 📱 **Kotlin Multiplatform** — shared codebase for server and clients
 
 ---
 
-## 📦 Модули проекта
+## 📖 Documentation
+
+| Document                                  | Description                                                    |
+|-------------------------------------------|----------------------------------------------------------------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md)   | Module architecture, KMP strategy, dependency rules            |
+| [DOMAIN.md](docs/DOMAIN.md)               | Domain model: sealed classes, value objects, invariants        |
+| [API_CONTRACT.md](docs/API_CONTRACT.md)   | HTTP API: endpoints, DTOs, serialization, error format         |
+| [DATABASE.md](docs/DATABASE.md)           | PostgreSQL schema, migrations, indexes                         |
+| [CONFIGURATION.md](docs/CONFIGURATION.md) | All configuration parameters                                   |
+| [SECURITY.md](docs/SECURITY.md)           | Authorization, Telegram initData, security model               |
+| [TESTING.md](docs/TESTING.md)             | Testing strategy, KMP tests, examples                          |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md)       | Docker, docker-compose, CI/CD                                  |
+| [MAINTENANCE.md](docs/MAINTENANCE.md)     | Maintenance, updating yt-dlp, dependency management            |
+| [ADR/](docs/ADR/)                         | Architecture Decision Records                                  |
+
+---
+
+## 🛠️ Tech Stack
+
+| Area              | Technology                                  |
+|-------------------|---------------------------------------------|
+| Language          | Kotlin 2.3+ (Multiplatform)                 |
+| JVM               | 21 LTS                                      |
+| Backend framework | Ktor 3.x                                    |
+| DI                | Koin 4.x                                    |
+| Serialization     | kotlinx.serialization                       |
+| Database          | PostgreSQL 16+                              |
+| ORM / SQL         | Exposed + exposed-json                      |
+| Migrations        | Flyway                                      |
+| UI                | Compose Multiplatform                       |
+| HTTP Client       | Ktor Client (KMP)                           |
+| External tools    | yt-dlp, ffmpeg                              |
+| Configuration     | Hoplite                                     |
+| Logging           | kotlin-logging + Logback                    |
+| Testing           | Kotest 6, MockK, Testcontainers             |
+
+---
+
+## 📦 Project Modules
 
 ```
 tg-video-downloader/
-├── domain/              # Доменные модели, use-cases (KMP: jvm, js)
+├── domain/              # Business logic, domain models (KMP: jvm, js)
 ├── api/
-│   ├── contract/        # DTO, API-контракт (KMP: jvm, js)
-│   ├── mapping/         # Маппинг domain <-> DTO (KMP: jvm, js)
-│   ├── client/          # Ktor HTTP-клиент (KMP: jvm, js)
-│   └── client/di/       # Koin-модули для API-клиента (KMP: jvm, js)
-├── features/            # UI-компоненты, Compose Multiplatform (KMP: jvm, js)
+│   ├── contract/        # HTTP API DTOs (KMP: jvm, js)
+│   ├── mapping/         # Domain ↔ DTO mapping (KMP: jvm, js)
+│   ├── client/          # Ktor HTTP client (KMP: jvm, js)
+│   └── client/di/       # Koin modules for API client (KMP: jvm, js)
+├── features/            # UI components, Compose Multiplatform (KMP: jvm, js)
 ├── tgminiapp/           # Telegram Mini App shell (JS only)
 ├── server/
-│   ├── infra/           # Репозитории, DB, yt-dlp, LLM (JVM only)
-│   ├── transport/       # Ktor routing, auth (JVM only)
-│   ├── di/              # Koin модули сервера (JVM only)
-│   └── app/             # Entrypoint (JVM only)
-└── docs/                # Документация
+│   ├── infra/           # Repositories, DB, yt-dlp, LLM (JVM only)
+│   ├── transport/       # Ktor routing, auth middleware (JVM only)
+│   ├── di/              # Server Koin modules (JVM only)
+│   └── app/             # Application entrypoint (JVM only)
+└── docs/                # Documentation
 ```
 
-Подробнее: [ARCHITECTURE.md](docs/ARCHITECTURE.md)
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
 ---
 
-## 🚀 Быстрый старт
+## 🚀 Quick Start
 
-### Требования
+### Prerequisites
 
 - JDK 21+
 - Docker & Docker Compose
-- yt-dlp (в PATH или указать путь)
-- ffmpeg (в PATH или указать путь)
+- `yt-dlp` (in PATH, or configure path explicitly)
+- `ffmpeg` (in PATH, or configure path explicitly)
 
-### Локальный запуск
+### Local Development
 
 ```bash
-# 1. Запустить PostgreSQL
+# 1. Start PostgreSQL
 docker compose up -d postgres
 
-# 2. Запустить сервер
+# 2. Start the server
 ./gradlew :server:app:run
 
-# 3. Запустить Telegram Mini App (dev server)
+# 3. Start the Telegram Mini App dev server
 ./gradlew :tgminiapp:jsBrowserDevelopmentRun
 ```
 
-### Локальная проверка Mini App в Telegram (без HMR)
+### Testing Mini App in Telegram (without HMR)
 
-Если WebView в Telegram (особенно iOS) подвисает на dev-server, используйте production bundle:
+If Telegram's WebView (especially on iOS) hangs on the dev server, use the production bundle:
 
 ```bash
-# 1. Собрать production distribution Mini App
+# 1. Build production Mini App distribution
 ./gradlew :tgminiapp:jsBrowserDistribution
 
-# 2. Отдавать статические файлы
+# 2. Serve static files locally
 npx serve tgminiapp/build/dist/js/productionExecutable -l 8081
 ```
 
-Важно:
-- Если на `http://localhost:8081/` приходит `404`, обычно указан не тот каталог для `serve`.
-- Перед запуском убедитесь, что заполнен `tgminiapp/src/jsMain/resources/config.js` (например, `API_BASE_URL`).
+> **Note**: If `http://localhost:8081/` returns `404`, double-check the directory path passed to `serve`.  
+> Make sure `tgminiapp/src/jsMain/resources/config.js` is populated (e.g., `API_BASE_URL`).
 
-### Конфигурация
+### Configuration
 
-Создать `application-local.yaml`:
+Create `application-local.yaml`:
 
 ```yaml
 telegram:
@@ -150,48 +148,50 @@ storage:
     - "/Users/you/Downloads/videos"
 ```
 
+See [CONFIGURATION.md](docs/CONFIGURATION.md) for all available options.
+
 ---
 
-## 📐 Основные сценарии
+## 🎬 Usage Scenarios
 
-### Сценарий 1: Скачивание музыкального видео
-
-```
-1. Пользователь открывает Mini App в Telegram
-2. Вставляет ссылку: https://youtube.com/watch?v=dQw4w9WgXcQ
-3. Сервис:
-   - Извлекает videoId и получает метаданные через yt-dlp
-   - Находит правило по каналу "Rick Astley" → category=MUSIC_VIDEO
-   - Распознаёт: artist="Rick Astley", title="Never Gonna Give You Up"
-4. Пользователь видит preview с планом сохранения:
-   - Оригинал: /media/Music Videos/original/Rick Astley/Never Gonna Give You Up [dQw4w9WgXcQ].webm
-   - Конвертированный: /media/Music Videos/converted/Rick Astley/Never Gonna Give You Up.mp4
-5. Пользователь может отредактировать метаданные и нажимает "Скачать"
-6. Job выполняется:
-   a. Скачивание оригинала в максимальном качестве → original/
-   b. Конвертация в mp4 (формат задаётся в конфигурации) → converted/
-   c. Вшивание метаданных и обложки в оба файла
-7. Пользователь видит статус DONE
-```
-
-### Сценарий 2: Умное определение (LLM)
+### Scenario 1: Downloading a Music Video
 
 ```
-1. Ссылка на видео неизвестного канала
-2. Правил нет. Включена интеграция с Gemini.
-3. LLM определяет категорию, исполнителя/название.
-4. Пользователь видит предложенные данные.
-5. Может поставить галочку "Сохранить как правило" для этого канала.
+1. User opens the Mini App in Telegram
+2. Pastes a link: https://youtube.com/watch?v=dQw4w9WgXcQ
+3. The service:
+   - Extracts videoId and fetches metadata via yt-dlp
+   - Matches a rule for channel "Rick Astley" → category=MUSIC_VIDEO
+   - Resolves: artist="Rick Astley", title="Never Gonna Give You Up"
+4. User sees a preview with the planned storage layout:
+   - Original: /media/Music Videos/original/Rick Astley/Never Gonna Give You Up [dQw4w9WgXcQ].webm
+   - Converted: /media/Music Videos/converted/Rick Astley/Never Gonna Give You Up.mp4
+5. User reviews metadata, adjusts if needed, and clicks "Download"
+6. Job executes:
+   a. Downloads original in maximum quality → original/
+   b. Converts to mp4 (format configured in rules) → converted/
+   c. Embeds metadata and cover art into both files
+7. User sees status: DONE
 ```
 
-### Сценарий 3: Bot -> Mini App кнопка (автоподстановка URL)
+### Scenario 2: Smart Metadata via LLM
 
-Теперь сервер может поднимать lightweight long-polling бота, который:
-- получает сообщение с ссылкой;
-- отправляет inline-кнопку `Open Mini App`;
-- открывает Mini App через `startapp`, и поле URL в UI уже заполнено.
+```
+1. User pastes a link to a video from an unknown channel
+2. No matching rule exists. Gemini integration is enabled.
+3. LLM suggests category, artist/title based on video context.
+4. User sees the suggested metadata.
+5. Optionally checks "Save as rule" to persist settings for future videos from this channel.
+```
 
-Минимальная конфигурация:
+### Scenario 3: Bot → Mini App with Auto-filled URL
+
+The server can run a lightweight long-polling bot that:
+- Receives a message containing a link
+- Replies with an "Open Mini App" inline button
+- Opens the Mini App via `startapp` with the URL pre-filled in the input field
+
+Minimal configuration:
 
 ```yaml
 telegram:
@@ -205,65 +205,65 @@ telegram:
     onlyYoutubeLinks: false
 ```
 
-Формат deep-link, который отправляет бот:
+Deep-link format sent by the bot:
 
-```text
+```
 https://t.me/<bot_username>/<mini_app_short_name>?startapp=<base64url(video_url)>
 ```
 
-`tgminiapp` автоматически читает `start_param` / `tgWebAppStartParam` и подставляет ссылку в `Video URL`.
+The `tgminiapp` automatically reads `start_param` / `tgWebAppStartParam` and pre-fills the Video URL field.
 
 ---
 
-## ✅ Definition of Done (MVP)
+## ✅ MVP Definition of Done
 
-- [ ] Preview: ссылка → метаданные + план сохранения
-- [ ] Create job: подтверждение/редактирование → очередь
-- [ ] Job execution: скачивание → пост-обработка → финальный путь
-- [ ] Progress: статусы отображаются (polling)
-- [ ] Rules CRUD: создание/редактирование правил
-- [ ] Auth: Telegram initData + allowlist
-- [ ] Tests: unit + integration для критичных частей
-
----
-
-## 📚 Дополнительно
-
-### Глоссарий
-
-| Термин               | Описание                                                                         |
-|----------------------|----------------------------------------------------------------------------------|
-| **VideoId**          | Идентификатор видео на платформе-источнике (например, `dQw4w9WgXcQ` для YouTube) |
-| **Workspace**        | Группа пользователей с общими ресурсами (правила, задачи, настройки)             |
-| **Rule**             | Правило обработки: матчинг канала/URL/тега → категория, шаблоны путей             |
-| **Category**         | Тип контента: `MUSIC_VIDEO`, `SERIES`, `OTHER`                                   |
-| **Channel**          | Запись в справочнике каналов: платформа, теги, metadata overrides                 |
-| **Tag**              | Тег для группировки каналов (lowercase, hyphens): `music-video`, `lofi`, `series` |
-| **ResolvedMetadata** | Распознанные метаданные для редактирования                                       |
-| **Job**              | Задача скачивания с прогрессом и статусом                                        |
-| **StoragePlan**      | Итоговые пути файлов после подстановки шаблонов                                  |
-| **initData**         | Строка авторизации Telegram Mini App                                             |
-| **KMP**              | Kotlin Multiplatform — единая кодовая база для разных платформ                   |
-
-### FAQ
-
-**Q: Почему Kotlin Multiplatform?**  
-A: Единый стек Kotlin везде. Domain и UI-компоненты шарятся между сервером (JVM) и клиентами (JS, будущие нативные).
-
-**Q: Почему Compose Multiplatform, а не React?**  
-A: Type-safe UI на том же языке, переиспользование компонентов между платформами.
-
-**Q: Как добавить новый UI (desktop, Android)?**  
-A: Создать shell-модуль, подключить `features` + `api:client:di`. Все экраны уже готовы.
-
-**Q: Почему yt-dlp как внешний процесс?**  
-A: Наиболее актуальная поддержка форматов и сайтов, простота обновления.
+- [ ] Preview: URL → metadata + storage plan
+- [ ] Create job: confirm/edit metadata → enqueue
+- [ ] Job execution: download → post-processing → final file paths
+- [ ] Progress: job statuses displayed via polling
+- [ ] Rules CRUD: create/edit/delete rules
+- [ ] Auth: Telegram initData + user allowlist
+- [ ] Tests: unit + integration for critical paths
 
 ---
 
-## Contributing
+## 📚 Glossary
 
-1. Читай документацию перед реализацией
-2. Следуй принципам из [ARCHITECTURE.md](docs/ARCHITECTURE.md)
-3. Пиши тесты согласно [TESTING.md](docs/TESTING.md)
-4. При изменении поведения — обновляй документацию
+| Term                 | Description                                                                            |
+|----------------------|----------------------------------------------------------------------------------------|
+| **VideoId**          | Platform-specific video identifier (e.g., `dQw4w9WgXcQ` for YouTube)                 |
+| **Workspace**        | Group of users sharing resources: rules, jobs, settings                                |
+| **Rule**             | Processing rule: match condition (channel/URL/tag) → category + file path templates    |
+| **Category**         | Content type: `MUSIC_VIDEO`, `SERIES`, `OTHER`                                         |
+| **Channel**          | Channel directory entry: platform, tags, metadata overrides                            |
+| **Tag**              | Label for grouping channels (lowercase, hyphens): `music-video`, `lofi`, `series`     |
+| **ResolvedMetadata** | Extracted and resolved metadata, ready for user review                                 |
+| **Job**              | Download task with progress tracking and status                                        |
+| **StoragePlan**      | Final file paths after template substitution                                           |
+| **initData**         | Telegram Mini App authorization string                                                 |
+| **KMP**              | Kotlin Multiplatform — shared codebase across platforms                                |
+
+---
+
+## ❓ FAQ
+
+**Q: Why Kotlin Multiplatform?**  
+A: A single Kotlin stack everywhere. Domain logic and UI components are shared between the server (JVM) and clients (JS, and future native targets).
+
+**Q: Why Compose Multiplatform instead of React?**  
+A: Type-safe UI in the same language, with component reuse across platforms.
+
+**Q: How do I add a new UI platform (desktop, Android)?**  
+A: Create a thin shell module, depend on `features` + `api:client:di`. All screens and components are already there.
+
+**Q: Why yt-dlp as an external process?**  
+A: It provides the broadest and most up-to-date support for video platforms, and can be updated independently without redeploying the application.
+
+---
+
+## 🤝 Contributing
+
+1. Read the documentation before implementing anything
+2. Follow the principles in [ARCHITECTURE.md](docs/ARCHITECTURE.md)
+3. Write tests as described in [TESTING.md](docs/TESTING.md)
+4. Update documentation when changing observable behavior

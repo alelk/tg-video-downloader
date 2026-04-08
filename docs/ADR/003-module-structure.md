@@ -1,50 +1,50 @@
-# ADR-003: Модульная архитектура
+# ADR-003: Module Architecture
 
-**Статус**: Принято  
-**Дата**: 2026-02-25  
-**Авторы**: Alex Elkin
+**Status**: Accepted  
+**Date**: 2026-02-25  
+**Authors**: Alex Elkin
 
 ---
 
-## Контекст
+## Context
 
-Проект включает:
+The project includes:
 - Backend (Ktor, JVM)
 - Telegram Mini App (Compose Multiplatform, JS)
-- Shared domain модели и DTO (KMP)
-- Потенциально: desktop, Android, web-приложения
+- Shared domain models and DTOs (KMP)
+- Potential future targets: desktop, Android, web applications
 
-Нужно определить структуру Gradle-модулей для:
-- Чёткого разделения ответственности
-- Переиспользования кода через KMP
-- Независимой разработки и тестирования
-- Контроля зависимостей
+We need to define the Gradle module structure to achieve:
+- Clear separation of concerns
+- Code reuse via KMP
+- Independent development and testing
+- Dependency control
 
 ---
 
-## Решение
+## Decision
 
-### Структура модулей
+### Module Structure
 
 ```
 tg-video-downloader/
-├── domain/              # Чистая бизнес-логика (KMP: jvm, js)
+├── domain/              # Pure business logic (KMP: jvm, js)
 ├── api/
-│   ├── contract/        # DTO для API (KMP: jvm, js)
-│   ├── mapping/         # Маппинг domain <-> DTO (KMP: jvm, js)
-│   ├── client/          # HTTP клиент (KMP: jvm, js)
-│   └── client/di/       # DI wiring клиента (KMP: jvm, js)
-├── features/            # UI-компоненты, Compose Multiplatform (KMP: jvm, js)
+│   ├── contract/        # API DTOs (KMP: jvm, js)
+│   ├── mapping/         # Domain <-> DTO mapping (KMP: jvm, js)
+│   ├── client/          # HTTP client (KMP: jvm, js)
+│   └── client/di/       # Client DI wiring (KMP: jvm, js)
+├── features/            # UI components, Compose Multiplatform (KMP: jvm, js)
 ├── tgminiapp/           # Telegram Mini App shell (JS only)
 ├── server/
-│   ├── infra/           # Репозитории, внешние процессы, LLM (JVM only)
+│   ├── infra/           # Repositories, external processes, LLM (JVM only)
 │   ├── transport/       # Ktor routes, middleware (JVM only)
-│   ├── di/              # Koin модули (JVM only)
+│   ├── di/              # Koin modules (JVM only)
 │   └── app/             # Entrypoint (JVM only)
-└── docs/                # Документация
+└── docs/                # Documentation
 ```
 
-### Граф зависимостей
+### Dependency Graph
 
 ```
                     tgminiapp (JS)
@@ -69,67 +69,67 @@ tg-video-downloader/
                    server:app
 ```
 
-### Правила зависимостей
+### Dependency Rules
 
-| Модуль             | Может зависеть от                                      | НЕ может зависеть от           |
+| Module             | May depend on                                          | Must NOT depend on             |
 |--------------------|--------------------------------------------------------|--------------------------------|
-| `domain`           | Kotlin stdlib, Arrow, kotlinx-coroutines               | Всё остальное                  |
+| `domain`           | Kotlin stdlib, Arrow, kotlinx-coroutines               | Everything else                |
 | `api:contract`     | Kotlin stdlib, kotlinx.serialization                   | domain, server:*, features     |
 | `api:mapping`      | domain, api:contract, Arrow                            | server:*, api:client, features |
 | `api:client`       | api:contract, Ktor Client                              | domain, server:*, features     |
 | `api:client:di`    | api:client, Koin, Ktor engine                          | domain, server:*, features     |
 | `features`         | domain, api:client, api:mapping, Compose, Koin         | server:*, tgminiapp            |
-| `tgminiapp`        | features, api:client:di                                | server:*, domain напрямую      |
+| `tgminiapp`        | features, api:client:di                                | server:*, domain directly      |
 | `server:infra`     | domain, api:contract                                   | transport, di, app, features   |
 | `server:transport` | domain, api:contract, api:mapping, Ktor Server         | di, app, features              |
 | `server:di`        | domain, server:infra, server:transport, Koin           | app, features                  |
-| `server:app`       | Все серверные модули                                   | features, tgminiapp            |
+| `server:app`       | All server modules                                     | features, tgminiapp            |
 
 ---
 
-## Обоснование
+## Rationale
 
-### Почему отдельный `domain` (KMP)?
+### Why a separate `domain` module (KMP)?
 
-- **Независимость от фреймворков**: чистый Kotlin, можно тестировать без Ktor/DB
-- **Переиспользование**: одни и те же модели на сервере и клиенте
-- **KMP**: sealed classes, enums — работают одинаково на JVM и JS
+- **Framework independence**: pure Kotlin, testable without Ktor/DB
+- **Reuse**: the same models on server and client
+- **KMP**: sealed classes, enums — work identically on JVM and JS
 
-### Почему `api:contract` отдельно от `domain`?
+### Why `api:contract` is separate from `domain`?
 
-- **Стабильность API**: контракт версионируется отдельно
-- **Разные инварианты**: DTO может иметь nullable там, где domain требует non-null
-- **Разные аннотации**: `@Serializable`, `@SerialName`
+- **API stability**: the contract is versioned independently
+- **Different invariants**: DTOs may have nullable where domain requires non-null
+- **Different annotations**: `@Serializable`, `@SerialName`
 
-### Почему `api:mapping` — KMP?
+### Why is `api:mapping` KMP?
 
-- Маппинг нужен на сервере (`server:transport`) и на клиенте (`features`)
-- Позволяет `features` работать с доменными моделями, а не DTO
+- Mapping is needed on the server (`server:transport`) and on the client (`features`)
+- Allows `features` to work with domain models instead of raw DTOs
 
-### Почему `api:client:di` — отдельный модуль?
+### Why is `api:client:di` a separate module?
 
-- Platform-specific engine selection (CIO для JVM, Js для браузера)
-- `api:client` остаётся чистым — без знания о конкретном engine
-- Koin wiring изолирован
+- Platform-specific engine selection (CIO for JVM, Js for browser)
+- `api:client` remains clean — unaware of the specific engine
+- Koin wiring is isolated
 
-### Почему `features` — отдельный KMP-модуль?
+### Why is `features` a separate KMP module?
 
-- Все Compose UI-компоненты переиспользуются между shell-приложениями
-- `tgminiapp` — тонкая обёртка с Telegram-специфичным glue-кодом
-- Добавление новой платформы = новый shell-модуль, зависящий от `features`
+- All Compose UI components are reused across shell applications
+- `tgminiapp` is a thin wrapper with Telegram-specific glue code
+- Adding a new platform = new shell module depending on `features`
 
-### Почему разделение `server:*`?
+### Why split `server:*` into multiple modules?
 
-| Модуль             | Ответственность                               |
+| Module             | Responsibility                                |
 |--------------------|-----------------------------------------------|
-| `server:infra`     | "Грязная" работа: DB, процессы, FS, LLM       |
-| `server:transport` | HTTP: роуты, middleware, валидация             |
-| `server:di`        | Wiring зависимостей                           |
-| `server:app`       | Точка входа, конфигурация                     |
+| `server:infra`     | "Dirty" work: DB, processes, FS, LLM          |
+| `server:transport` | HTTP: routes, middleware, validation           |
+| `server:di`        | Dependency wiring                             |
+| `server:app`       | Entry point, configuration                    |
 
 ---
 
-## Конфигурация Gradle
+## Gradle Configuration
 
 ### settings.gradle.kts
 
@@ -156,7 +156,7 @@ include(":features")
 include(":tgminiapp")
 ```
 
-### Пример domain/build.gradle.kts
+### domain/build.gradle.kts Example
 
 ```kotlin
 plugins {
@@ -183,7 +183,7 @@ kotlin {
 }
 ```
 
-### Пример features/build.gradle.kts
+### features/build.gradle.kts Example
 
 ```kotlin
 plugins {
@@ -211,7 +211,7 @@ kotlin {
 }
 ```
 
-### Пример server:infra/build.gradle.kts
+### server:infra/build.gradle.kts Example
 
 ```kotlin
 plugins {
@@ -229,32 +229,32 @@ dependencies {
 
 ---
 
-## Последствия
+## Consequences
 
-### Положительные
+### Positive
 
-- Чёткие границы ответственности
-- Контроль зависимостей на уровне Gradle
-- Переиспользование кода между платформами (KMP)
-- UI-компоненты пишутся один раз (`features`)
-- Легко тестировать изолированно
+- Clear boundaries of responsibility
+- Dependency control at the Gradle level
+- Code reuse across platforms (KMP)
+- UI components written once (`features`)
+- Easy to test in isolation
 
-### Отрицательные
+### Negative
 
-- Начальный overhead на настройку KMP
-- Больше файлов build.gradle.kts
-- Не все тестовые инструменты поддерживают KMP (MockK → только jvmTest)
+- Initial overhead for KMP setup
+- More `build.gradle.kts` files
+- Not all testing tools support KMP (MockK → jvmTest only)
 
-### Миграция
+### Evolution
 
-При росте проекта можно:
-- Выделить `core/` для общих утилит
-- Разбить `features` на feature-модули (`features:preview`, `features:jobs`)
-- Добавить таргеты (iOS, macOS, Android) в KMP-модули
+As the project grows, you can:
+- Extract `core/` for shared utilities
+- Split `features` into feature modules (`features:preview`, `features:jobs`)
+- Add new targets (iOS, macOS, Android) to KMP modules
 
 ---
 
-## Ссылки
+## References
 
 - [Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
 - [Gradle Multi-project Builds](https://docs.gradle.org/current/userguide/multi_project_builds.html)

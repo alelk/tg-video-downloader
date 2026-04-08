@@ -1,33 +1,33 @@
-# ADR-002: Sealed Classes для полиморфных типов
+# ADR-002: Sealed Classes for Polymorphic Types
 
-**Статус**: Принято  
-**Дата**: 2026-02-11  
-**Авторы**: Alex Elkin
-
----
-
-## Контекст
-
-В доменной модели есть полиморфные типы:
-- **RuleMatch**: критерии матчинга (ChannelId, ChannelName, TitleRegex, UrlRegex, CategoryEquals, AllOf, AnyOf)
-- **ResolvedMetadata**: метаданные разных категорий (MusicVideo, SeriesEpisode, Other)
-- **MetadataTemplate**: шаблоны извлечения метаданных, зеркалит ResolvedMetadata (MusicVideo, SeriesEpisode, Other)
-- **UserOverrides**: пользовательские уточнения, зеркалит ResolvedMetadata по категории (MusicVideo, SeriesEpisode, Other)
-- **OutputFormat**: тип и формат выходного файла (OriginalVideo, ConvertedVideo, Audio, Thumbnail)
-- **DomainError**: различные типы ошибок
-
-Нужно решить:
-1. Как моделировать эти типы в Kotlin
-2. Как сериализовать их в JSON для API
-3. Как хранить в PostgreSQL
+**Status**: Accepted  
+**Date**: 2026-02-11  
+**Authors**: Alex Elkin
 
 ---
 
-## Решение
+## Context
 
-### Доменный уровень
+The domain model contains several polymorphic types:
+- **RuleMatch**: matching criteria (ChannelId, ChannelName, TitleRegex, UrlRegex, CategoryEquals, AllOf, AnyOf)
+- **ResolvedMetadata**: metadata for different categories (MusicVideo, SeriesEpisode, Other)
+- **MetadataTemplate**: metadata extraction templates, mirrors ResolvedMetadata (MusicVideo, SeriesEpisode, Other)
+- **UserOverrides**: user refinements, mirrors ResolvedMetadata by category (MusicVideo, SeriesEpisode, Other)
+- **OutputFormat**: type and format of output files (OriginalVideo, ConvertedVideo, Audio, Thumbnail)
+- **DomainError**: various error types
 
-Использовать **sealed interface/class** для всех полиморфных типов.
+We need to decide:
+1. How to model these types in Kotlin
+2. How to serialize them to JSON for the API
+3. How to store them in PostgreSQL
+
+---
+
+## Decision
+
+### Domain Layer
+
+Use **sealed interface/class** for all polymorphic types.
 
 ```kotlin
 sealed interface RuleMatch {
@@ -43,9 +43,9 @@ sealed interface ResolvedMetadata {
 }
 ```
 
-### API уровень (DTO)
+### API Layer (DTO)
 
-Использовать **sealed interface + @SerialName** для kotlinx.serialization с discriminator `type`.
+Use **sealed interface + @SerialName** for kotlinx.serialization with `type` discriminator.
 
 ```kotlin
 @Serializable
@@ -63,9 +63,9 @@ JSON:
 { "type": "channel-id", "value": "UC123" }
 ```
 
-### База данных
+### Database
 
-Хранить как **JSONB** с тем же форматом, что и API.
+Store as **JSONB** using the same format as the API.
 
 ```sql
 match JSONB NOT NULL  -- { "type": "channel-id", "value": "UC123" }
@@ -73,41 +73,41 @@ match JSONB NOT NULL  -- { "type": "channel-id", "value": "UC123" }
 
 ---
 
-## Обоснование
+## Rationale
 
-### Почему sealed interface, а не enum + data?
+### Why sealed interface instead of enum + data?
 
-| Подход                   | Плюсы                                           | Минусы                                    |
-|--------------------------|-------------------------------------------------|-------------------------------------------|
-| **sealed interface**     | Type-safe, exhaustive when, вложенные структуры | Немного больше кода                       |
-| **enum + data class**    | Проще для плоских типов                         | Не поддерживает вложенность (AllOf/AnyOf) |
-| **open class hierarchy** | Гибкость                                        | Не exhaustive, опасность забыть case      |
+| Approach                 | Pros                                              | Cons                                         |
+|--------------------------|---------------------------------------------------|----------------------------------------------|
+| **sealed interface**     | Type-safe, exhaustive when, nested structures     | Slightly more boilerplate                    |
+| **enum + data class**    | Simpler for flat types                            | Does not support nesting (AllOf/AnyOf)       |
+| **open class hierarchy** | Flexible                                          | Not exhaustive, easy to miss a case          |
 
-**Выбор**: sealed interface — лучший баланс безопасности и гибкости.
+**Choice**: sealed interface — best balance of safety and flexibility.
 
-### Почему discriminator `type`, а не `@type` или `class`?
+### Why `type` discriminator instead of `@type` or `class`?
 
-- `type` — простое, понятное имя
-- Совместимость с большинством клиентов
-- Не конфликтует с зарезервированными словами
+- `type` — simple, clear name
+- Compatible with most clients
+- Does not conflict with reserved keywords
 
-### Почему JSONB для хранения?
+### Why JSONB for storage?
 
-| Подход | Плюсы | Минусы |
+| Approach | Pros | Cons |
 |--------|-------|--------|
-| **JSONB** | Гибкость, GIN-индексы, один формат везде | Нет FK constraints |
-| **Нормализованные таблицы** | FK, строгая схема | Сложные JOIN, много таблиц |
-| **Наследование PostgreSQL** | Встроенная поддержка | Сложность, ограничения |
+| **JSONB** | Flexible, GIN indexes, single format everywhere | No FK constraints |
+| **Normalized tables** | FK, strict schema | Complex JOINs, many tables |
+| **PostgreSQL table inheritance** | Built-in support | Complexity, limitations |
 
-**Выбор**: JSONB — проще, достаточно для MVP, можно мигрировать позже.
+**Choice**: JSONB — simpler, sufficient for MVP, can be migrated later.
 
 ---
 
-## Реализация
+## Implementation
 
-### Маппинг Domain <-> DTO
+### Domain ↔ DTO Mapping
 
-Отдельный слой (`api:mapping`) с extension functions:
+Separate layer (`api:mapping`) with extension functions:
 
 ```kotlin
 fun RuleMatch.toDto(): RuleMatchDto = when (this) {
@@ -124,65 +124,64 @@ fun RuleMatchDto.toDomain(): Either<ValidationError, RuleMatch> = when (this) {
 }
 ```
 
-### Валидация
+### Validation
 
-- **Domain level**: в `init {}` блоках (fail fast)
-- **DTO level**: при маппинге в domain (возвращаем Either)
-
----
-
-## Последствия
-
-### Положительные
-
-- Compiler проверяет exhaustiveness
-- Невозможно забыть case в when
-- Единый формат JSON для API и DB
-- Легко добавлять новые типы
-- **Полная KMP-совместимость**: sealed classes работают одинаково в `commonMain` на JVM и JS
-
-### Отрицательные
-
-- Больше boilerplate для маппинга
-- Нужно синхронизировать domain и DTO иерархии
-
-### Миграции
-
-При добавлении нового типа:
-1. Добавить в domain sealed class
-2. Добавить в DTO sealed class с @SerialName
-3. Добавить маппинг
-4. Существующие данные в DB остаются валидными
+- **Domain level**: in `init {}` blocks (fail fast)
+- **DTO level**: during mapping to domain (return Either)
 
 ---
 
-## Пример полного flow
+## Consequences
+
+### Positive
+
+- Compiler enforces exhaustiveness
+- Impossible to forget a case in `when`
+- Single JSON format for API and DB
+- Easy to add new types
+- **Full KMP compatibility**: sealed classes work identically in `commonMain` on both JVM and JS
+
+### Negative
+
+- More boilerplate for mapping
+- Domain and DTO hierarchies must be kept in sync
+
+### Migrations
+
+When adding a new type:
+1. Add to domain sealed class
+2. Add to DTO sealed class with `@SerialName`
+3. Add mapping
+4. Existing data in DB remains valid
+
+---
+
+## Full Flow Example
 
 ```kotlin
-// 1. Получаем JSON
+// 1. Receive JSON
 val json = """{"type": "channel-id", "value": "UC123"}"""
 
-// 2. Десериализуем в DTO
+// 2. Deserialize to DTO
 val dto: RuleMatchDto = Json.decodeFromString(json)
 
-// 3. Маппим в domain (с валидацией)
+// 3. Map to domain (with validation)
 val domain: Either<ValidationError, RuleMatch> = dto.toDomain()
 
-// 4. Используем в бизнес-логике
+// 4. Use in business logic
 domain.map { match ->
     match.matches(videoInfo)  // true/false
 }
 
-// 5. Сохраняем в DB как JSONB
+// 5. Save to DB as JSONB
 RulesTable.insert {
-    it[match] = domain.toDto()  // сериализуется обратно в JSON
+    it[match] = domain.toDto()  // serialized back to JSON
 }
 ```
 
 ---
 
-## Ссылки
+## References
 
 - [Kotlin Sealed Classes](https://kotlinlang.org/docs/sealed-classes.html)
 - [kotlinx.serialization Polymorphism](https://github.com/Kotlin/kotlinx.serialization/blob/master/docs/polymorphism.md)
-

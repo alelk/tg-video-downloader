@@ -1,32 +1,32 @@
 # ADR-004: Error Handling Strategy
 
-**Статус**: Принято  
-**Дата**: 2026-02-11  
-**Авторы**: Alex Elkin
+**Status**: Accepted  
+**Date**: 2026-02-11  
+**Authors**: Alex Elkin
 
 ---
 
-## Контекст
+## Context
 
-Нужно определить стратегию обработки ошибок:
-- В domain layer
-- При маппинге DTO → Domain
-- В transport layer (HTTP)
-- В UI
+We need to define an error handling strategy for:
+- Domain layer
+- DTO → Domain mapping
+- Transport layer (HTTP)
+- UI
 
-Требования:
-- Type-safe (компилятор помогает не забыть обработку)
-- Понятные сообщения для пользователя
-- Достаточно деталей для отладки
-- Единообразие
+Requirements:
+- Type-safe (compiler helps ensure all errors are handled)
+- Meaningful messages for the user
+- Enough detail for debugging
+- Consistency across layers
 
 ---
 
-## Решение
+## Decision
 
 ### Domain Layer
 
-Использовать **`Either<DomainError, T>`** из Arrow.
+Use **`Either<DomainError, T>`** from Arrow.
 
 ```kotlin
 sealed interface DomainError {
@@ -38,13 +38,13 @@ sealed interface DomainError {
     // ...
 }
 
-// Use case возвращает Either
+// Use case returns Either
 suspend fun PreviewUseCase.execute(url: String): Either<DomainError, PreviewResult>
 ```
 
-### Маппинг DTO → Domain
+### DTO → Domain Mapping
 
-Возвращать **`Either<ValidationError, T>`**.
+Return **`Either<ValidationError, T>`**.
 
 ```kotlin
 fun RuleMatchDto.toDomain(): Either<DomainError.ValidationError, RuleMatch> = when (this) {
@@ -57,7 +57,7 @@ fun RuleMatchDto.toDomain(): Either<DomainError.ValidationError, RuleMatch> = wh
 
 ### Transport Layer
 
-Маппить `DomainError` в HTTP статус + `ApiErrorDto`.
+Map `DomainError` to HTTP status + `ApiErrorDto`.
 
 ```kotlin
 fun DomainError.toHttpResponse(correlationId: String): Pair<HttpStatusCode, ApiErrorDto> = when (this) {
@@ -79,10 +79,10 @@ data class ApiErrorDto(
 ) {
     @Serializable
     data class ErrorDetail(
-        val code: String,           // Стабильный код для клиента
-        val message: String,        // Человекочитаемое сообщение
-        val correlationId: String,  // Для трассировки
-        val details: JsonElement? = null,  // Дополнительные данные
+        val code: String,           // Stable code for the client
+        val message: String,        // Human-readable message
+        val correlationId: String,  // For tracing
+        val details: JsonElement? = null,  // Additional data
     )
 }
 ```
@@ -101,7 +101,7 @@ JSON:
 
 ### Exception Handling
 
-Неожиданные исключения ловить в Ktor StatusPages:
+Catch unexpected exceptions in Ktor `StatusPages`:
 
 ```kotlin
 install(StatusPages) {
@@ -121,54 +121,54 @@ install(StatusPages) {
 
 ---
 
-## Обоснование
+## Rationale
 
-### Почему Either, а не exceptions?
+### Why Either instead of exceptions?
 
-| Подход | Плюсы | Минусы |
-|--------|-------|--------|
-| **Either** | Type-safe, явный, composable | Больше кода, нужен Arrow |
-| **Exceptions** | Привычно, меньше кода | Неявный flow, легко забыть |
-| **Result** (stdlib) | Встроенный, простой | Только один тип ошибки (Throwable) |
+| Approach   | Pros                                         | Cons                                      |
+|------------|----------------------------------------------|-------------------------------------------|
+| **Either** | Type-safe, explicit, composable              | More code, requires Arrow                 |
+| **Exceptions** | Familiar, less code                      | Implicit flow, easy to forget             |
+| **Result** (stdlib) | Built-in, simple                    | Only one error type (Throwable)           |
 
-**Выбор**: Either — лучший баланс безопасности и выразительности.
+**Choice**: Either — best balance of safety and expressiveness.
 
-### Почему sealed interface для DomainError?
+### Why sealed interface for DomainError?
 
-- Exhaustive when — компилятор проверяет все cases
-- Каждый тип ошибки имеет свои поля
-- Легко добавлять новые типы ошибок
+- Exhaustive `when` — compiler checks all cases
+- Each error type has its own fields
+- Easy to add new error types
 
-### Почему correlationId?
+### Why correlationId?
 
-- Связывает логи с запросом
-- Помогает при отладке
-- Пользователь может сообщить ID в support
+- Links logs to a specific request
+- Aids debugging
+- Users can reference the ID in support requests
 
 ---
 
-## Паттерны использования
+## Usage Patterns
 
-### 1. Use Case с Either
+### 1. Use Case with Either
 
 ```kotlin
 class CreateJobUseCase(...) {
     suspend fun execute(request: CreateJobRequest): Either<DomainError, Job> = either {
-        // ensure = проверка с ранним выходом
+        // ensure = check with early exit
         ensure(request.url.isNotBlank()) {
             DomainError.ValidationError("url", "cannot be blank")
         }
         
-        // bind = извлечение из Either или ранний выход
+        // bind = extract from Either or exit early
         val videoInfo = videoInfoExtractor.extract(request.url).bind()
         
-        // raise = явный выход с ошибкой
+        // raise = explicit exit with error
         val existing = jobRepository.findActive(videoInfo.videoId)
         if (existing != null) {
             raise(DomainError.JobAlreadyExists(videoInfo.videoId, existing.id))
         }
         
-        // Успех
+        // Success
         jobRepository.save(newJob)
     }
 }
@@ -177,7 +177,7 @@ class CreateJobUseCase(...) {
 ### 2. Route Handler
 
 ```kotlin
-// Пример: workspace-scoped endpoint
+// Example: workspace-scoped endpoint
 post<ApiV1.Workspaces.ById.Jobs> { res ->
     val request = call.receive<CreateJobRequestDto>()
     val domainRequest = request.toDomain().getOrElse { error ->
@@ -192,7 +192,7 @@ post<ApiV1.Workspaces.ById.Jobs> { res ->
 }
 ```
 
-### 3. Композиция
+### 3. Composition
 
 ```kotlin
 suspend fun complexOperation(): Either<DomainError, Result> = either {
@@ -205,41 +205,41 @@ suspend fun complexOperation(): Either<DomainError, Result> = either {
 
 ---
 
-## Коды ошибок
+## Error Codes
 
-| Code                | HTTP | Описание                      | Retry    |
-|---------------------|------|-------------------------------|----------|
-| `VALIDATION_ERROR`  | 400  | Невалидные входные данные     | Нет      |
-| `INVALID_URL`       | 400  | Некорректный URL              | Нет      |
-| `UNAUTHORIZED`      | 401  | Невалидный initData           | Нет      |
-| `FORBIDDEN`         | 403  | Пользователь не в allowlist   | Нет      |
-| `NOT_FOUND`         | 404  | Ресурс не найден              | Нет      |
-| `CONFLICT`          | 409  | Конфликт (job уже существует) | Нет      |
-| `VIDEO_UNAVAILABLE` | 422  | Видео недоступно              | Возможно |
-| `DOWNLOAD_FAILED`   | 500  | Ошибка скачивания             | Да       |
-| `INTERNAL_ERROR`    | 500  | Внутренняя ошибка             | Да       |
+| Code                | HTTP | Description                      | Retryable |
+|---------------------|------|----------------------------------|-----------|
+| `VALIDATION_ERROR`  | 400  | Invalid input data               | No        |
+| `INVALID_URL`       | 400  | Malformed URL                    | No        |
+| `UNAUTHORIZED`      | 401  | Invalid initData                 | No        |
+| `FORBIDDEN`         | 403  | User not in allowlist            | No        |
+| `NOT_FOUND`         | 404  | Resource not found               | No        |
+| `CONFLICT`          | 409  | Conflict (job already exists)    | No        |
+| `VIDEO_UNAVAILABLE` | 422  | Video unavailable                | Maybe     |
+| `DOWNLOAD_FAILED`   | 500  | Download error                   | Yes       |
+| `INTERNAL_ERROR`    | 500  | Internal server error            | Yes       |
 
 ---
 
-## Последствия
+## Consequences
 
-### Положительные
+### Positive
 
 - Compiler-checked error handling
-- Явный flow ошибок
-- Единый формат для клиента
-- Удобная отладка через correlationId
-- **Arrow Either — полная KMP-совместимость**: стратегия работает одинаково в `commonMain` на JVM и JS
+- Explicit error flow
+- Consistent format for clients
+- Easy debugging via correlationId
+- **Arrow Either — full KMP compatibility**: the strategy works identically in `commonMain` on JVM and JS
 
-### Отрицательные
+### Negative
 
-- Зависимость от Arrow
-- Больше boilerplate
-- Нужно обучение команды
+- Dependency on Arrow
+- More boilerplate
+- Team learning curve
 
 ---
 
-## Ссылки
+## References
 
 - [Arrow Either](https://arrow-kt.io/docs/apidocs/arrow-core/arrow.core/-either/)
 - [Railway Oriented Programming](https://fsharpforfunandprofit.com/rop/)

@@ -1,35 +1,35 @@
-# Тестирование
+# Testing
 
-> **Цель документа**: Стратегия тестирования, KMP-тесты, примеры.
+> **Purpose**: Testing strategy, KMP tests, and examples.
 
 ---
 
-## 1. Стек тестирования
+## 1. Testing Stack
 
-### По source set
+### By Source Set
 
-| Source set   | Библиотеки                                 | Назначение                                    |
-|--------------|--------------------------------------------|-----------------------------------------------|
-| `commonTest` | Kotest framework-engine, Kotest assertions | Domain, маппинг, use-cases (KMP-совместимые)  |
-| `jvmTest`    | Kotest runner-junit5, MockK                | Интеграционные тесты, мокирование             |
-| `jvmTest`    | Testcontainers                             | PostgreSQL в тестах                           |
-| `jvmTest`    | Ktor Test                                  | HTTP-тесты без реального сервера              |
-| `jsTest`     | Kotest framework-engine                    | JS-специфичные edge cases (при необходимости) |
+| Source set   | Libraries                                  | Purpose                                              |
+|--------------|--------------------------------------------|------------------------------------------------------|
+| `commonTest` | Kotest framework-engine, Kotest assertions | Domain, mapping, use-cases (KMP-compatible)          |
+| `jvmTest`    | Kotest runner-junit5, MockK                | Integration tests, mocking                           |
+| `jvmTest`    | Testcontainers                             | PostgreSQL in tests                                  |
+| `jvmTest`    | Ktor Test                                  | HTTP tests without a real server                     |
+| `jsTest`     | Kotest framework-engine                    | JS-specific edge cases (when necessary)              |
 
-> **Kotest 6** полностью поддерживает KMP (jvm, js, native) через `kotest-framework-engine` + Kotest Gradle plugin + KSP.
-> Для JS/Native тестов: annotation-based configuration не работает (ограничение Kotlin runtime).
-> **MockK** не поддерживает JS. В `commonTest` для мокирования используются **fake-реализации** интерфейсов.
+> **Kotest 6** fully supports KMP (jvm, js, native) via `kotest-framework-engine` + Kotest Gradle plugin + KSP.
+> For JS/Native tests: annotation-based configuration does not work (Kotlin runtime limitation).
+> **MockK** does not support JS. In `commonTest`, use **fake implementations** of interfaces for mocking.
 
-### Зависимости
+### Dependencies
 
 ```kotlin
-// build.gradle.kts (корневой или convention plugin)
+// build.gradle.kts (root or convention plugin)
 plugins {
     id("com.google.devtools.ksp").version("<ksp-version>")
     id("io.kotest").version("<kotest-version>")
 }
 
-// KMP-модули (domain, api:mapping, и т.д.)
+// KMP modules (domain, api:mapping, etc.)
 kotlin {
     sourceSets {
         commonTest.dependencies {
@@ -37,12 +37,12 @@ kotlin {
             implementation(libs.kotest.assertions)
         }
         jvmTest.dependencies {
-            implementation(libs.kotest.runner.junit5)  // JUnit5 runner для IDE
+            implementation(libs.kotest.runner.junit5)  // JUnit5 runner for IDE
         }
     }
 }
 
-// JVM-модули (server:*)
+// JVM modules (server:*)
 dependencies {
     testImplementation(libs.kotest.runner.junit5)
     testImplementation(libs.kotest.assertions)
@@ -54,9 +54,9 @@ dependencies {
 
 ---
 
-## 2. Структура тестов
+## 2. Test Structure
 
-### KMP-модули (domain, api:mapping, api:client)
+### KMP Modules (domain, api:mapping, api:client)
 
 ```
 domain/src/commonTest/kotlin/io/github/alelk/tgvd/domain/
@@ -78,10 +78,10 @@ api/mapping/src/commonTest/kotlin/
 └── MetadataMappingTest.kt
 ```
 
-> Тесты повторяют package-by-feature структуру domain.
-> `jvmTest/` и `jsTest/` — только для платформ-специфичных edge cases.
+> Tests mirror the package-by-feature structure of the domain.
+> `jvmTest/` and `jsTest/` are reserved for platform-specific edge cases.
 
-### JVM-модули (server:*)
+### JVM Modules (server:*)
 
 ```
 server/infra/src/test/kotlin/
@@ -103,8 +103,8 @@ server/transport/src/test/kotlin/
 
 ## 3. Unit Tests
 
-> Размещаются в `commonTest` для KMP-модулей. Используют Kotest `FunSpec` + Kotest assertions.
-> Для мокирования в `commonTest` — **fake-реализации** (не MockK!).
+> Located in `commonTest` for KMP modules. Uses Kotest `FunSpec` + Kotest assertions.
+> For mocking in `commonTest` — use **fake implementations** (not MockK!).
 
 ### 3.1 RuleMatch Tests
 
@@ -773,7 +773,7 @@ fun Application.configureTestApp() {
 val testModule = module {
     single { TelegramAuthValidator("test-token", devMode = true) }
     single<VideoInfoExtractor> { MockVideoInfoExtractor() }
-    // ... other mocks
+    // ... other fakes/mocks
 }
 ```
 
@@ -784,7 +784,7 @@ val testModule = module {
 ```kotlin
 class DownloadFlowTest : FunSpec({
 
-    // Этот тест требует реального yt-dlp и запускается вручную
+    // This test requires a real yt-dlp installation and is run manually
     tags(Tag("e2e"))
     
     test("full download flow").config(enabled = false) {
@@ -825,7 +825,7 @@ class RuleMatchPropertyTest : FunSpec({
                 val deserialized = Json.decodeFromString<RuleMatchDto>(json)
                 val domain = deserialized.toDomain().getOrNull()
                 
-                // Структурное сравнение
+                // Structural equality
                 domain shouldBe match
             }
         }
@@ -871,7 +871,7 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
     
-    // Exclude e2e by default
+    // Exclude e2e tests by default
     filter {
         excludeTags("e2e")
     }
@@ -884,7 +884,7 @@ tasks.register<Test>("e2eTest") {
 }
 ```
 
-### 8.2 Kotest config
+### 8.2 Kotest Config
 
 ```kotlin
 // src/test/kotlin/ProjectConfig.kt
@@ -899,9 +899,8 @@ object ProjectConfig : AbstractProjectConfig() {
 
 ---
 
-## 9. Coverage
+## 9. Coverage Targets
 
-Целевое покрытие:
 - **Domain**: 90%+
 - **Mapping**: 90%+
 - **Security**: 95%+

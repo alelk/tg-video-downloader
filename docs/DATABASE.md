@@ -1,22 +1,22 @@
-# База данных
+# Database
 
-> **Цель документа**: Описание схемы PostgreSQL, миграций, индексов.
+> **Purpose**: PostgreSQL schema, migrations, and indexes.
 
 ---
 
-## 1. Общие требования
+## 1. General Requirements
 
-- **СУБД**: PostgreSQL 16+
-- **Миграции**: Flyway
+- **DBMS**: PostgreSQL 16+
+- **Migrations**: Flyway
 - **ORM**: Exposed
-- **Время**: UTC (timestamptz)
-- **UUID**: Нативный тип PostgreSQL
+- **Timestamps**: UTC (timestamptz)
+- **UUID**: Native PostgreSQL type
 
 ---
 
-## 2. Схема
+## 2. Schema
 
-### 2.1 Таблица `workspaces`
+### 2.1 Table `workspaces`
 
 ```sql
 CREATE TABLE workspaces (
@@ -26,7 +26,7 @@ CREATE TABLE workspaces (
 );
 ```
 
-### 2.2 Таблица `workspace_members`
+### 2.2 Table `workspace_members`
 
 ```sql
 CREATE TABLE workspace_members (
@@ -40,7 +40,7 @@ CREATE TABLE workspace_members (
 CREATE INDEX idx_workspace_members_user ON workspace_members(user_id);
 ```
 
-### 2.3 Таблица `rules`
+### 2.3 Table `rules`
 
 ```sql
 CREATE TABLE rules (
@@ -65,10 +65,10 @@ CREATE INDEX idx_rules_category ON rules(category);
 CREATE INDEX idx_rules_match ON rules USING GIN (match);
 ```
 
-### 2.4 Таблица `channels`
+### 2.4 Table `channels`
 
-Справочник каналов — каналы с тегами и переопределениями метаданных.
-Подробнее: [ADR/008-channel-directory.md](./ADR/008-channel-directory.md)
+Channel directory — channels with tags and metadata overrides.
+See also: [ADR/008-channel-directory.md](./ADR/008-channel-directory.md)
 
 ```sql
 CREATE TABLE channels (
@@ -90,18 +90,18 @@ CREATE INDEX idx_channels_tags ON channels USING GIN (tags);
 CREATE INDEX idx_channels_extractor ON channels(extractor);
 CREATE INDEX idx_channels_channel_id ON channels(channel_id);
 
-COMMENT ON TABLE channels IS 'Справочник каналов — каналы с тегами и переопределениями метаданных';
-COMMENT ON COLUMN channels.channel_id IS 'ID канала на платформе (YouTube channel ID, etc.)';
-COMMENT ON COLUMN channels.extractor IS 'Платформа: youtube, rutube, vk, etc.';
-COMMENT ON COLUMN channels.tags IS 'Теги для группировки каналов (PostgreSQL text array)';
-COMMENT ON COLUMN channels.metadata_overrides IS 'MetadataTemplatePm JSON — переопределения метаданных';
+COMMENT ON TABLE channels IS 'Channel directory — channels with tags and metadata overrides';
+COMMENT ON COLUMN channels.channel_id IS 'Platform channel ID (YouTube channel ID, etc.)';
+COMMENT ON COLUMN channels.extractor IS 'Platform: youtube, rutube, vk, etc.';
+COMMENT ON COLUMN channels.tags IS 'Tags for grouping channels (PostgreSQL text array)';
+COMMENT ON COLUMN channels.metadata_overrides IS 'MetadataTemplatePm JSON — metadata overrides';
 ```
 
-> `tags` хранятся как PostgreSQL `TEXT[]` с GIN-индексом для быстрого поиска по тегам.
-> Запрос `tags @> ARRAY['music-video']` использует GIN-индекс.
-> `metadata_overrides` — JSONB с тем же форматом, что и `rules.metadata_template`.
+> `tags` are stored as a PostgreSQL `TEXT[]` with a GIN index for fast tag-based lookups.
+> The query `tags @> ARRAY['music-video']` uses the GIN index.
+> `metadata_overrides` — JSONB in the same format as `rules.metadata_template`.
 
-### 2.5 Таблица `jobs`
+### 2.5 Table `jobs`
 
 ```sql
 CREATE TABLE jobs (
@@ -126,7 +126,7 @@ CREATE TABLE jobs (
     finished_at                TIMESTAMPTZ
 );
 
--- Индексы
+-- Indexes
 CREATE INDEX idx_jobs_workspace ON jobs(workspace_id);
 CREATE INDEX idx_jobs_status ON jobs(status);
 CREATE INDEX idx_jobs_video_id ON jobs(video_id);
@@ -134,22 +134,22 @@ CREATE INDEX idx_jobs_created_at ON jobs(created_at DESC);
 CREATE INDEX idx_jobs_queued ON jobs(created_at) WHERE status = 'queued';
 CREATE INDEX idx_jobs_user ON jobs(created_by_telegram_user_id);
 
--- Partial unique для предотвращения дублей активных jobs
+-- Partial unique index to prevent duplicate active jobs
 CREATE UNIQUE INDEX idx_jobs_active_video 
     ON jobs(video_id) 
     WHERE status IN ('queued', 'running', 'post-processing');
 
--- Комментарии
-COMMENT ON TABLE jobs IS 'Задачи скачивания';
+-- Comments
+COMMENT ON TABLE jobs IS 'Download jobs';
 COMMENT ON COLUMN jobs.status IS 'queued, running, post-processing, done, failed, cancelled';
-COMMENT ON COLUMN jobs.metadata IS 'ResolvedMetadataDto JSON с type';
+COMMENT ON COLUMN jobs.metadata IS 'ResolvedMetadataDto JSON with type discriminator';
 COMMENT ON COLUMN jobs.storage_plan IS 'StoragePlanDto JSON';
 COMMENT ON COLUMN jobs.created_by_telegram_user_id IS 'Telegram user id (BIGINT)';
 ```
 
-### 2.6 Таблица `job_outputs` (опционально)
+### 2.6 Table `job_outputs` (optional)
 
-Для нормализованного хранения результатов:
+Normalized storage for job results:
 
 ```sql
 CREATE TABLE job_outputs (
@@ -163,13 +163,13 @@ CREATE TABLE job_outputs (
 
 CREATE INDEX idx_job_outputs_job_id ON job_outputs(job_id);
 
-COMMENT ON TABLE job_outputs IS 'Выходные файлы job';
+COMMENT ON TABLE job_outputs IS 'Output files produced by a job';
 COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, audio/ext, image/ext';
 ```
 
-### 2.7 Таблица `video_info_cache`
+### 2.7 Table `video_info_cache`
 
-Кэш VideoInfo из yt-dlp для избежания повторных вызовов при интерактивном preview.
+Cache for VideoInfo from yt-dlp to avoid redundant calls during interactive preview.
 
 ```sql
 CREATE TABLE video_info_cache (
@@ -178,16 +178,16 @@ CREATE TABLE video_info_cache (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-COMMENT ON TABLE video_info_cache IS 'Кэш VideoInfo из yt-dlp для избежания повторных вызовов';
+COMMENT ON TABLE video_info_cache IS 'VideoInfo cache from yt-dlp to avoid redundant calls';
 COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
 ```
 
-> PK по `url` — простой текстовый ключ. `video_info` хранит `VideoInfoPm` (та же модель что `jobs.raw_info`).
-> Без TTL — записи хранятся бессрочно.
+> PK on `url` — simple text key. `video_info` stores `VideoInfoPm` (same model as `jobs.raw_info`).
+> No TTL — records are stored indefinitely.
 
 ---
 
-## 3. JSONB структуры
+## 3. JSONB Structures
 
 ### 3.1 rules.match
 
@@ -198,7 +198,7 @@ COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
 }
 ```
 
-или
+or
 
 ```json
 {
@@ -210,7 +210,7 @@ COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
 }
 ```
 
-или (матч по user override категории):
+or (match on user-overridden category):
 
 ```json
 {
@@ -219,7 +219,7 @@ COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
 }
 ```
 
-или (матч по тегу из справочника каналов):
+or (match on tag from the channel directory):
 
 ```json
 {
@@ -230,10 +230,10 @@ COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
 
 ### 3.2 rules.metadata_template
 
-> Sealed тип (полиморфный): discriminator `"type"` определяет подтип.
-> Поля, специфичные для подтипа, присутствуют только в соответствующем JSON.
+> Sealed type (polymorphic): the `"type"` discriminator determines the subtype.
+> Subtype-specific fields are only present in the corresponding JSON.
 
-**MusicVideo** (с override исполнителя):
+**MusicVideo** (with artist override):
 ```json
 {
   "type": "music-video",
@@ -242,7 +242,7 @@ COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
 }
 ```
 
-**MusicVideo** (с regex-паттерном для парсинга):
+**MusicVideo** (with regex pattern for parsing):
 ```json
 {
   "type": "music-video",
@@ -261,7 +261,7 @@ COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
 }
 ```
 
-**Other** (минимальный):
+**Other** (minimal):
 ```json
 {
   "type": "other"
@@ -308,7 +308,7 @@ COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
 
 ### 3.5 jobs.metadata
 
-> Sealed тип (полиморфный): discriminator `"type"` определяет подтип (`music-video`, `series-episode`, `other`).
+> Sealed type (polymorphic): the `"type"` discriminator determines the subtype (`music-video`, `series-episode`, `other`).
 
 ```json
 {
@@ -363,32 +363,32 @@ COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
 
 ## 4. Exposed Tables
 
-Определения Exposed-таблиц расположены в `server/infra/src/main/kotlin/.../db/table/`:
+Exposed table definitions are located in `server/infra/src/main/kotlin/.../db/table/`:
 
-| Файл                       | Описание                                   |
-|----------------------------|--------------------------------------------|
-| `WorkspacesTable.kt`       | `UuidTable("workspaces")`                  |
-| `WorkspaceMembersTable.kt` | `Table("workspace_members")`, composite PK |
-| `RulesTable.kt`            | `UuidTable("rules")`, JSONB-колонки        |
-| `JobsTable.kt`             | `UuidTable("jobs")`, JSONB-колонки         |
-| `JobOutputsTable.kt`       | `UuidTable("job_outputs")`                 |
-| `VideoInfoCacheTable.kt`   | `Table("video_info_cache")`, text PK       |
+| File                       | Description                                     |
+|----------------------------|-------------------------------------------------|
+| `WorkspacesTable.kt`       | `UuidTable("workspaces")`                       |
+| `WorkspaceMembersTable.kt` | `Table("workspace_members")`, composite PK      |
+| `RulesTable.kt`            | `UuidTable("rules")`, JSONB columns             |
+| `JobsTable.kt`             | `UuidTable("jobs")`, JSONB columns              |
+| `JobOutputsTable.kt`       | `UuidTable("job_outputs")`                      |
+| `VideoInfoCacheTable.kt`   | `Table("video_info_cache")`, text PK            |
 
-**Подход к маппингу DB ↔ Domain:**
-- Колонки хранят примитивные типы (`String`, `Long`, `Boolean`)
-- Маппинг `String` ↔ `enum` / value class — в функциях-расширениях в пакете `db/mapping/`
-- JSONB-колонки хранят persistence-модели (`*Pm`) через `jsonb<T>(name, json)` из `exposed-json`
-- Persistence-модели (`db/model/`) — отдельные `@Serializable` классы, **не зависят от `api:contract`**
-- Маппинг domain ↔ Pm — в `db/mapping/` (например `toPm()` / `toDomain()`)
-- `timestamp()` из `exposed-kotlin-datetime` возвращает `kotlin.time.Instant`
+**DB ↔ Domain mapping approach:**
+- Columns store primitive types (`String`, `Long`, `Boolean`)
+- `String` ↔ `enum` / value class mapping — in extension functions in `db/mapping/`
+- JSONB columns store persistence models (`*Pm`) via `jsonb<T>(name, json)` from `exposed-json`
+- Persistence models (`db/model/`) — separate `@Serializable` classes, **do not depend on `api:contract`**
+- Domain ↔ Pm mapping — in `db/mapping/` (e.g., `toPm()` / `toDomain()`)
+- `timestamp()` from `exposed-kotlin-datetime` returns `kotlin.time.Instant`
 
-> **Важно**: `server:infra` зависит только от `domain`. DTO из `api:contract` не используются в слое хранения — это обеспечивает независимую эволюцию API и DB schema.
+> **Important**: `server:infra` depends only on `domain`. DTOs from `api:contract` are not used in the storage layer — this ensures independent evolution of the API and DB schema.
 
 ---
 
-## 5. Миграции
+## 5. Migrations
 
-### 5.1 Структура
+### 5.1 Structure
 
 ```
 server/infra/src/main/resources/db/migration/
@@ -397,10 +397,10 @@ server/infra/src/main/resources/db/migration/
 
 ### 5.2 V1__initial_schema.sql
 
-> Актуальная версия: `server/infra/src/main/resources/db/migration/V1__initial_schema.sql`.
-> Создаёт таблицы: `workspaces`, `workspace_members`, `rules`, `jobs`, `job_outputs`, `video_info_cache` с индексами.
+> Current version: `server/infra/src/main/resources/db/migration/V1__initial_schema.sql`.
+> Creates tables: `workspaces`, `workspace_members`, `rules`, `jobs`, `job_outputs`, `video_info_cache` with indexes.
 
-### 5.3 Flyway конфигурация
+### 5.3 Flyway Configuration
 
 ```kotlin
 // DatabaseFactory.kt
@@ -420,22 +420,22 @@ class DatabaseFactory(private val config: DbConfig) {
 
 ---
 
-## 6. Репозитории
+## 6. Repositories
 
-Реализации расположены в `server/infra/src/main/kotlin/.../db/repository/`:
+Implementations are located in `server/infra/src/main/kotlin/.../db/repository/`:
 
-- **`WorkspaceRepositoryImpl`** — CRUD для workspace и workspace_members
-- **`RuleRepositoryImpl`** — CRUD для правил с фильтрацией по workspace
-- **`JobRepositoryImpl`** — CRUD для задач с фильтрацией по workspace, обновление статусов
-- **`VideoInfoCacheImpl`** — кэш VideoInfo из yt-dlp (port `VideoInfoCache`)
+- **`WorkspaceRepositoryImpl`** — CRUD for workspaces and workspace_members
+- **`RuleRepositoryImpl`** — CRUD for rules, filtered by workspace
+- **`JobRepositoryImpl`** — CRUD for jobs, filtered by workspace, status updates
+- **`VideoInfoCacheImpl`** — VideoInfo cache from yt-dlp (port `VideoInfoCache`)
 
-Общая утилита `dbQuery(database) { ... }` (файл `db/dbQuery.kt`) оборачивает блок в `suspendTransaction` с `Dispatchers.IO`.
+The utility function `dbQuery(database) { ... }` (in `db/dbQuery.kt`) wraps a block in `suspendTransaction` with `Dispatchers.IO`.
 
 ---
 
-## 7. Транзакции
+## 7. Transactions
 
-### 7.1 Подход
+### 7.1 Approach
 
 ```kotlin
 // db/dbQuery.kt
@@ -445,15 +445,15 @@ suspend fun <T> dbQuery(database: Database, block: suspend () -> T): T =
     }
 ```
 
-> `newSuspendedTransaction()` deprecated в Exposed 1.0.0. Используется `suspendTransaction()`.
+> `newSuspendedTransaction()` is deprecated in Exposed 1.0.0. Use `suspendTransaction()` instead.
 
 ---
 
-## 8. Производительность
+## 8. Performance
 
-### 8.1 Пул соединений
+### 8.1 Connection Pool
 
-HikariCP (настраивается в `DatabaseFactory`):
+HikariCP (configured in `DatabaseFactory`):
 
 ```kotlin
 val dataSource = HikariDataSource(HikariConfig().apply {
@@ -468,9 +468,8 @@ val dataSource = HikariDataSource(HikariConfig().apply {
 })
 ```
 
-### 8.2 Рекомендации
+### 8.2 Recommendations
 
-- Использовать `SELECT ... FOR UPDATE` для блокировки job при взятии в работу
-- Использовать partial indexes для фильтрации по status
-- JSONB индексы только если реально нужен поиск внутри JSON
-
+- Use `SELECT ... FOR UPDATE` to lock a job when picking it up for processing
+- Use partial indexes to filter by status
+- Add JSONB indexes only when actual JSON field searches are required

@@ -1,19 +1,19 @@
-# Безопасность
+# Security
 
-> **Цель документа**: Описание авторизации через Telegram initData, allowlist, защиты от атак.
+> **Purpose**: Authorization via Telegram initData, allowlist, and protection against common attacks.
 
 ---
 
 ## 1. Telegram initData
 
-### 1.1 Что это
+### 1.1 What It Is
 
-`initData` — строка, которую Telegram передаёт в Mini App. Содержит:
-- Данные пользователя (user)
+`initData` — a string passed by Telegram to the Mini App. Contains:
+- User data (user)
 - Timestamp (auth_date)
-- HMAC-подпись (hash)
+- HMAC signature (hash)
 
-### 1.2 Формат
+### 1.2 Format
 
 ```
 query_id=AAHdF6IQAAAAAN0XohDhrOrc
@@ -22,15 +22,15 @@ query_id=AAHdF6IQAAAAAN0XohDhrOrc
 &hash=c501b71e775f74ce10e377dea85a7ea24ecd640b223ea86dfe453e0eaed2e2b2
 ```
 
-URL-encoded параметры, разделённые `&`.
+URL-encoded parameters separated by `&`.
 
-### 1.3 Алгоритм валидации
+### 1.3 Validation Algorithm
 
 ```kotlin
 class TelegramAuthValidator(
     private val botToken: String,
     private val devMode: Boolean = false,
-    private val maxAgeSeconds: Long = 86400, // 24 часа
+    private val maxAgeSeconds: Long = 86400, // 24 hours
     private val clock: Clock = Clock.systemUTC(),
 ) {
     
@@ -48,7 +48,7 @@ class TelegramAuthValidator(
         val hash = params.remove("hash") 
             ?: return AuthError.MissingHash.left()
         
-        // Проверка auth_date
+        // Validate auth_date
         val authDate = params["auth_date"]?.toLongOrNull()
             ?: return AuthError.InvalidAuthDate.left()
         
@@ -57,7 +57,7 @@ class TelegramAuthValidator(
             return AuthError.Expired.left()
         }
         
-        // Вычисление expected hash
+        // Compute expected hash
         val dataCheckString = params.entries
             .sortedBy { it.key }
             .joinToString("\n") { "${it.key}=${it.value}" }
@@ -66,12 +66,12 @@ class TelegramAuthValidator(
         val expectedHash = hmacSha256(secretKey, dataCheckString.toByteArray())
             .toHexString()
         
-        // Timing-safe сравнение
+        // Timing-safe comparison
         if (!MessageDigest.isEqual(hash.toByteArray(), expectedHash.toByteArray())) {
             return AuthError.InvalidHash.left()
         }
         
-        // Парсинг user
+        // Parse user
         val userJson = params["user"] 
             ?: return AuthError.MissingUser.left()
         
@@ -176,7 +176,7 @@ val TelegramAuthPlugin = createRouteScopedPlugin(
             is Either.Right -> {
                 val user = result.value
                 
-                // Проверка allowlist
+                // Check allowlist
                 if (allowedUsers.isNotEmpty() && user.id.value !in allowedUsers) {
                     call.respond(HttpStatusCode.Forbidden, ApiErrorDto(
                         error = ApiErrorDto.ErrorDetail(
@@ -188,7 +188,7 @@ val TelegramAuthPlugin = createRouteScopedPlugin(
                     return@onCall
                 }
                 
-                // Сохраняем user в call attributes
+                // Store user in call attributes
                 call.attributes.put(TelegramUserKey, user)
             }
         }
@@ -209,7 +209,7 @@ val ApplicationCall.telegramUserOrNull: TelegramUser?
     get() = attributes.getOrNull(TelegramUserKey)
 ```
 
-### 2.2 Использование в routing
+### 2.2 Usage in Routing
 
 ```kotlin
 fun Application.configureRouting() {
@@ -232,11 +232,11 @@ fun Application.configureRouting() {
 
 ---
 
-## 3. Двухуровневая авторизация
+## 3. Two-Level Authorization
 
-### 3.1 Уровень 1: Глобальный allowlist
+### 3.1 Level 1: Global Allowlist
 
-Определяет, кто вообще имеет доступ к сервису.
+Determines who can access the service at all.
 
 ```yaml
 telegram:
@@ -245,43 +245,43 @@ telegram:
     - "987654321"
 ```
 
-- Пустой список = **всем запрещено** (fail-safe)
-- initData валиден, но user не в списке → `403 FORBIDDEN`
+- Empty list = **everyone is denied** (fail-safe)
+- Valid initData, but user not in list → `403 FORBIDDEN`
 
-### 3.2 Уровень 2: Workspace membership
+### 3.2 Level 2: Workspace Membership
 
-Определяет, к каким ресурсам имеет доступ пользователь.
+Determines which resources a user can access.
 
-Все доменные ресурсы (jobs, rules, preview) привязаны к workspace через path:
+All domain resources (jobs, rules, preview) are scoped to a workspace via path:
 `/api/v1/workspaces/{workspaceId}/...`
 
-Сервер проверяет, что текущий пользователь является участником workspace.
-Если нет — `403 WORKSPACE_ACCESS_DENIED`.
+The server verifies that the current user is a member of the workspace.
+If not — `403 WORKSPACE_ACCESS_DENIED`.
 
-Роли:
-- **OWNER** — может управлять участниками (добавлять/удалять)
-- **MEMBER** — полный доступ ко всем ресурсам workspace
+Roles:
+- **OWNER** — can manage members (add/remove)
+- **MEMBER** — full access to all workspace resources
 
-Подробнее: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
+See also: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
 
 ---
 
 ## 4. Dev Mode
 
-### 4.1 Конфигурация
+### 4.1 Configuration
 
 ```yaml
 telegram:
-  devMode: true  # ТОЛЬКО для локальной разработки!
+  devMode: true  # LOCAL DEVELOPMENT ONLY!
 ```
 
-### 4.2 Поведение
+### 4.2 Behavior
 
-Когда `devMode = true`:
-- `initData = "dev"` принимается без валидации
-- Возвращается фейковый user с id=0
+When `devMode = true`:
+- `initData = "dev"` is accepted without validation
+- A fake user with id=0 is returned
 
-### 4.3 Защита
+### 4.3 Safety Guard
 
 ```kotlin
 init {
@@ -292,13 +292,13 @@ init {
 }
 ```
 
-В production:
-- `devMode` должен быть `false`
-- Можно добавить проверку через environment variable
+In production:
+- `devMode` must be `false`
+- Consider adding an environment variable check as an additional guard
 
 ---
 
-## 5. Безопасность путей
+## 5. Path Security
 
 ### 5.1 Path Traversal Protection
 
@@ -318,7 +318,7 @@ fun validatePath(path: Path, allowedRoots: List<Path>): Either<DomainError, Path
 }
 ```
 
-### 5.2 Конфигурация allowed directories
+### 5.2 Allowed Directory Configuration
 
 ```yaml
 storage:
@@ -334,26 +334,26 @@ storage:
 ```kotlin
 fun sanitizeFilename(name: String): String {
     return name
-        // Удаляем запрещённые символы
+        // Remove forbidden characters
         .replace(Regex("[/\\\\:*?\"<>|]"), "_")
-        // Удаляем управляющие символы
+        // Remove control characters
         .replace(Regex("[\\x00-\\x1F\\x7F]"), "")
-        // Схлопываем пробелы
+        // Collapse whitespace
         .replace(Regex("\\s+"), " ")
         // Trim
         .trim()
-        // Ограничиваем длину
+        // Limit length
         .take(180)
-        // Не допускаем пустое имя
+        // Prevent empty filename
         .ifBlank { "unnamed" }
 }
 ```
 
 ---
 
-## 6. Безопасность внешних процессов
+## 6. External Process Security
 
-### 6.1 Запуск yt-dlp
+### 6.1 Launching yt-dlp
 
 ```kotlin
 class YtDlpRunner(
@@ -362,8 +362,8 @@ class YtDlpRunner(
 ) {
     
     suspend fun run(args: List<String>): ProcessResult {
-        // НЕ строить команду через строку!
-        // Использовать список аргументов
+        // Do NOT build the command as a string!
+        // Always use a list of arguments to prevent shell injection
         val command = listOf(ytDlpPath) + args
         
         val process = ProcessBuilder(command)
@@ -383,7 +383,7 @@ class YtDlpRunner(
 }
 ```
 
-### 6.2 Лимитирование ресурсов
+### 6.2 Resource Limits
 
 ```kotlin
 data class ProcessLimits(
@@ -395,35 +395,35 @@ data class ProcessLimits(
 
 ---
 
-## 7. Логирование безопасности
+## 7. Security Logging
 
-### 7.1 Что логировать
+### 7.1 What to Log
 
-✅ Логировать:
-- Успешные и неуспешные попытки авторизации
-- User ID при авторизации
+✅ Log:
+- Successful and failed authorization attempts
+- User ID on authentication
 - Correlation ID
-- Попытки path traversal
+- Path traversal attempts
 
-❌ НЕ логировать:
-- Полный initData
+❌ Do NOT log:
+- Full initData
 - Bot token
-- Полный hash
+- Full hash value
 
-### 7.2 Пример
+### 7.2 Example
 
 ```kotlin
-// Хорошо
+// Good
 logger.info { "Auth success: userId=${user.id}" }
 logger.warn { "Auth failed: reason=InvalidHash, hashPrefix=${hash.take(8)}..." }
 
-// Плохо
-logger.info { "Auth with initData=$initData" }  // ❌ Полный initData
+// Bad
+logger.info { "Auth with initData=$initData" }  // ❌ Full initData exposed
 ```
 
 ---
 
-## 8. Headers безопасности
+## 8. Security Headers
 
 ```kotlin
 fun Application.configureSecurityHeaders() {
@@ -437,7 +437,7 @@ fun Application.configureSecurityHeaders() {
 
 ---
 
-## 9. Rate Limiting (опционально)
+## 9. Rate Limiting (optional)
 
 ```kotlin
 val RateLimitPlugin = createRouteScopedPlugin("RateLimit") {
@@ -461,14 +461,13 @@ val RateLimitPlugin = createRouteScopedPlugin("RateLimit") {
 
 ---
 
-## 10. Чек-лист безопасности
+## 10. Security Checklist
 
-- [ ] Bot token не в репозитории (через env/secrets)
-- [ ] `devMode = false` в production
-- [ ] Allowlist настроен
-- [ ] initData не логируется полностью
-- [ ] Path traversal защита включена
-- [ ] Внешние процессы запускаются через list, не string
-- [ ] Timeout на внешние процессы
-- [ ] HTTPS в production (через reverse proxy)
-
+- [ ] Bot token not in the repository (use env/secrets)
+- [ ] `devMode = false` in production
+- [ ] Allowlist is configured
+- [ ] initData is never logged in full
+- [ ] Path traversal protection is active
+- [ ] External processes launched via argument list, not shell string
+- [ ] Timeout set on all external processes
+- [ ] HTTPS in production (via reverse proxy)

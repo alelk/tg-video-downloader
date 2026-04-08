@@ -1,6 +1,6 @@
 # Deployment
 
-> **Цель документа**: Docker, docker-compose, CI/CD, production checklist.
+> **Purpose**: Docker, docker-compose, CI/CD, and production checklist.
 
 ---
 
@@ -175,32 +175,32 @@ APP_PROFILE=production
 
 ---
 
-## 3. Запуск
+## 3. Running
 
 ### 3.1 Development
 
 ```bash
-# Запустить только PostgreSQL
+# Start PostgreSQL only
 docker compose -f docker-compose.dev.yml up -d
 
-# Запустить приложение локально
+# Run the application locally
 ./gradlew :server:app:run
 ```
 
 ### 3.2 Production
 
 ```bash
-# Создать .env из .env.example
+# Copy example env file and fill in values
 cp .env.example .env
-# Заполнить значения в .env
+# Edit .env with your values
 
-# Собрать и запустить
+# Build and start
 docker compose up -d --build
 
-# Просмотр логов
+# View logs
 docker compose logs -f app
 
-# Остановить
+# Stop
 docker compose down
 ```
 
@@ -315,7 +315,7 @@ jobs:
           cache-to: type=gha,mode=max
 ```
 
-### 4.2 Deployment workflow
+### 4.2 Deployment Workflow
 
 ```yaml
 # .github/workflows/deploy.yml
@@ -385,7 +385,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         
-        # Для SSE
+        # For SSE (Server-Sent Events)
         proxy_set_header Connection '';
         proxy_buffering off;
         proxy_cache off;
@@ -403,7 +403,7 @@ server {
 
 ## 6. Monitoring
 
-### 6.1 Health endpoint
+### 6.1 Health Endpoint
 
 ```kotlin
 fun Application.configureHealth() {
@@ -435,7 +435,7 @@ fun Application.configureHealth() {
 
 ### 6.2 Logs
 
-В production логи в JSON:
+Production logs in JSON format:
 
 ```yaml
 # logback.xml
@@ -454,7 +454,7 @@ fun Application.configureHealth() {
 
 ## 7. Backup
 
-### 7.1 PostgreSQL backup
+### 7.1 PostgreSQL Backup
 
 ```bash
 #!/bin/bash
@@ -479,78 +479,77 @@ find $BACKUP_DIR -name "*.sql.gz" -mtime +7 -delete
 
 ## 8. Production Checklist
 
-### 8.1 Перед деплоем
+### 8.1 Before Deployment
 
 - [ ] `telegram.devMode = false`
-- [ ] `telegram.botToken` через env variable
-- [ ] `db.password` через env variable
-- [ ] `telegram.allowedUserIds` настроен
-- [ ] HTTPS через reverse proxy
-- [ ] Логи в JSON формате
-- [ ] Health check настроен
-- [ ] Backup настроен
+- [ ] `telegram.botToken` via environment variable
+- [ ] `db.password` via environment variable
+- [ ] `telegram.allowedUserIds` configured
+- [ ] HTTPS via reverse proxy
+- [ ] Logs in JSON format
+- [ ] Health check configured
+- [ ] Backup configured
 
-### 8.2 После деплоя
+### 8.2 After Deployment
 
-- [ ] Health endpoint отвечает 200
-- [ ] Логи без ошибок
-- [ ] Mini App открывается в Telegram
-- [ ] Preview работает
-- [ ] Job создаётся и выполняется
+- [ ] Health endpoint returns 200
+- [ ] Logs show no errors
+- [ ] Mini App opens in Telegram
+- [ ] Preview works correctly
+- [ ] Job is created and executed
 
-### 8.3 Мониторинг
+### 8.3 Ongoing Monitoring
 
-- [ ] Алерты на health check failures
-- [ ] Алерты на ошибки в логах
-- [ ] Disk space monitoring для /media
+- [ ] Alerts on health check failures
+- [ ] Alerts on error log entries
+- [ ] Disk space monitoring for /media
 
 ---
 
 ## 9. Troubleshooting
 
-### 9.1 Приложение не стартует
+### 9.1 Application Won't Start
 
 ```bash
-# Проверить логи
+# Check logs
 docker compose logs app
 
-# Проверить переменные окружения
+# Check environment variables
 docker compose exec app env | grep -E "(DB_|TELEGRAM_)"
 
-# Проверить connectivity к БД
+# Check DB connectivity
 docker compose exec app sh -c "nc -zv postgres 5432"
 ```
 
-### 9.2 База данных не доступна
+### 9.2 Database Unavailable
 
 ```bash
-# Проверить статус PostgreSQL
+# Check PostgreSQL status
 docker compose exec postgres pg_isready
 
-# Проверить логи PostgreSQL
+# Check PostgreSQL logs
 docker compose logs postgres
 ```
 
-### 9.3 yt-dlp ошибки
+### 9.3 yt-dlp Errors
 
 ```bash
-# Проверить версию yt-dlp
+# Check yt-dlp version
 docker compose exec app yt-dlp --version
 
-# Обновить yt-dlp
+# Update yt-dlp
 docker compose exec app pip3 install -U yt-dlp
 
-# Тестовый запуск
+# Test run
 docker compose exec app yt-dlp --dump-json "https://youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
-### 9.4 Permissions на /media
+### 9.4 Permissions on /media
 
 ```bash
-# Проверить права
+# Check permissions
 docker compose exec app ls -la /media
 
-# Исправить (на хосте)
+# Fix permissions (on host)
 sudo chown -R 1000:1000 /media
 ```
-

@@ -58,7 +58,6 @@ class TelegramMiniAppAutoReplyBot(
     private val config: TelegramMiniAppAutoReplyConfig,
     private val proxyConfig: ProxyConfig? = null
 ) {
-    // Собственный изолированный scope — не связан с application scope
     private val botScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     fun start() {
@@ -70,7 +69,6 @@ class TelegramMiniAppAutoReplyBot(
             return
         }
 
-        // Компилируем regex-паттерны один раз при старте
         val urlPatterns = config.urlPatterns.mapNotNull { pattern ->
             runCatching { Regex(pattern, RegexOption.IGNORE_CASE) }
                 .onFailure { logger.warn { "Invalid URL pattern '$pattern': ${it.message}" } }

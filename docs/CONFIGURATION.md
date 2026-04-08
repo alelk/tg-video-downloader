@@ -1,19 +1,19 @@
-# Конфигурация
+# Configuration
 
-> **Цель документа**: Все параметры конфигурации приложения.
-
----
-
-## 1. Формат
-
-- **Библиотека**: Hoplite
-- **Формат**: YAML
-- **Файлы**: `application.yaml`, `application-{profile}.yaml`
-- **Environment variables**: Поддерживаются через Hoplite
+> **Purpose**: All application configuration parameters.
 
 ---
 
-## 2. Полная схема
+## 1. Format
+
+- **Library**: Hoplite
+- **Format**: YAML
+- **Files**: `application.yaml`, `application-{profile}.yaml`
+- **Environment variables**: Supported via Hoplite
+
+---
+
+## 2. Full Schema
 
 ```yaml
 # Server
@@ -24,27 +24,27 @@ server:
 
 # Telegram
 telegram:
-  botToken: "123456:ABC-DEF..."        # REQUIRED, через env
-  allowedUserIds:                       # по Telegram user ID (числовой)
+  botToken: "123456:ABC-DEF..."        # REQUIRED, via env
+  allowedUserIds:                       # by Telegram user ID (numeric)
     - "123456789"
-  allowedUsernames:                     # по @username (удобнее — человек знает свой логин)
+  allowedUsernames:                     # by @username (more convenient — users know their own handle)
     - "my_username"
   devMode: false                        # NEVER true in production
   miniAppAutoReply:
-    enabled: false                       # true => бот отвечает на сообщения со ссылками
-    botUsername: "my_downloader_bot"   # без @
-    appShortName: "tgvd"               # short name из BotFather (последний сегмент t.me/bot/appShortName)
+    enabled: false                       # true => bot replies to messages containing links
+    botUsername: "my_downloader_bot"   # without @
+    appShortName: "tgvd"               # short name from BotFather (last segment of t.me/bot/appShortName)
     buttonText: "Open Mini App"
     replyText: "Got your link. Open Mini App to continue."
-    urlPatterns: []                      # список regex для фильтрации URL; пусто => любой URL
-                                         # пример: ["youtube\\.com", "youtu\\.be", "rutube\\.ru"]
+    urlPatterns: []                      # list of regex patterns to filter URLs; empty => any URL
+                                         # example: ["youtube\\.com", "youtu\\.be", "rutube\\.ru"]
     pollingTimeoutSeconds: 60
 
 # Database
 db:
   url: "jdbc:postgresql://localhost:5432/tgvd"
   user: "tgvd"
-  password: "secret"                    # через env
+  password: "secret"                    # via env
   poolSize: 10
   minIdle: 2
 
@@ -58,20 +58,20 @@ storage:
 
 # yt-dlp
 ytDlp:
-  path: "yt-dlp"                        # или абсолютный путь (e.g. "./yt-dlp")
+  path: "yt-dlp"                        # or absolute path (e.g. "./yt-dlp")
   timeout: "30m"
   retries: 3
   fragmentRetries: 10
-  allowUpdate: true                    # разрешить обновление через UI
+  allowUpdate: true                    # allow update via UI
   updateChannel: "stable"              # stable | nightly
-  autoDownload: true                   # автоматически скачать yt-dlp при старте, если бинарник не найден
+  autoDownload: true                   # automatically download yt-dlp on startup if binary not found
 
 # ffmpeg
 ffmpeg:
-  path: "ffmpeg"                        # путь к ffmpeg или просто "ffmpeg" если в PATH
+  path: "ffmpeg"                        # path to ffmpeg, or just "ffmpeg" if in PATH
   timeout: "60m"
-  # ffprobe берётся из того же каталога: path.replace("ffmpeg", "ffprobe")
-  # Используется для определения реального разрешения исходного видео перед конвертацией.
+  # ffprobe is resolved from the same directory: path.replace("ffmpeg", "ffprobe")
+  # Used to determine actual source resolution before conversion.
 
 # Jobs
 jobs:
@@ -85,20 +85,20 @@ logging:
   level: "INFO"
   format: "JSON"                        # JSON | TEXT
 
-# LLM (Optional) — для умного определения метаданных
+# LLM (Optional) — for smart metadata extraction
 llm:
   provider: "GEMINI"                    # GEMINI | OPENAI | NONE
-  apiKey: "AIza..."                     # REQUIRED если provider != NONE, через env
+  apiKey: "AIza..."                     # REQUIRED if provider != NONE, via env
   model: "gemini-2.0-flash"
 
-# Proxy (Optional) — для yt-dlp и LLM
+# Proxy (Optional) — for yt-dlp and LLM
 proxy:
   enabled: false
   type: "HTTP"                          # HTTP | SOCKS5
   host: "127.0.0.1"
   port: 8080
-  username: null                        # optional, через env
-  password: null                        # optional, через env
+  username: null                        # optional, via env
+  password: null                        # optional, via env
 ```
 
 ---
@@ -136,11 +136,11 @@ data class TelegramConfig(
 data class TelegramMiniAppAutoReplyConfig(
     val enabled: Boolean = false,
     val botUsername: String? = null,
-    /** Short name Mini App — последний сегмент в https://t.me/{botUsername}/{appShortName} */
+    /** Mini App short name — last segment of https://t.me/{botUsername}/{appShortName} */
     val appShortName: String? = null,
     val buttonText: String = "Open Mini App",
     val replyText: String = "Got your link. Open Mini App to continue.",
-    /** Список regex для фильтрации URL. Если пуст — реагируем на любой URL */
+    /** List of regex patterns to filter URLs. Empty = respond to any URL */
     val urlPatterns: List<String> = emptyList(),
     val pollingTimeoutSeconds: Int = 60,
 )
@@ -171,9 +171,9 @@ data class FfmpegConfig(
     val path: String = "ffmpeg",
     val timeout: Duration = 60.minutes,
 )
-// Примечание: ffprobe берётся из того же каталога автоматически (path.replace("ffmpeg","ffprobe")).
-// Настройки кодирования (кодек, CRF, preset, HW-ускорение) задаются per-output в правиле
-// через VideoEncodeSettings, а не глобально.
+// Note: ffprobe is resolved automatically from the same directory (path.replace("ffmpeg","ffprobe")).
+// Encoding settings (codec, CRF, preset, hardware acceleration) are defined per-output in rules
+// via VideoEncodeSettings, not globally.
 
 data class JobsConfig(
     val maxConcurrentDownloads: Int = 2,
@@ -219,7 +219,7 @@ data class ProxyConfig(
 
 ---
 
-## 4. Загрузка конфигурации
+## 4. Loading Configuration
 
 ```kotlin
 fun loadConfig(): AppConfig {
@@ -240,7 +240,7 @@ private fun getProfile(): String {
 
 ## 5. Environment Variables
 
-Hoplite автоматически мапит env variables:
+Hoplite automatically maps environment variables:
 
 | Env Variable                                    | Config Path                                       |
 |-------------------------------------------------|---------------------------------------------------|
@@ -314,7 +314,7 @@ logging:
 
 ---
 
-## 7. Валидация конфигурации
+## 7. Configuration Validation
 
 ```kotlin
 fun AppConfig.validate() {
@@ -328,7 +328,7 @@ fun AppConfig.validate() {
         }
     }
     
-    // Проверка доступности директорий
+    // Verify that base directories exist and are accessible
     storage.baseDirectories.forEach { dir ->
         val path = Path.of(dir)
         require(Files.exists(path) && Files.isDirectory(path)) {
@@ -336,12 +336,12 @@ fun AppConfig.validate() {
         }
     }
     
-    // LLM: если provider задан, apiKey обязателен
+    // LLM: if provider is set, apiKey is required
     if (llm.provider != LlmConfig.LlmProvider.NONE) {
         require(!llm.apiKey.isNullOrBlank()) { "llm.apiKey is required when provider is ${llm.provider}" }
     }
     
-    // Proxy: если включён, host и port обязательны
+    // Proxy: if enabled, host and port are required
     if (proxy.enabled) {
         require(proxy.host.isNotBlank()) { "proxy.host is required when proxy is enabled" }
         require(proxy.port in 1..65535) { "proxy.port must be 1-65535" }
@@ -351,7 +351,7 @@ fun AppConfig.validate() {
 
 ---
 
-## 8. Использование в приложении
+## 8. Application Wiring
 
 ```kotlin
 fun main() {
@@ -379,7 +379,7 @@ fun main() {
 
 ---
 
-## 9. Docker environment
+## 9. Docker Environment
 
 ```dockerfile
 ENV SERVER_PORT=8080
