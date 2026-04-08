@@ -1,41 +1,41 @@
-# Доменная модель
+# Domain Model
 
-> **Цель документа**: Полное описание доменных сущностей, sealed-иерархий, value objects и инвариантов.
+> **Purpose**: Full description of domain entities, sealed hierarchies, value objects and invariants.
 
 ---
 
-## 1. Обзор
+## 1. Overview
 
-Домен — ядро приложения. Он **не зависит** от фреймворков, БД, сериализации.
+The domain is the core of the application. It has **no dependencies** on frameworks, databases, or serialization.
 
-**Модуль**: `domain` — **Kotlin Multiplatform** (targets: `jvm`, `js`).
+**Module**: `domain` — **Kotlin Multiplatform** (targets: `jvm`, `js`).
 
-Весь код размещается в `commonMain` source set. Platform-specific код не допускается.
+All code resides in the `commonMain` source set. Platform-specific code is not allowed.
 
-### Структура: Package-by-Feature
+### Structure: Package-by-Feature
 
-Домен организован **по фичам**, а не по техническим слоям. Каждый пакет автономен, 
-содержит свои модели, сервисы и порты. 
-Такая структура:
-- Повышает cohesion (связанные классы рядом)
-- Упрощает навигацию (всё про правила — в `rule/`)
-- Каждый пакет потенциально может стать отдельным модулем
-- Нет циклических зависимостей между пакетами
+The domain is organized **by feature**, not by technical layers. Each package is autonomous,
+containing its own models, services, and ports.
+This structure:
+- Increases cohesion (related classes are co-located)
+- Simplifies navigation (everything about rules is in `rule/`)
+- Each package can potentially be extracted into a separate module
+- No circular dependencies between packages
 
 ```
 domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
-├── common/             # Общие типы: Category, DomainError, Tag, value objects (WorkspaceId, JobId, etc.)
+├── common/             # Shared types: Category, DomainError, Tag, value objects (WorkspaceId, JobId, etc.)
 ├── workspace/          # Workspace, WorkspaceMember, WorkspaceRole, WorkspaceRepository port
-├── channel/            # Channel (справочник каналов), ChannelRepository port
+├── channel/            # Channel (channel directory), ChannelRepository port
 ├── video/              # VideoSource, VideoInfo, VideoInfoExtractor port
 ├── rule/               # Rule, RuleMatch, MatchResult, RuleMatchingService, RuleRepository port
 ├── metadata/           # ResolvedMetadata, MetadataResolver, MetadataTemplate, MetadataTemplateMerger, LlmPort
 ├── storage/            # StoragePlan, OutputRule, OutputFormat, PathTemplateEngine
 ├── job/                # Job, JobStatus, CreateJobUseCase, JobRepository port
-└── preview/            # PreviewUseCase (оркестрация video + rule + channel + metadata + storage)
+└── preview/            # PreviewUseCase (orchestrates video + rule + channel + metadata + storage)
 ```
 
-### Граф зависимостей между пакетами
+### Package Dependency Graph
 
 ```
                     preview
@@ -54,29 +54,29 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 
               job ──▶ video, storage, common
 
-              rule ──▶ preview (для UserOverrides в MatchContext)
-              rule ──▶ channel (для Channel в MatchContext)
+              rule ──▶ preview (for UserOverrides in MatchContext)
+              rule ──▶ channel (for Channel in MatchContext)
 ```
 
-> Стрелки = зависит от. Циклов нет. Каждый пакет при необходимости может быть извлечён в Gradle-модуль.
+> Arrows = depends on. No cycles. Each package can be extracted into a Gradle module if needed.
 
-**KMP-замечания**:
-- `kotlin.uuid.Uuid` вместо `java.util.UUID`
-- `kotlin.time.Instant` для timestamps (в stdlib с Kotlin 2.1.20+)
-- `kotlin.time.Duration` для длительностей (в stdlib)
-- `LocalDate`, `Url`, `FilePath` — собственные value classes (Kotlin stdlib не содержит KMP-совместимых аналогов)
-- `value class` поддерживается на JS с Kotlin 2.1+
+**KMP notes**:
+- `kotlin.uuid.Uuid` instead of `java.util.UUID`
+- `kotlin.time.Instant` for timestamps (in stdlib since Kotlin 2.1.20+)
+- `kotlin.time.Duration` for durations (in stdlib)
+- `LocalDate`, `Url`, `FilePath` — custom value classes (Kotlin stdlib has no KMP-compatible equivalents)
+- `value class` is supported on JS since Kotlin 2.1+
 
 ---
 
-## 2. `common` — Общие типы
+## 2. `common` — Shared Types
 
 ### 2.1 Value Objects
 
 ```kotlin
 /**
- * Идентификатор видео на платформе-источнике.
- * Примеры: "dQw4w9WgXcQ" (YouTube), "12345678" (RuTube), "-12345_67890" (VK).
+ * Video identifier on the source platform.
+ * Examples: "dQw4w9WgXcQ" (YouTube), "12345678" (RuTube), "-12345_67890" (VK).
  */
 @JvmInline
 value class VideoId(val value: String) {
@@ -106,8 +106,8 @@ value class WorkspaceId(val value: Uuid)
 value class ChannelDirectoryEntryId(val value: Uuid)
 
 /**
- * Тег для группировки каналов в справочнике.
- * Lowercase alphanumeric with hyphens. Примеры: "music-video", "lofi", "tech-review".
+ * Tag for grouping channels in the directory.
+ * Lowercase alphanumeric with hyphens. Examples: "music-video", "lofi", "tech-review".
  */
 @JvmInline
 value class Tag(val value: String) {
@@ -122,10 +122,10 @@ value class Tag(val value: String) {
 }
 
 /**
- * Человекочитаемый уникальный идентификатор workspace.
- * Используется в URL path и конфигурации приложения.
- * Требования: строчные буквы, цифры, дефис; 3–50 символов; не начинается/не заканчивается дефисом.
- * Примеры: "personal", "my-team", "project-alpha-2"
+ * Human-readable unique workspace identifier.
+ * Used in URL paths and application configuration.
+ * Requirements: lowercase letters, digits, hyphens; 3–50 characters; must not start or end with a hyphen.
+ * Examples: "personal", "my-team", "project-alpha-2"
  */
 @JvmInline
 value class WorkspaceSlug(val value: String) {
@@ -144,9 +144,9 @@ value class TelegramUserId(val value: Long) {
 }
 
 /**
- * Идентификатор экстрактора yt-dlp (название платформы-источника).
- * Примеры: "youtube", "rutube", "vk", "generic".
- * Определяется автоматически yt-dlp при извлечении метаданных.
+ * yt-dlp extractor identifier (source platform name).
+ * Examples: "youtube", "rutube", "vk", "generic".
+ * Determined automatically by yt-dlp during metadata extraction.
  */
 @JvmInline
 value class Extractor(val value: String) {
@@ -163,8 +163,8 @@ value class Extractor(val value: String) {
 }
 
 /**
- * URL видео. Базовая валидация без внешних библиотек.
- * Kotlin stdlib не содержит KMP-совместимого типа URL.
+ * Video URL. Basic validation without external libraries.
+ * Kotlin stdlib has no KMP-compatible URL type.
  */
 @JvmInline
 value class Url(val value: String) {
@@ -177,8 +177,8 @@ value class Url(val value: String) {
 }
 
 /**
- * Дата в формате ISO 8601 (YYYY-MM-DD).
- * Kotlin stdlib не содержит KMP-совместимого типа LocalDate.
+ * Date in ISO 8601 format (YYYY-MM-DD).
+ * Kotlin stdlib has no KMP-compatible LocalDate type.
  */
 @JvmInline
 value class LocalDate(val value: String) {
@@ -196,9 +196,9 @@ value class LocalDate(val value: String) {
 }
 
 /**
- * Путь к файлу или директории.
- * Kotlin stdlib не содержит KMP-совместимого типа Path.
- * Используется в domain вместо java.nio.file.Path.
+ * File or directory path.
+ * Kotlin stdlib has no KMP-compatible Path type.
+ * Used in domain instead of java.nio.file.Path.
  */
 @JvmInline
 value class FilePath(val value: String) {
@@ -271,15 +271,15 @@ sealed interface DomainError {
 }
 ```
 
-> `DomainError` — в `common/`, т.к. используется во всех пакетах. 
-> `JobStatus` импортируется из `job/` для `JobCannotBeCancelled` 
-> — это единственная обратная ссылка, допустимая т.к. это sealed subclass, а не бизнес-зависимость.
+> `DomainError` lives in `common/` because it is used across all packages.
+> `JobStatus` is imported from `job/` for `JobCannotBeCancelled`
+> — this is the only back-reference, acceptable because it is a sealed subclass, not a business dependency.
 
 ---
 
-## 3. `workspace` — Рабочее пространство
+## 3. `workspace` — Workspace
 
-Зависимости: `common`
+Dependencies: `common`
 
 ```
 domain/workspace/
@@ -289,20 +289,20 @@ domain/workspace/
 └── WorkspaceRepository.kt
 ```
 
-Workspace — группа пользователей с общими ресурсами. Все доменные сущности (Rule, Job) привязаны к workspace.
+A workspace is a group of users sharing common resources. All domain entities (Rule, Job) are scoped to a workspace.
 
 ### 3.1 Workspace
 
 ```kotlin
 data class Workspace(
-    val id: WorkspaceId,      // UUID — внутренний технический ключ
-    val slug: WorkspaceSlug,  // "my-team" — человекочитаемый, уникальный, используется в URL
+    val id: WorkspaceId,      // UUID — internal technical key
+    val slug: WorkspaceSlug,  // "my-team" — human-readable, unique, used in URLs
     val name: String,
     val createdAt: Instant,
 )
 ```
 
-> `slug` — уникальный строковый идентификатор workspace. Используется в URL (`/api/v1/workspaces/{slug}/...`) и конфигурации приложения. Задаётся при создании workspace, должен быть уникальным в системе.
+> `slug` — unique string identifier for the workspace. Used in URLs (`/api/v1/workspaces/{slug}/...`) and application configuration. Set when creating the workspace; must be unique in the system.
 
 ### 3.2 WorkspaceMember
 
@@ -319,14 +319,14 @@ data class WorkspaceMember(
 
 ```kotlin
 enum class WorkspaceRole {
-    /** Может управлять участниками (добавлять/удалять) */
+    /** Can manage members (add/remove) */
     OWNER,
-    /** Полный доступ ко всем ресурсам workspace */
+    /** Full access to all workspace resources */
     MEMBER,
 }
 ```
 
-> Обе роли имеют равный доступ к ресурсам. OWNER дополнительно может управлять составом workspace.
+> Both roles have equal access to resources. OWNER can additionally manage workspace membership.
 
 ### 3.4 WorkspaceRepository (port)
 
@@ -343,13 +343,13 @@ interface WorkspaceRepository {
 }
 ```
 
-Подробнее: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
+See also: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
 
 ---
 
-## 4. `video` — Видео
+## 4. `video` — Video
 
-Зависимости: `common`
+Dependencies: `common`
 
 ```
 domain/video/
@@ -369,7 +369,7 @@ data class VideoSource(
 )
 ```
 
-> `extractor` определяется автоматически yt-dlp. Поддерживается [1000+ сайтов](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
+> `extractor` is determined automatically by yt-dlp. Supports [1000+ sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
 ### 4.2 VideoInfo
 
@@ -381,7 +381,7 @@ data class VideoInfo(
     val channelId: ChannelId,
     val channelName: String,
     val uploadDate: LocalDate?,
-    val duration: Duration,          // kotlin.time.Duration (KMP, в stdlib)
+    val duration: Duration,          // kotlin.time.Duration (KMP, in stdlib)
     val webpageUrl: Url,
     val thumbnails: List<Thumbnail> = emptyList(),
     val description: String? = null,
@@ -408,16 +408,16 @@ interface VideoInfoCache {
 }
 ```
 
-> Кэш VideoInfo в PostgreSQL. Вызов yt-dlp — дорогая операция (3-10 сек).
-> При интерактивном preview пользователь может менять overrides многократно для одного URL.
-> Кэш гарантирует что yt-dlp вызывается однократно.
-> Реализация: `VideoInfoCacheImpl` в `server:infra/db/repository/`.
+> VideoInfo cache in PostgreSQL. Calling yt-dlp is an expensive operation (3–10 sec).
+> During interactive preview the user may change overrides multiple times for the same URL.
+> The cache ensures yt-dlp is called only once.
+> Implementation: `VideoInfoCacheImpl` in `server:infra/db/repository/`.
 
 ---
 
-## 4a. `channel` — Справочник каналов
+## 4a. `channel` — Channel Directory
 
-Зависимости: `common`
+Dependencies: `common`
 
 ```
 domain/channel/
@@ -425,10 +425,10 @@ domain/channel/
 └── ChannelRepository.kt       # port
 ```
 
-Справочник каналов позволяет регистрировать каналы с тегами и переопределениями метаданных.
-Используется для тег-матчинга в правилах (`RuleMatch.HasTag`) и для per-channel metadata overrides.
+The channel directory allows registering channels with tags and metadata overrides.
+Used for tag-based matching in rules (`RuleMatch.HasTag`) and for per-channel metadata overrides.
 
-Подробнее: [ADR/008-channel-directory.md](./ADR/008-channel-directory.md)
+See also: [ADR/008-channel-directory.md](./ADR/008-channel-directory.md)
 
 ### 4a.1 Channel
 
@@ -436,10 +436,10 @@ domain/channel/
 data class Channel(
     val id: ChannelDirectoryEntryId,
     val workspaceId: WorkspaceId,
-    val channelId: ChannelId,          // ID канала на платформе
-    val extractor: Extractor,          // Платформа (youtube, rutube, ...)
-    val name: String,                  // Человекочитаемое имя
-    val tags: Set<Tag>,                // Теги для группировки
+    val channelId: ChannelId,          // Platform channel ID
+    val extractor: Extractor,          // Platform (youtube, rutube, ...)
+    val name: String,                  // Human-readable name
+    val tags: Set<Tag>,                // Tags for grouping
     val metadataOverrides: MetadataTemplate? = null,  // Per-channel metadata overrides
     val notes: String? = null,
     val createdAt: Instant,
@@ -451,8 +451,8 @@ data class Channel(
 }
 ```
 
-> Уникальный ключ на платформе: `channelId + extractor` (+ workspace).
-> `metadataOverrides` мержатся поверх `Rule.metadataTemplate` при матчинге.
+> Unique key on the platform: `channelId + extractor` (+ workspace).
+> `metadataOverrides` are merged on top of `Rule.metadataTemplate` when a rule matches.
 
 ### 4a.2 ChannelRepository (port)
 
@@ -471,9 +471,9 @@ interface ChannelRepository {
 
 ---
 
-## 5. `rule` — Правила
+## 5. `rule` — Rules
 
-Зависимости: `common`, `video`, `preview`, `channel`
+Dependencies: `common`, `video`, `preview`, `channel`
 
 ```
 domain/rule/
@@ -528,24 +528,24 @@ sealed interface RuleMatch {
         }
     }
     
-    /** Матчит по категории из user overrides. Если overrides == null — не матчит. */
+    /** Matches on the category from user overrides. If overrides == null — does not match. */
     data class CategoryEquals(val category: Category) : RuleMatch
     
     /**
-     * Матчит если канал видео зарегистрирован в справочнике и имеет указанный тег.
-     * Требует channel != null в MatchContext.
+     * Matches if the video's channel is registered in the directory and has the given tag.
+     * Requires channel != null in MatchContext.
      */
     data class HasTag(val tag: Tag) : RuleMatch
 }
 ```
 
-**MatchContext и матчинг**:
+**MatchContext and matching**:
 
 ```kotlin
 data class MatchContext(
     val video: VideoInfo,
     val overrides: UserOverrides? = null,
-    val channel: Channel? = null,        // из справочника каналов (загружается один раз)
+    val channel: Channel? = null,        // from the channel directory (loaded once)
 )
 
 fun RuleMatch.matches(ctx: MatchContext): Boolean = when (this) {
@@ -571,15 +571,15 @@ fun RuleMatch.matchSpecificity(): Int = when (this) {
 }
 ```
 
-> `CategoryEquals` матчит **только** когда overrides != null и категория совпадает.
-> `HasTag` матчит когда канал видео найден в справочнике и имеет нужный тег.
+> `CategoryEquals` matches **only** when overrides != null and the category matches.
+> `HasTag` matches when the video's channel is found in the directory and has the required tag.
 
 ### 5.1a MatchResult
 
 ```kotlin
 /**
- * Результат матчинга — правило + опционально канал из справочника.
- * Канал нужен для применения channel-level metadata overrides.
+ * Matching result — matched rule + optionally the channel from the directory.
+ * The channel is needed to apply channel-level metadata overrides.
  */
 data class MatchResult(
     val rule: Rule,
@@ -610,11 +610,11 @@ data class Rule(
 }
 ```
 
-> `Rule` не содержит `category` — категория определяется из `metadataTemplate.category` (sealed).
-> `Rule` ссылается на `MetadataTemplate` (из `metadata/`), 
-> `OutputRule` (из `storage/`) и `DownloadPolicy` (из `storage/`).
-> Каждый `OutputRule` — самодостаточная единица: путь + формат + качество + пост-обработка.
-> Первый output = оригинальный файл, остальные = конвертации/копии.
+> `Rule` does not contain `category` — the category is derived from `metadataTemplate.category` (sealed).
+> `Rule` references `MetadataTemplate` (from `metadata/`),
+> `OutputRule` (from `storage/`) and `DownloadPolicy` (from `storage/`).
+> Each `OutputRule` is a self-contained unit: path + format + quality + post-processing.
+> First output = original file, the rest = conversions/copies.
 
 ### 5.3 RuleMatchingService
 
@@ -640,8 +640,8 @@ class RuleMatchingService(
 }
 ```
 
-> Канал загружается один раз per matching request (не на каждый `matches()` вызов).
-> Возвращает `MatchResult?` вместо `Rule?`, чтобы пробросить канал в pipeline метаданных.
+> Channel is loaded once per matching request (not on every `matches()` call).
+> Returns `MatchResult?` instead of `Rule?` to propagate the channel through the metadata pipeline.
 
 ### 5.4 RuleRepository (port)
 
@@ -657,9 +657,9 @@ interface RuleRepository {
 
 ---
 
-## 6. `metadata` — Метаданные
+## 6. `metadata` — Metadata
 
-Зависимости: `common`, `video`
+Dependencies: `common`, `video`
 
 ```
 domain/metadata/
@@ -687,7 +687,7 @@ sealed interface ResolvedMetadata {
     val tags: List<String>
     val comment: String?
     
-    /** Год выпуска (из releaseDate). Удобно для path templates: {year} */
+    /** Release year (from releaseDate). Convenient for path templates: {year} */
     val year: Int? get() = releaseDate?.year
     
     data class MusicVideo(
@@ -739,15 +739,15 @@ val ResolvedMetadata.category: Category get() = when (this) {
 
 ```kotlin
 /**
- * Шаблон для определения метаданных видео.
- * 
- * Sealed по категории — каждый подтип содержит только релевантные поля.
- * Зеркалит структуру [ResolvedMetadata]: MusicVideo → MusicVideo, и т.д.
- * 
- * **Override-поля** — жёстко задают значение (приоритет над извлечением).
- * **Pattern-поля** — regex для извлечения из title/description видео.
- * 
- * Приоритет: override > pattern > fallback (парсинг по разделителям).
+ * Template for determining video metadata.
+ *
+ * Sealed by category — each subtype contains only relevant fields.
+ * Mirrors the structure of [ResolvedMetadata]: MusicVideo → MusicVideo, etc.
+ *
+ * **Override fields** — hard-set the value (take priority over extraction).
+ * **Pattern fields** — regex for extracting from the video's title/description.
+ *
+ * Priority: override > pattern > fallback (parse by separators).
  */
 sealed interface MetadataTemplate {
     val titleOverride: String?
@@ -756,7 +756,7 @@ sealed interface MetadataTemplate {
     
     data class MusicVideo(
         val artistOverride: String? = null,       // e.g. "Casting Crowns"
-        val artistPattern: String? = null,        // regex с группой, e.g. "^(.+?)\\s*[-–—]"
+        val artistPattern: String? = null,        // regex with a group, e.g. "^(.+?)\\s*[-–—]"
         override val titleOverride: String? = null,
         override val titlePattern: String? = null,
         override val defaultTags: List<String> = emptyList(),
@@ -764,8 +764,8 @@ sealed interface MetadataTemplate {
     
     data class SeriesEpisode(
         val seriesNameOverride: String? = null,   // e.g. "Tech News Weekly"
-        val seasonPattern: String? = null,        // regex для извлечения сезона
-        val episodePattern: String? = null,       // regex для извлечения эпизода
+        val seasonPattern: String? = null,        // regex to extract the season
+        val episodePattern: String? = null,       // regex to extract the episode
         override val titleOverride: String? = null,
         override val titlePattern: String? = null,
         override val defaultTags: List<String> = emptyList(),
@@ -779,10 +779,10 @@ sealed interface MetadataTemplate {
 }
 ```
 
-> **Пример**: канал "Casting Crowns" — правило с `category = MUSIC_VIDEO`,
+> **Example**: channel "Casting Crowns" — rule with `category = MUSIC_VIDEO`,
 > `metadataTemplate = MetadataTemplate.MusicVideo(artistOverride = "Casting Crowns")`.
-> Видео "Who Am I (Official Music Video)" → `artist = "Casting Crowns"`, `title = "Who Am I (Official Music Video)"`.
-> Невозможно случайно задать `artistOverride` для `SERIES` — компилятор не даст.
+> Video "Who Am I (Official Music Video)" → `artist = "Casting Crowns"`, `title = "Who Am I (Official Music Video)"`.
+> It is impossible to accidentally set `artistOverride` for `SERIES` — the compiler prevents it.
 
 ### 6.4 MetadataResolver
 
@@ -843,13 +843,13 @@ class MetadataResolver {
             tags = template.defaultTags,
         )
     
-    /** Извлечение первой группы из regex-паттерна */
+    /** Extract the first capturing group from a regex pattern */
     private fun extractByPattern(input: String, pattern: String): String? =
         runCatching { pattern.toRegex().find(input)?.groupValues?.getOrNull(1)?.trim() }
             .getOrNull()
             ?.takeIf { it.isNotBlank() }
     
-    /** Fallback: парсинг "Artist - Title" по разделителям */
+    /** Fallback: parse "Artist - Title" by common separators */
     private fun parseArtistTitle(title: String): Pair<String, String> {
         val separators = listOf(" - ", " – ", " — ", ": ")
         for (sep in separators) {
@@ -867,17 +867,17 @@ class MetadataResolver {
 
 ```kotlin
 /**
- * Мержит два MetadataTemplate.
- * Поля из overlay имеют приоритет над base.
- * Если типы отличаются — overlay побеждает полностью.
+ * Merges two MetadataTemplates.
+ * Fields from overlay take priority over base.
+ * If types differ — overlay wins completely.
  */
 fun mergeTemplates(base: MetadataTemplate, overlay: MetadataTemplate?): MetadataTemplate
 ```
 
-Используется для трёхуровневого merge метаданных:
-1. `Rule.metadataTemplate` (база)
-2. `Channel.metadataOverrides` (per-channel поверх правила)
-3. `UserOverrides` (ручные правки пользователя — высший приоритет)
+Used for three-level metadata merge:
+1. `Rule.metadataTemplate` (base)
+2. `Channel.metadataOverrides` (per-channel, on top of rule)
+3. `UserOverrides` (manual user edits — highest priority)
 
 ### 6.6 LlmPort (port) & LlmSuggestion
 
@@ -895,9 +895,9 @@ data class LlmSuggestion(
 
 ---
 
-## 7. `storage` — Хранение и пост-обработка
+## 7. `storage` — Storage and Post-processing
 
-Зависимости: `common`, `video`, `metadata`
+Dependencies: `common`, `video`, `metadata`
 
 ```
 domain/storage/
@@ -906,7 +906,7 @@ domain/storage/
 ├── ImageFormat.kt
 ├── OutputFormat.kt            # sealed interface
 ├── OutputRule.kt              # per-output path + format + quality + post-processing
-├── VideoEncodeSettings.kt     # кодек, CRF, preset, HW-ускорение для конвертации
+├── VideoEncodeSettings.kt     # codec, CRF, preset, HW acceleration for conversion
 ├── OutputTarget.kt
 ├── StoragePlan.kt
 ├── DownloadPolicy.kt
@@ -917,7 +917,7 @@ domain/storage/
 ### 7.1 MediaContainer, AudioFormat, ImageFormat
 
 ```kotlin
-/** Видео/медиа контейнер. Поддерживаемые форматы yt-dlp + ffmpeg. */
+/** Video/media container. Supported by yt-dlp + ffmpeg. */
 enum class MediaContainer(val extension: String) {
     MP4("mp4"),
     MKV("mkv"),
@@ -931,7 +931,7 @@ enum class MediaContainer(val extension: String) {
     }
 }
 
-/** Аудио формат для извлечения аудио-дорожки. */
+/** Audio format for extracting the audio track. */
 enum class AudioFormat(val extension: String) {
     M4A("m4a"),
     MP3("mp3"),
@@ -940,7 +940,7 @@ enum class AudioFormat(val extension: String) {
     WAV("wav");
 }
 
-/** Формат изображения (для обложек/thumbnail). */
+/** Image format (for covers/thumbnails). */
 enum class ImageFormat(val extension: String) {
     JPG("jpg"),
     PNG("png"),
@@ -952,40 +952,40 @@ enum class ImageFormat(val extension: String) {
 
 ```kotlin
 /**
- * Формат выходного файла. Sealed — кодирует и тип (видео/аудио/изображение), и конкретный формат.
+ * Output file format. Sealed — encodes both the type (video/audio/image) and the specific format.
  *
- * Сериализуется в строку вида "kind/extension":
+ * Serialized as the string "kind/extension":
  *   - "original/webm", "original/mkv"
  *   - "video/mp4", "video/mkv"
  *   - "audio/m4a", "audio/mp3", "audio/flac"
  *   - "image/jpg", "image/png", "image/webp"
- * 
- * Строковое представление используется в API (JSON), БД (TEXT) и конфигурации (YAML).
+ *
+ * The string representation is used in the API (JSON), DB (TEXT), and configuration (YAML).
  */
 sealed interface OutputFormat {
     val extension: String
     
-    /** Оригинальное видео (как скачано yt-dlp). */
+    /** Original video (as downloaded by yt-dlp). */
     data class OriginalVideo(val container: MediaContainer) : OutputFormat {
         override val extension: String get() = container.extension
     }
     
-    /** Конвертированное видео (после ffmpeg). */
+    /** Converted video (after ffmpeg processing). */
     data class ConvertedVideo(val container: MediaContainer) : OutputFormat {
         override val extension: String get() = container.extension
     }
     
-    /** Извлечённая аудио-дорожка. */
+    /** Extracted audio track. */
     data class Audio(val format: AudioFormat) : OutputFormat {
         override val extension: String get() = format.extension
     }
     
-    /** Обложка / thumbnail. */
+    /** Cover art / thumbnail. */
     data class Thumbnail(val format: ImageFormat = ImageFormat.JPG) : OutputFormat {
         override val extension: String get() = format.extension
     }
     
-    /** Сериализация в строку "kind/extension". */
+    /** Serialize to the string "kind/extension". */
     val serialized: String get() = when (this) {
         is OriginalVideo -> "original/${container.extension}"
         is ConvertedVideo -> "video/${container.extension}"
@@ -995,8 +995,8 @@ sealed interface OutputFormat {
     
     companion object {
         /**
-         * Десериализация из строки "kind/extension".
-         * @throws IllegalArgumentException при невалидном формате.
+         * Deserialize from the string "kind/extension".
+         * @throws IllegalArgumentException on invalid format.
          */
         fun parse(value: String): OutputFormat {
             val (kind, ext) = value.split("/", limit = 2).also {
@@ -1026,8 +1026,8 @@ sealed interface OutputFormat {
 
 ```kotlin
 /**
- * Конкретный выходной файл с resolved-путём и флагами пост-обработки.
- * Создаётся из [OutputRule] через [PathTemplateEngine.buildStoragePlan].
+ * A concrete output file with a resolved path and post-processing flags.
+ * Created from [OutputRule] via [PathTemplateEngine.buildStoragePlan].
  */
 data class OutputTarget(
     val path: FilePath,
@@ -1041,13 +1041,13 @@ data class OutputTarget(
 )
 
 /**
- * План сохранения файлов.
- * 
- * [original] — исходное видео (как скачано yt-dlp). Всегда один.
- * [additional] — производные: конвертированное видео, аудио-дорожка, обложка и т.д.
- * Каждый [OutputTarget] содержит resolved-путь, формат и индивидуальные настройки пост-обработки.
+ * File storage plan.
  *
- * Пример для MUSIC_VIDEO:
+ * [original] — source video (as downloaded by yt-dlp). Always one.
+ * [additional] — derived outputs: converted video, audio track, cover art, etc.
+ * Each [OutputTarget] contains a resolved path, format, and individual post-processing settings.
+ *
+ * Example for MUSIC_VIDEO:
  *   original  = .../original/Artist/Title.webm       (OriginalVideo)
  *   additional = [
  *     .../converted/Artist/Title.mp4                  (ConvertedVideo, embedMetadata=true, embedThumbnail=true)
@@ -1066,8 +1066,8 @@ data class StoragePlan(
 
 ```kotlin
 /**
- * Политика скачивания. Управляет параметрами yt-dlp.
- * Определяет максимальное качество, предпочитаемый контейнер и субтитры.
+ * Download policy. Controls yt-dlp parameters.
+ * Determines maximum quality, preferred container, and subtitles.
  */
 data class DownloadPolicy(
     val maxQuality: VideoQuality = VideoQuality.BEST,
@@ -1081,18 +1081,18 @@ data class DownloadPolicy(
 
 ### 7.5 VideoEncodeSettings
 
-Настройки перекодирования видео. Применяются при `OutputFormat.ConvertedVideo` **только тогда**,
-когда исходное разрешение превышает `maxQuality`. Если источник уже вписывается в лимит —
-выполняется ремуксинг (`-c copy`) без перекодирования.
+Video encoding settings. Applied for `OutputFormat.ConvertedVideo` **only when**
+the source resolution exceeds `maxQuality`. If the source already fits within the limit —
+a remux (`-c copy`) is performed without re-encoding.
 
 ```kotlin
 data class VideoEncodeSettings(
     val codec: VideoCodec = VideoCodec.H264,
-    val hwAccel: HwAccel? = null,         // null = программное кодирование (libx264 и т.д.)
+    val hwAccel: HwAccel? = null,         // null = software encoding (libx264, etc.)
     val preset: EncodePreset = EncodePreset.MEDIUM,
-    val crf: Int = 23,                    // 0 = lossless, 51 = худшее; YouTube-like ≈ 23
+    val crf: Int = 23,                    // 0 = lossless, 51 = worst; YouTube-like ≈ 23
     val audioBitrate: String = "192k",
-    val audioCodec: String? = null,       // null = авто по контейнеру
+    val audioCodec: String? = null,       // null = auto by container
 ) {
     enum class VideoCodec { H264, H265, VP9, AV1 }
 
@@ -1112,24 +1112,24 @@ data class VideoEncodeSettings(
     companion object {
         /** YouTube-like: H264, CRF 23, medium preset, 128k audio */
         val YOUTUBE_LIKE = VideoEncodeSettings(crf = 23, audioBitrate = "128k")
-        /** Высокое качество: H264, CRF 18, slow preset, 192k audio */
+        /** High quality: H264, CRF 18, slow preset, 192k audio */
         val HIGH_QUALITY = VideoEncodeSettings(preset = EncodePreset.SLOW, crf = 18)
     }
 }
 ```
 
-> **Логика выбора кодирования** (в `FfmpegRunner`):
+> **Encoding decision logic** (in `FfmpegRunner`):
 >
-> 1. `ffprobe` определяет высоту исходного видео
-> 2. Если `sourceHeight ≤ maxHeight` → **ремуксинг** (`-c:v copy -c:a copy`), настройки игнорируются
-> 3. Если `sourceHeight > maxHeight` → **перекодирование** с `VideoEncodeSettings`
->    - Масштабирование: `scale=-2:min(maxHeight,ih)`
->    - Видеокодек: HW-вариант (если задан и поддерживается) или SW-fallback
->    - Качество: `-crf` (SW) или `-cq`/`-q:v`/`-global_quality` (HW)
->    - Preset: только для SW-кодеков
->    - Аудио: `-c:a aac -b:a 192k` (или по настройкам)
+> 1. `ffprobe` determines the source video height
+> 2. If `sourceHeight ≤ maxHeight` → **remux** (`-c:v copy -c:a copy`), settings are ignored
+> 3. If `sourceHeight > maxHeight` → **re-encode** with `VideoEncodeSettings`
+>    - Scaling: `scale=-2:min(maxHeight,ih)`
+>    - Video codec: HW variant (if set and supported) or SW fallback
+>    - Quality: `-crf` (SW) or `-cq`/`-q:v`/`-global_quality` (HW)
+>    - Preset: only for SW codecs
+>    - Audio: `-c:a aac -b:a 192k` (or per settings)
 >
-> Если `ffprobe` недоступен — перекодирование применяется всегда (безопасный fallback).
+> If `ffprobe` is unavailable — re-encoding is always applied (safe fallback).
 
 ---
 
@@ -1137,25 +1137,25 @@ data class VideoEncodeSettings(
 
 ```kotlin
 /**
- * Описание одного выходного файла правила.
+ * Descriptor for one output file in a rule.
  *
- * Каждый OutputRule — самодостаточная единица:
- * путь + формат + качество + пост-обработка.
+ * Each OutputRule is a self-contained unit:
+ * path + format + quality + post-processing.
  *
- * Первый output в Rule.outputs — оригинальный файл (как скачано yt-dlp).
- * Остальные — конвертации/копии с индивидуальными настройками.
+ * The first output in Rule.outputs is the original file (as downloaded by yt-dlp).
+ * The rest are conversions/copies with individual settings.
  *
- * @param pathTemplate шаблон пути: "/media/Music/{artist}/{title}.{ext}"
- * @param format формат выходного файла (OriginalVideo, ConvertedVideo, Audio, Thumbnail)
- * @param maxQuality макс. качество для этого output (null = без понижения)
- * @param encodeSettings настройки перекодирования видео (кодек, CRF, preset, HW-ускорение).
- *                       null = дефолтные настройки (H264, CRF 23, preset medium, без HW).
- *                       Применяются только при реальном перекодировании (когда исходное
- *                       разрешение выше maxQuality). Если источник уже ≤ maxQuality — ремуксинг.
- * @param embedThumbnail встраивать обложку в этот файл
- * @param embedMetadata встраивать теги (title, artist, album) в контейнер
- * @param embedSubtitles встраивать субтитры в контейнер
- * @param normalizeAudio нормализация громкости аудио
+ * @param pathTemplate path template: "/media/Music/{artist}/{title}.{ext}"
+ * @param format output file format (OriginalVideo, ConvertedVideo, Audio, Thumbnail)
+ * @param maxQuality max quality for this output (null = no downscaling)
+ * @param encodeSettings video encoding settings (codec, CRF, preset, HW acceleration).
+ *                       null = defaults (H264, CRF 23, medium preset, no HW).
+ *                       Applied only when actual re-encoding is needed (when source
+ *                       resolution exceeds maxQuality). If source ≤ maxQuality — remux.
+ * @param embedThumbnail embed cover art in this file
+ * @param embedMetadata embed tags (title, artist, album) in the container
+ * @param embedSubtitles embed subtitles in the container
+ * @param normalizeAudio normalize audio volume
  */
 data class OutputRule(
     val pathTemplate: String,
@@ -1169,13 +1169,13 @@ data class OutputRule(
 )
 ```
 
-> **Ключевые свойства**:
-> - Пост-обработка привязана к конкретному output, а не глобально ко всему правилу
-> - Каждый output может иметь своё качество (оригинал в 4K, конвертация в 1080p)
-> - Расширяемо: добавление audio/thumbnail — ещё один `OutputRule` в списке
-> - `Rule.outputs` зеркалит `StoragePlan(original, additional)` — маппинг 1:1
+> **Key properties**:
+> - Post-processing is tied to the specific output, not globally to the entire rule
+> - Each output can have its own quality setting (original in 4K, conversion in 1080p)
+> - Extensible: adding audio/thumbnail is just another `OutputRule` in the list
+> - `Rule.outputs` mirrors `StoragePlan(original, additional)` — 1:1 mapping
 >
-> **Пример 1**: музыкальное видео — оригинал без метаданных + конвертация MP4 с YouTube-качеством:
+> **Example 1**: music video — original without metadata + MP4 conversion with YouTube quality:
 > ```kotlin
 > Rule(
 >     downloadPolicy = DownloadPolicy(maxQuality = BEST),
@@ -1196,7 +1196,7 @@ data class OutputRule(
 > )
 > ```
 >
-> **Пример 2**: то же правило, но с VideoToolbox (macOS hardware encoding):
+> **Example 2**: same rule with VideoToolbox (macOS hardware encoding):
 > ```kotlin
 > OutputRule(
 >     pathTemplate = "/media/Music Videos/converted/{artist}/{title}.mp4",
@@ -1213,7 +1213,7 @@ data class OutputRule(
 > )
 > ```
 >
-> **Пример 3**: серия/блог — один output, без перекодирования выше 1080p:
+> **Example 3**: series/vlog — single output, no re-encoding above 1080p:
 > ```kotlin
 > Rule(
 >     downloadPolicy = DownloadPolicy(maxQuality = HD_1080, downloadSubtitles = true),
@@ -1229,7 +1229,7 @@ data class OutputRule(
 > )
 > ```
 >
-> **Пример 4**: музыкальное видео с извлечением аудио и обложки:
+> **Example 4**: music video with audio extraction and cover art:
 > ```kotlin
 > outputs = listOf(
 >     OutputRule("/media/Music/original/{artist}/{title} [{videoId}].{ext}", OutputFormat.OriginalVideo(MediaContainer.WEBM)),
@@ -1316,9 +1316,9 @@ interface VideoDownloader {
 
 ---
 
-## 8. `job` — Задачи скачивания
+## 8. `job` — Download Jobs
 
-Зависимости: `common`, `video`, `metadata`, `storage`
+Dependencies: `common`, `video`, `metadata`, `storage`
 
 ```
 domain/job/
@@ -1444,9 +1444,9 @@ interface JobRepository {
 
 ---
 
-## 9. `preview` — Предпросмотр
+## 9. `preview` — Preview
 
-Зависимости: `common`, `video`, `rule`, `metadata`, `storage`
+Dependencies: `common`, `video`, `rule`, `metadata`, `storage`
 
 ```
 domain/preview/
@@ -1456,8 +1456,8 @@ domain/preview/
 
 ### 9.1 UserOverrides (sealed)
 
-Пользователь может уточнить категорию и поля метаданных. Overrides — sealed по категории
-(зеркалит `ResolvedMetadata`), потому что набор доступных полей зависит от категории.
+The user can refine the category and metadata fields. Overrides are sealed by category
+(mirroring `ResolvedMetadata`), because the set of available fields depends on the category.
 
 ```kotlin
 sealed interface UserOverrides {
@@ -1487,13 +1487,13 @@ val UserOverrides.category: Category get() = when (this) {
 }
 ```
 
-> Категория **не передаётся отдельным полем** — она определяется по типу sealed.
-> Если overrides == null — пользователь ничего не уточнял.
+> The category is **not passed as a separate field** — it is determined by the sealed type.
+> If overrides == null — the user has not refined anything.
 
 ### 9.2 PreviewUseCase
 
-`PreviewUseCase` — оркестратор, который связывает все фичи.
-Preview — это **диалог**: пользователь уточняет данные, сервер переоценивает правила.
+`PreviewUseCase` is an orchestrator that ties all features together.
+Preview is an **interactive dialog**: the user refines data, and the server re-evaluates rules.
 
 ```kotlin
 class PreviewUseCase(
@@ -1508,17 +1508,17 @@ class PreviewUseCase(
         workspaceId: WorkspaceId,
         overrides: UserOverrides? = null,
     ): Either<DomainError, PreviewResult> = either {
-        // 1. VideoInfo: кэш (PostgreSQL) или yt-dlp
+        // 1. VideoInfo: cache (PostgreSQL) or yt-dlp
         val videoInfo = videoInfoCache.get(url)
             ?: videoInfoExtractor.extract(url).bind().also { videoInfoCache.put(url, it) }
 
-        // 2. Rule matching с учётом overrides
+        // 2. Rule matching with overrides
         val matchedRule = ruleMatchingService.findMatchingRule(videoInfo, workspaceId, overrides)
 
         // 3. Resolve metadata (rule → LLM → fallback)
         val (metadata, source) = resolveMetadata(videoInfo, matchedRule)
 
-        // 4. Apply user overrides поверх resolved metadata
+        // 4. Apply user overrides on top of resolved metadata
         val finalMetadata = applyOverrides(metadata, overrides)
 
         // 5. Outputs
@@ -1543,40 +1543,40 @@ data class PreviewResult(
 )
 ```
 
-**Порядок приоритетов метаданных:**
+**Metadata priority order:**
 
 ```
-1. UserOverrides (ручной ввод пользователя)          ← наивысший
-2. Rule MetadataTemplate (если правило найдено)
-3. LLM suggestion (если LLM настроен, правило не найдено)
-4. Fallback (парсинг title по разделителям)           ← наименьший
+1. UserOverrides (manual user input)              ← highest
+2. Rule MetadataTemplate (if a rule matched)
+3. LLM suggestion (if LLM is configured and no rule matched)
+4. Fallback (parse title by separators)           ← lowest
 ```
 
-`applyOverrides()` перезаписывает только те поля, которые пользователь явно задал (не null).
-Тип sealed overrides определяет целевую категорию `ResolvedMetadata`.
+`applyOverrides()` overwrites only fields the user explicitly set (not null).
+The sealed overrides type determines the target `ResolvedMetadata` category.
 
-Подробнее: [ADR/007-interactive-preview-refinement.md](./ADR/007-interactive-preview-refinement.md)
+See also: [ADR/007-interactive-preview-refinement.md](./ADR/007-interactive-preview-refinement.md)
 
 ---
 
-## 10. Инварианты и валидация
+## 10. Invariants and Validation
 
-### 10.1 Общие правила
+### 10.1 General Rules
 
-| Поле                            | Правило                                   |
-|---------------------------------|-------------------------------------------|
-| `title`, `artist`, `seriesName` | Не пустые после trim                      |
-| `releaseDate`                   | `LocalDate` (ISO 8601) или null           |
-| `tags`                          | Нормализуются: trim, dedupe, remove empty |
-| `priority`                      | Int, может быть отрицательным             |
-| `percent` (progress)            | 0-100                                     |
-| Path templates                  | Минимум `{title}` или `{videoId}`         |
+| Field                             | Rule                                        |
+|-----------------------------------|---------------------------------------------|
+| `title`, `artist`, `seriesName`   | Non-blank after trim                        |
+| `releaseDate`                     | `LocalDate` (ISO 8601) or null              |
+| `tags`                            | Normalized: trim, deduplicate, remove empty |
+| `priority`                        | Int, may be negative                        |
+| `percent` (progress)              | 0–100                                       |
+| Path templates                    | Must include at least `{title}` or `{videoId}` |
 
-### 10.2 Валидация при создании
+### 10.2 Validation at Creation
 
-Все инварианты проверяются в `init {}` блоках data/value классов.
-При нарушении — `IllegalArgumentException`.
+All invariants are checked in `init {}` blocks of data/value classes.
+On violation — `IllegalArgumentException`.
 
-### 10.3 Валидация бизнес-правил
+### 10.3 Business Rule Validation
 
-Бизнес-валидация (например, "job с таким videoId уже существует") — через `Either<DomainError, T>` в use cases.
+Business validation (e.g. "a job for this videoId already exists") — via `Either<DomainError, T>` in use cases.

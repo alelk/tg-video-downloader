@@ -1,10 +1,10 @@
 # API Contract
 
-> **Цель документа**: Полная спецификация HTTP API, DTO, сериализация sealed-классов, формат ошибок.
+> **Purpose**: Full HTTP API specification — endpoints, DTOs, sealed class serialization, error format.
 
 ---
 
-## 1. Общие правила
+## 1. General Rules
 
 ### 1.1 Base URL
 
@@ -12,7 +12,7 @@
 /api/v1/
 ```
 
-Все доменные ресурсы (jobs, rules, preview) привязаны к workspace:
+All domain resources (jobs, rules, preview) are scoped to a workspace:
 
 ```
 /api/v1/workspaces/{slug}/jobs
@@ -20,26 +20,26 @@
 /api/v1/workspaces/{slug}/preview
 ```
 
-Управление workspace и системные эндпоинты — на верхнем уровне:
+Workspace management and system endpoints are at the top level:
 
 ```
 /api/v1/workspaces
 /api/v1/system/...
 ```
 
-Все ресурсы описаны с использованием **Ktor Resources** для обеспечения type-safety и удобства использования на клиенте.
+All resources are described using **Ktor Resources** for type-safety and convenient client usage.
 
-Подробнее о workspace: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
+See also: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
 
-### 1.2 Аутентификация
+### 1.2 Authentication
 
-Все запросы требуют Telegram `initData` в заголовке:
+All requests require a Telegram `initData` header:
 
 ```http
 X-Telegram-Init-Data: <initData>
 ```
 
-Подробнее: [SECURITY.md](./SECURITY.md)
+See [SECURITY.md](./SECURITY.md).
 
 ### 1.3 Content-Type
 
@@ -48,12 +48,12 @@ X-Telegram-Init-Data: <initData>
 
 ### 1.4 Correlation ID
 
-Сервер генерирует `correlationId` для каждого запроса.
-Возвращается в заголовке `X-Correlation-Id` и в ошибках.
+The server generates a `correlationId` for each request.
+It is returned in the `X-Correlation-Id` header and in error responses.
 
 ---
 
-## 2. Формат ошибок
+## 2. Error Format
 
 ### 2.1 ApiErrorDto
 
@@ -72,7 +72,7 @@ data class ApiErrorDto(
 }
 ```
 
-### 2.2 Пример ответа
+### 2.2 Example Response
 
 ```json
 {
@@ -87,29 +87,29 @@ data class ApiErrorDto(
 }
 ```
 
-### 2.3 Коды ошибок
+### 2.3 Error Codes
 
-| Code                      | HTTP Status | Описание                                      |
-|---------------------------|-------------|-----------------------------------------------|
-| `VALIDATION_ERROR`        | 400         | Ошибка валидации входных данных               |
-| `INVALID_URL`             | 400         | Некорректный URL видео                        |
-| `UNAUTHORIZED`            | 401         | Невалидный initData                           |
-| `FORBIDDEN`               | 403         | Пользователь не в allowlist                   |
-| `WORKSPACE_ACCESS_DENIED` | 403         | Пользователь не является участником workspace |
-| `NOT_FOUND`               | 404         | Ресурс не найден                              |
-| `CONFLICT`                | 409         | Конфликт (например, job уже существует)       |
-| `UPDATE_DISABLED`         | 403         | Обновление yt-dlp запрещено в конфигурации    |
-| `VIDEO_UNAVAILABLE`       | 422         | Видео недоступно                              |
-| `LLM_ERROR`               | 502         | Ошибка при обращении к LLM провайдеру         |
-| `INTERNAL_ERROR`          | 500         | Внутренняя ошибка сервера                     |
+| Code                      | HTTP Status | Description                                          |
+|---------------------------|-------------|------------------------------------------------------|
+| `VALIDATION_ERROR`        | 400         | Input validation error                               |
+| `INVALID_URL`             | 400         | Invalid video URL                                    |
+| `UNAUTHORIZED`            | 401         | Invalid initData                                     |
+| `FORBIDDEN`               | 403         | User not in allowlist                                |
+| `WORKSPACE_ACCESS_DENIED` | 403         | User is not a member of the workspace                |
+| `NOT_FOUND`               | 404         | Resource not found                                   |
+| `CONFLICT`                | 409         | Conflict (e.g. a job already exists for this video)  |
+| `UPDATE_DISABLED`         | 403         | yt-dlp update is disabled in configuration           |
+| `VIDEO_UNAVAILABLE`       | 422         | Video is unavailable                                 |
+| `LLM_ERROR`               | 502         | Error calling the LLM provider                       |
+| `INTERNAL_ERROR`          | 500         | Internal server error                                |
 
 ---
 
-## 3. Сериализация sealed-классов
+## 3. Sealed Class Serialization
 
-### 3.1 Принцип
+### 3.1 Principle
 
-Для polymorphic DTO используется discriminator поле `type`.
+Polymorphic DTOs use a `type` discriminator field.
 
 ```kotlin
 @Serializable
@@ -117,7 +117,7 @@ data class ApiErrorDto(
 sealed interface RuleMatchDto
 ```
 
-### 3.2 Конфигурация kotlinx.serialization
+### 3.2 kotlinx.serialization Configuration
 
 ```kotlin
 val json = Json {
@@ -190,7 +190,7 @@ sealed interface RuleMatchDto {
 }
 ```
 
-### 4.2 JSON примеры
+### 4.2 JSON Examples
 
 **ChannelId**:
 ```json
@@ -222,7 +222,7 @@ sealed interface RuleMatchDto {
 }
 ```
 
-**CategoryEquals** (матчит по user override категории):
+**CategoryEquals** (matches on user-overridden category):
 ```json
 {
   "type": "category-equals",
@@ -230,7 +230,7 @@ sealed interface RuleMatchDto {
 }
 ```
 
-**HasTag** (матчит по тегу из справочника каналов):
+**HasTag** (matches on tag from the channel directory):
 ```json
 {
   "type": "has-tag",
@@ -286,7 +286,7 @@ sealed interface ResolvedMetadataDto {
 }
 ```
 
-### 5.2 JSON примеры
+### 5.2 JSON Examples
 
 **MusicVideo**:
 ```json
@@ -340,11 +340,11 @@ enum class MetadataSourceDto {
 
 ---
 
-## 6. Эндпоинты
+## 6. Endpoints
 
 ### 6.1 POST /api/v1/workspaces/{slug}/preview
 
-Получить preview метаданных для URL.
+Get a metadata preview for a URL.
 
 **Resource**: `ApiV1.Workspaces.ById.Preview`
 
@@ -364,7 +364,7 @@ data class PreviewRequestDto(
 }
 ```
 
-С user overrides (повторный вызов после уточнения категории):
+With user overrides (re-request after refining the category):
 ```json
 {
   "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -377,8 +377,8 @@ data class PreviewRequestDto(
 }
 ```
 
-> `UserOverridesDto` — sealed по категории. Тип sealed определяет целевую категорию.
-> Если overrides == null — первый запрос, без уточнений.
+> `UserOverridesDto` is sealed by category. The sealed type determines the target category.
+> If `overrides == null` — this is the first request, with no refinements.
 
 #### Response
 
@@ -445,16 +445,16 @@ data class PreviewResponseDto(
 }
 ```
 
-#### Ошибки
+#### Errors
 
-- `400 INVALID_URL` — некорректный URL
-- `422 VIDEO_UNAVAILABLE` — видео недоступно
+- `400 INVALID_URL` — invalid URL
+- `422 VIDEO_UNAVAILABLE` — video is unavailable
 
 ---
 
 ### 6.2 POST /api/v1/workspaces/{slug}/jobs
 
-Создать job.
+Create a download job.
 
 **Resource**: `ApiV1.Workspaces.ById.Jobs`
 
@@ -469,7 +469,7 @@ data class CreateJobRequestDto(
     val videoInfo: VideoInfoDto,
     val metadata: ResolvedMetadataDto,
     val storagePlan: StoragePlanDto,
-    val saveAsRule: SaveAsRuleDto? = null,  // optional: сохранить настройки как правило
+    val saveAsRule: SaveAsRuleDto? = null,  // optional: save current settings as a rule
 )
 
 @Serializable
@@ -527,26 +527,26 @@ data class JobDto(
 )
 ```
 
-#### Ошибки
+#### Errors
 
-- `400 VALIDATION_ERROR` — невалидные данные
-- `409 CONFLICT` — job для этого videoId уже существует и активен
+- `400 VALIDATION_ERROR` — invalid input data
+- `409 CONFLICT` — an active job for this videoId already exists
 
 ---
 
 ### 6.3 GET /api/v1/workspaces/{slug}/jobs
 
-Список jobs текущего workspace.
+List jobs in the current workspace.
 
 **Resource**: `ApiV1.Workspaces.ById.Jobs`
 
 #### Query Parameters
 
-| Param | Type | Default | Описание |
-|-------|------|---------|----------|
-| `status` | string | — | Фильтр по статусу |
-| `limit` | int | 20 | Максимум записей |
-| `offset` | int | 0 | Смещение |
+| Param    | Type   | Default | Description       |
+|----------|--------|---------|-------------------|
+| `status` | string | —       | Filter by status  |
+| `limit`  | int    | 20      | Maximum records   |
+| `offset` | int    | 0       | Offset            |
 
 #### Response
 
@@ -564,13 +564,13 @@ data class JobListResponseDto(
 
 ### 6.4 GET /api/v1/workspaces/{slug}/jobs/{id}
 
-Получить job по ID.
+Get a job by ID.
 
 #### Response
 
 `JobDto`
 
-#### Ошибки
+#### Errors
 
 - `404 NOT_FOUND`
 
@@ -578,22 +578,22 @@ data class JobListResponseDto(
 
 ### 6.5 POST /api/v1/workspaces/{slug}/jobs/{id}/cancel
 
-Отменить job.
+Cancel a job.
 
 #### Response
 
-`JobDto` с обновлённым статусом.
+`JobDto` with updated status.
 
-#### Ошибки
+#### Errors
 
 - `404 NOT_FOUND`
-- `409 CONFLICT` — job уже завершён
+- `409 CONFLICT` — job is already in a terminal state
 
 ---
 
 ### 6.6 GET /api/v1/workspaces/{slug}/rules
 
-Список правил.
+List rules.
 
 #### Response
 
@@ -608,7 +608,7 @@ data class RuleListResponseDto(
 
 ### 6.7 POST /api/v1/workspaces/{slug}/rules
 
-Создать правило.
+Create a rule.
 
 #### Request
 
@@ -634,31 +634,31 @@ data class CreateRuleRequestDto(
 
 ### 6.8 GET /api/v1/workspaces/{slug}/rules/{id}
 
-Получить правило по ID.
+Get a rule by ID.
 
 ---
 
 ### 6.9 PUT /api/v1/workspaces/{slug}/rules/{id}
 
-Обновить правило.
+Update a rule.
 
 ---
 
 ### 6.10 DELETE /api/v1/workspaces/{slug}/rules/{id}
 
-Удалить (или деактивировать) правило.
+Delete (or deactivate) a rule.
 
 ---
 
 ### 6.11 GET /api/v1/workspaces/{slug}/channels
 
-Список каналов workspace. Опционально фильтрация по тегу.
+List channels in a workspace. Optionally filter by tag.
 
 #### Query Parameters
 
-| Параметр | Тип    | Описание                         |
-|----------|--------|----------------------------------|
-| `tag`    | string | (опц.) Фильтр по тегу           |
+| Parameter | Type   | Description               |
+|-----------|--------|---------------------------|
+| `tag`     | string | (optional) Filter by tag  |
 
 #### Response
 
@@ -686,7 +686,7 @@ data class CreateRuleRequestDto(
 
 ### 6.12 POST /api/v1/workspaces/{slug}/channels
 
-Создать канал в справочнике.
+Add a channel to the directory.
 
 #### Request
 
@@ -709,11 +709,11 @@ data class CreateRuleRequestDto(
 
 ### 6.13 GET /api/v1/workspaces/{slug}/channels/{id}
 
-Получить канал по ID.
+Get a channel by ID.
 
 ### 6.14 PUT /api/v1/workspaces/{slug}/channels/{id}
 
-Обновить канал. Все поля опциональны (partial update).
+Update a channel. All fields are optional (partial update).
 
 #### Request
 
@@ -726,11 +726,11 @@ data class CreateRuleRequestDto(
 
 ### 6.15 DELETE /api/v1/workspaces/{slug}/channels/{id}
 
-Удалить канал. `204 No Content`.
+Delete a channel. `204 No Content`.
 
 ### 6.16 GET /api/v1/workspaces/{slug}/channels/tags
 
-Список всех уникальных тегов в workspace.
+List all unique tags in the workspace.
 
 #### Response
 
@@ -742,7 +742,7 @@ data class CreateRuleRequestDto(
 
 ---
 
-## 7. Вспомогательные DTO
+## 7. Supporting DTOs
 
 ### 7.1 VideoSourceDto
 
@@ -751,7 +751,7 @@ data class CreateRuleRequestDto(
 data class VideoSourceDto(
     val url: String,
     val videoId: String,
-    val extractor: String,  // определяется автоматически: "youtube", "rutube", "vk", "generic", ...
+    val extractor: String,  // determined automatically: "youtube", "rutube", "vk", "generic", ...
 )
 ```
 
@@ -766,7 +766,7 @@ data class VideoInfoDto(
     val channelId: String,
     val channelName: String,
     val uploadDate: String?,  // YYYY-MM-DD
-    val durationSeconds: Int, // маппинг: domain Duration ↔ DTO Int
+    val durationSeconds: Int, // mapping: domain Duration ↔ DTO Int
     val webpageUrl: String,
     val thumbnails: List<ThumbnailDto> = emptyList(),
     val description: String? = null,
@@ -802,9 +802,9 @@ data class OutputTargetDto(
 )
 ```
 
-> `format` — строка вида `"kind/extension"`. Маппинг: `OutputFormat.parse(format)` / `outputFormat.serialized`.
+> `format` — a string of the form `"kind/extension"`. Mapped via `OutputFormat.parse(format)` / `outputFormat.serialized`.
 >
-> Подробнее о `OutputFormatDto`, `VideoQualityDto`, `VideoEncodeSettingsDto` — см. секцию 7.9.
+> See section 7.9 for `OutputFormatDto`, `VideoQualityDto`, `VideoEncodeSettingsDto`.
 
 ### 7.4 JobProgressDto
 
@@ -842,7 +842,7 @@ data class RuleDto(
     val category: CategoryDto,
     val metadataTemplate: MetadataTemplateDto,
     val downloadPolicy: DownloadPolicyDto,
-    val outputs: List<OutputRuleDto>,          // список выходных файлов (первый = оригинал)
+    val outputs: List<OutputRuleDto>,          // list of output files (first = original)
     val createdAt: String,
     val updatedAt: String,
 )
@@ -913,16 +913,16 @@ enum class VideoQualityDto {
 }
 
 /**
- * Описание одного выходного файла в правиле.
- * Первый элемент в RuleDto.outputs — оригинальный файл (OriginalVideo).
- * Остальные — конвертации, аудио, обложки.
+ * One output file descriptor in a rule.
+ * The first element in RuleDto.outputs is the original file (OriginalVideo).
+ * The rest are conversions, audio tracks, thumbnails, etc.
  */
 @Serializable
 data class OutputRuleDto(
     val pathTemplate: String,                   // "/media/{artist}/{title}.{ext}"
     val format: OutputFormatDto,                // "original/webm", "video/mp4", ...
-    val maxQuality: VideoQualityDto? = null,    // null = оригинальное разрешение
-    val encodeSettings: VideoEncodeSettingsDto? = null,  // null = дефолты
+    val maxQuality: VideoQualityDto? = null,    // null = source resolution
+    val encodeSettings: VideoEncodeSettingsDto? = null,  // null = defaults
     val embedThumbnail: Boolean = false,
     val embedMetadata: Boolean = false,
     val embedSubtitles: Boolean = false,
@@ -930,17 +930,17 @@ data class OutputRuleDto(
 )
 
 /**
- * Настройки перекодирования видео.
- * Применяются только если источник превышает maxQuality (иначе — ремуксинг).
+ * Video encoding settings.
+ * Applied only when the source exceeds maxQuality (otherwise — remux only).
  */
 @Serializable
 data class VideoEncodeSettingsDto(
     val codec: VideoCodecDto = VideoCodecDto.H264,
     val hwAccel: HwAccelDto? = null,
     val preset: EncodePresetDto = EncodePresetDto.MEDIUM,
-    val crf: Int = 23,             // 0..51; типичные значения: 18 (высокое), 23 (YouTube-like), 28 (экономия)
+    val crf: Int = 23,             // 0..51; typical: 18 (high quality), 23 (YouTube-like), 28 (smaller file)
     val audioBitrate: String = "192k",
-    val audioCodec: String? = null,  // null = авто (aac для mp4, libopus для webm)
+    val audioCodec: String? = null,  // null = auto (aac for mp4, libopus for webm)
 )
 
 @Serializable
@@ -998,12 +998,12 @@ enum class ImageFormatDto { @SerialName("jpg") JPG, @SerialName("png") PNG,
     @SerialName("webp") WEBP }
 ```
 
-> `OutputFormatDto` сериализуется как строка `"kind/extension"` (кастомный сериализатор):
+> `OutputFormatDto` is serialized as the string `"kind/extension"` via a custom serializer:
 > `"original/webm"`, `"video/mp4"`, `"audio/m4a"`, `"image/jpg"`.
 
 ---
 
-### 7.10 JSON-пример полного правила (music-video)
+### 7.10 Full Rule JSON Example (music-video)
 
 ```json
 {
@@ -1068,13 +1068,13 @@ enum class ImageFormatDto { @SerialName("jpg") JPG, @SerialName("png") PNG,
 
 ---
 
-## 8. Маппинг Domain ↔ DTO
+## 8. Domain ↔ DTO Mapping
 
-### 8.1 Расположение
+### 8.1 Location
 
-Модуль: `api:mapping`
+Module: `api:mapping`
 
-### 8.2 Структура файлов
+### 8.2 File Structure
 
 ```
 api/mapping/src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/
@@ -1097,7 +1097,7 @@ api/mapping/src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/
 ### 8.3 RuleMatchToDto.kt
 
 ```kotlin
-// --- Подтипы ---
+// --- Subtypes ---
 
 fun RuleMatch.AllOf.toDto(): RuleMatchDto.AllOf =
     RuleMatchDto.AllOf(matches.map { it.toDto() })
@@ -1117,7 +1117,7 @@ fun RuleMatch.TitleRegex.toDto(): RuleMatchDto.TitleRegex =
 fun RuleMatch.UrlRegex.toDto(): RuleMatchDto.UrlRegex =
     RuleMatchDto.UrlRegex(pattern)
 
-// --- Супертип ---
+// --- Supertype ---
 
 fun RuleMatch.toDto(): RuleMatchDto = when (this) {
     is RuleMatch.AllOf -> toDto()
@@ -1133,7 +1133,7 @@ fun RuleMatch.toDto(): RuleMatchDto = when (this) {
 ### 8.4 RuleMatchToDomain.kt
 
 ```kotlin
-// --- Подтипы ---
+// --- Subtypes ---
 
 fun RuleMatchDto.AllOf.toDomain(): Either<DomainError.ValidationError, RuleMatch.AllOf> =
     if (matches.isEmpty()) DomainError.ValidationError("matches", "Cannot be empty").left()
@@ -1159,7 +1159,7 @@ fun RuleMatchDto.UrlRegex.toDomain(): Either<DomainError.ValidationError, RuleMa
     if (pattern.isBlank()) DomainError.ValidationError("pattern", "Cannot be blank").left()
     else RuleMatch.UrlRegex(pattern).right()
 
-// --- Супертип ---
+// --- Supertype ---
 
 fun RuleMatchDto.toDomain(): Either<DomainError.ValidationError, RuleMatch> = when (this) {
     is RuleMatchDto.AllOf -> toDomain()
@@ -1175,7 +1175,7 @@ fun RuleMatchDto.toDomain(): Either<DomainError.ValidationError, RuleMatch> = wh
 ### 8.5 ResolvedMetadataToDto.kt
 
 ```kotlin
-// --- Подтипы ---
+// --- Subtypes ---
 
 fun ResolvedMetadata.MusicVideo.toDto(): ResolvedMetadataDto.MusicVideo =
     ResolvedMetadataDto.MusicVideo(
@@ -1205,7 +1205,7 @@ fun ResolvedMetadata.Other.toDto(): ResolvedMetadataDto.Other =
         comment = comment,
     )
 
-// --- Супертип ---
+// --- Supertype ---
 
 fun ResolvedMetadata.toDto(): ResolvedMetadataDto = when (this) {
     is ResolvedMetadata.MusicVideo -> toDto()
@@ -1217,7 +1217,7 @@ fun ResolvedMetadata.toDto(): ResolvedMetadataDto = when (this) {
 ### 8.6 ResolvedMetadataToDomain.kt
 
 ```kotlin
-// --- Подтипы ---
+// --- Subtypes ---
 
 fun ResolvedMetadataDto.MusicVideo.toDomain(): Either<DomainError.ValidationError, ResolvedMetadata.MusicVideo> =
     either {
@@ -1253,7 +1253,7 @@ fun ResolvedMetadataDto.Other.toDomain(): Either<DomainError.ValidationError, Re
         )
     }
 
-// --- Супертип ---
+// --- Supertype ---
 
 fun ResolvedMetadataDto.toDomain(): Either<DomainError.ValidationError, ResolvedMetadata> = when (this) {
     is ResolvedMetadataDto.MusicVideo -> toDomain()
@@ -1262,12 +1262,12 @@ fun ResolvedMetadataDto.toDomain(): Either<DomainError.ValidationError, Resolved
 }
 ```
 
-> **Принцип**: каждый подтип имеет свою `toDto()` / `toDomain()` функцию с точным возвращаемым типом.
-> Супертип делегирует через exhaustive `when`. Это позволяет:
-> - Вызывать типизированный маппинг напрямую, когда подтип известен
-> - Компилятор проверяет exhaustiveness при добавлении нового подтипа
+> **Principle**: each subtype has its own `toDto()` / `toDomain()` function with a precise return type.
+> The supertype delegates via an exhaustive `when`. This allows:
+> - Calling typed mapping directly when the subtype is known
+> - The compiler verifies exhaustiveness when a new subtype is added
 
-### 8.3 Маппинг ошибок
+### 8.7 Error Mapping
 
 ```kotlin
 fun DomainError.toApiError(correlationId: String): Pair<HttpStatusCode, ApiErrorDto> = when (this) {
@@ -1303,31 +1303,31 @@ fun DomainError.toApiError(correlationId: String): Pair<HttpStatusCode, ApiError
 
 ---
 
-## 9. Версионирование
+## 9. Versioning
 
-### 9.1 Текущая версия
+### 9.1 Current Version
 
 `v1`
 
-### 9.2 Правила совместимости
+### 9.2 Compatibility Rules
 
-**Допустимо в v1**:
-- Добавление новых optional полей в response
-- Добавление новых эндпоинтов
-- Добавление новых `type` для sealed DTO
+**Allowed in v1**:
+- Adding new optional fields to responses
+- Adding new endpoints
+- Adding new `type` values for sealed DTOs
 
-**Требует v2**:
-- Удаление полей
-- Переименование полей
-- Изменение типов полей
-- Изменение семантики существующих полей
+**Requires v2**:
+- Removing fields
+- Renaming fields
+- Changing field types
+- Changing the semantics of existing fields
 
-### 9.3 Обработка неизвестных type
+### 9.3 Handling Unknown Types
 
-Клиент должен:
-1. Игнорировать неизвестные поля (`ignoreUnknownKeys = true`)
-2. При неизвестном `type` для `ResolvedMetadataDto` — fallback на `Other`
-3. При неизвестном `type` для `RuleMatchDto` — ошибка (правила критичны)
+The client should:
+1. Ignore unknown fields (`ignoreUnknownKeys = true`)
+2. On unknown `type` for `ResolvedMetadataDto` — fall back to `Other`
+3. On unknown `type` for `RuleMatchDto` — treat as an error (rules are critical)
 
 ---
 
@@ -1335,7 +1335,7 @@ fun DomainError.toApiError(correlationId: String): Pair<HttpStatusCode, ApiError
 
 ### 10.1 GET /api/v1/workspaces
 
-Список workspaces текущего пользователя.
+List workspaces for the current user.
 
 **Resource**: `ApiV1.Workspaces`
 
@@ -1358,7 +1358,7 @@ data class WorkspaceDto(
 
 ### 10.2 POST /api/v1/workspaces
 
-Создать workspace. Создатель автоматически становится OWNER.
+Create a workspace. The creator automatically becomes OWNER.
 
 **Resource**: `ApiV1.Workspaces`
 
@@ -1377,7 +1377,7 @@ data class CreateWorkspaceRequestDto(
 
 ### 10.3 GET /api/v1/workspaces/{slug}/members
 
-Список участников workspace.
+List workspace members.
 
 **Resource**: `ApiV1.Workspaces.ById.Members`
 
@@ -1399,7 +1399,7 @@ data class WorkspaceMemberDto(
 
 ### 10.4 POST /api/v1/workspaces/{slug}/members
 
-Добавить участника в workspace. Только OWNER.
+Add a member to the workspace. OWNER only.
 
 **Resource**: `ApiV1.Workspaces.ById.Members`
 
@@ -1419,7 +1419,7 @@ data class AddMemberRequestDto(
 
 ### 10.5 DELETE /api/v1/workspaces/{slug}/members/{userId}
 
-Удалить участника из workspace. Только OWNER.
+Remove a member from the workspace. OWNER only.
 
 **Resource**: `ApiV1.Workspaces.ById.Members.ByUserId`
 
@@ -1427,7 +1427,7 @@ data class AddMemberRequestDto(
 
 `204 No Content`
 
-Подробнее о workspace: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
+See also: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
 
 ---
 
@@ -1435,7 +1435,7 @@ data class AddMemberRequestDto(
 
 ### 11.1 GET /api/v1/system/yt-dlp/status
 
-Получить текущую версию yt-dlp и информацию о доступных обновлениях.
+Get the current yt-dlp version and update availability.
 
 **Response (200 OK):**
 ```json
@@ -1449,7 +1449,7 @@ data class AddMemberRequestDto(
 
 ### 11.2 POST /api/v1/system/yt-dlp/update
 
-Запустить процесс обновления yt-dlp.
+Trigger the yt-dlp update process.
 
 **Response (202 Accepted):**
 ```json
@@ -1460,7 +1460,7 @@ data class AddMemberRequestDto(
 ```
 
 **Response (403 Forbidden):**
-Если `ytDlp.allowUpdate: false`.
+When `ytDlp.allowUpdate: false`.
 ```json
 {
   "error": {

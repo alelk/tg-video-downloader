@@ -1,6 +1,6 @@
 # Architecture
 
-> **Purpose**: Describes the module structure, dependencies, KMP strategy, and design principles.
+> **Purpose**: Module structure, KMP strategy, dependency rules, and design principles.
 
 ---
 
@@ -26,9 +26,9 @@
 
 **Dependency rule**: inner layers have no knowledge of outer layers.
 
-### 1.2 Kotlin Multiplatform
+### 1.2 Kotlin Multiplatform (KMP)
 
-The project uses **Kotlin Multiplatform (KMP)** to share code between the server (JVM), Telegram Mini App (JS), and future native clients.
+The project uses **Kotlin Multiplatform** to share code between the server (JVM), the Telegram Mini App (JS), and future native clients.
 
 | Module             | Kotlin Plugin   | Targets     | Rationale                                              |
 |--------------------|-----------------|-------------|--------------------------------------------------------|
@@ -36,39 +36,38 @@ The project uses **Kotlin Multiplatform (KMP)** to share code between the server
 | `api:contract`     | `multiplatform` | `jvm`, `js` | DTOs shared via kotlinx.serialization                  |
 | `api:mapping`      | `multiplatform` | `jvm`, `js` | Mapping needed on both server and in features          |
 | `api:client`       | `multiplatform` | `jvm`, `js` | HTTP client works on both platforms                    |
-| `api:client:di`    | `multiplatform` | `jvm`, `js` | Koin modules for wiring the client on each platform    |
+| `api:client:di`    | `multiplatform` | `jvm`, `js` | Koin modules for wiring the client per platform        |
 | `features`         | `multiplatform` | `jvm`, `js` | Compose UI shared between shell applications           |
 | `tgminiapp`        | `multiplatform` | `js`        | Telegram-specific shell, browser only                  |
 | `server:infra`     | `jvm`           | `jvm`       | DB, processes — JVM-only                               |
 | `server:transport` | `jvm`           | `jvm`       | Ktor Server — JVM-only                                 |
-| `server:di`        | `jvm`           | `jvm`       | Server DI wiring                                       |
+| `server:di`        | `jvm`           | `jvm`       | Server-side DI wiring                                  |
 | `server:app`       | `jvm`           | `jvm`       | Entrypoint, JVM-only                                   |
 
 ### 1.3 Kotlin Idioms
 
-- **Sealed classes/interfaces** for polymorphic types (RuleMatch, ResolvedMetadata, MetadataTemplate, UserOverrides, OutputFormat, DomainError)
+- **Sealed classes/interfaces** for polymorphic types (`RuleMatch`, `ResolvedMetadata`, `MetadataTemplate`, `UserOverrides`, `OutputFormat`, `DomainError`)
 - **Data classes** for DTOs and value objects
-- **Value classes** for typesafe identifiers and domain primitives (KMP-compatible with Kotlin 2.1+)
-- **Extension properties** for cheap computed values (e.g., `ResolvedMetadata.category`)
+- **Value classes** for type-safe identifiers and domain primitives (KMP-compatible since Kotlin 2.1+)
+- **Extension properties** for cheap computed values (e.g. `ResolvedMetadata.category`)
 - **Coroutines** for async operations
 - **Either** (Arrow) for error handling without exceptions
 
 ### 1.4 Contract-First
 
-- The API contract (`api:contract`) is defined before implementation
+- The API contract (`api:contract`) is defined before the implementation
 - DTOs are stable and versioned
-- Changes via `/api/v2/...` or new optional fields
+- Breaking changes go through `/api/v2/...` or new optional fields
 
 ---
 
 ## 2. Modules
 
-### 2.1 Dependency Graph
+### 2.1 Dependency Diagram
 
 ```
                      ┌──────────────────┐
                      │    tgminiapp     │  (JS only — Telegram shell)
-                     │                  │
                      └────────┬─────────┘
                               │
                      ┌────────▼─────────┐
@@ -82,13 +81,13 @@ The project uses **Kotlin Multiplatform (KMP)** to share code between the server
       │  api:client  │ │  domain  │  │ api:mapping  │
       └──────┬───────┘ └────┬─────┘  └──────┬───────┘
              │              │               │
-      ┌──────▼───────┐     │        ┌──────▼───────┐
-      │api:client:di │     │        │ api:contract │
-      └──────────────┘     │        └──────────────┘
-                           │
-          ┌────────────────┼────────────────┐
-          │                │                │
-          ▼                ▼                ▼
+      ┌──────▼───────┐      │        ┌──────▼───────┐
+      │api:client:di │      │        │ api:contract │
+      └──────────────┘      │        └──────────────┘
+                            │
+          ┌─────────────────┼────────────────┐
+          │                 │                │
+          ▼                 ▼                ▼
   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
   │server:transp.│ │ server:infra │ │  server:di   │
   └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
@@ -104,37 +103,33 @@ The project uses **Kotlin Multiplatform (KMP)** to share code between the server
 
 #### `domain` — KMP (jvm, js)
 
-**Purpose**: Business logic, pure Kotlin. Core of the application.
+**Purpose**: Business logic, pure Kotlin. The core of the application.
 
 **Organization**: Package-by-feature (not by technical layers).
 
 **Contains**:
-- `common/` — Value objects (`VideoId`, `RuleId`, `JobId`, `WorkspaceId`, `ChannelDirectoryEntryId`, `Url`, `FilePath`, `LocalDate`, `Extractor`, `Tag`), `Category`, `DomainError`
 - `workspace/` — `Workspace`, `WorkspaceMember`, `WorkspaceRole`, `WorkspaceRepository` port
 - `channel/` — `Channel` (channel directory), `ChannelRepository` port
 - `video/` — `VideoSource`, `VideoInfo`, `VideoInfoExtractor` port, `VideoInfoCache` port
 - `rule/` — `Rule`, `RuleMatch` (sealed, incl. `HasTag`, `CategoryEquals`), `MatchContext`, `MatchResult`, `RuleMatchingService`, `RuleRepository` port
-- `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `MetadataResolver`, `MetadataTemplateMerger`, `LlmPort`
+- `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `MetadataTemplateMerger`, `MetadataResolver`, `LlmPort`
 - `storage/` — `StoragePlan`, `OutputRule`, `OutputFormat` (sealed), `PathTemplateEngine`, `VideoDownloader` port
 - `job/` — `Job`, `JobStatus`, `CreateJobUseCase`, `JobRepository` port
 - `preview/` — `UserOverrides` (sealed), `PreviewUseCase` (orchestrator)
 
-**Dependencies**: Kotlin stdlib (`kotlin.time.Instant`, `kotlin.time.Duration`, `kotlin.uuid.Uuid`), Arrow (Either), kotlinx-coroutines.
-
-**Does NOT contain**: Ktor, kotlinx.serialization, DB, filesystem.
-
 ```
-domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
-├── common/         # Value objects (VideoId, WorkspaceId, Tag, Url, FilePath, LocalDate, Extractor...), Category, DomainError
 ├── workspace/      # Workspace, WorkspaceMember, WorkspaceRole, WorkspaceRepository port
 ├── channel/        # Channel (channel directory), ChannelRepository port
 ├── video/          # VideoSource, VideoInfo, VideoInfoExtractor port, VideoInfoCache port
-├── rule/           # Rule, RuleMatch (sealed), MatchContext, MatchResult, matches.kt, RuleMatchingService, RuleRepository port
-├── metadata/       # ResolvedMetadata (sealed), MetadataTemplate (sealed), MetadataTemplateMerger, MetadataResolver, LlmPort
+├── metadata/       # ResolvedMetadata (sealed), MetadataTemplate (sealed), MetadataResolver, LlmPort
 ├── storage/        # StoragePlan, OutputRule, OutputFormat (sealed), PathTemplateEngine, VideoDownloader port
 ├── job/            # Job, JobStatus, CreateJobUseCase, JobRepository port
 └── preview/        # UserOverrides (sealed), PreviewUseCase
 ```
+
+**Dependencies**: Kotlin stdlib (`kotlin.time.Instant`, `kotlin.time.Duration`, `kotlin.uuid.Uuid`), Arrow (Either), kotlinx-coroutines.
+
+**Does NOT contain**: Ktor, kotlinx.serialization, database, filesystem.
 
 > Packages are organized without circular dependencies. Each package can be extracted into a separate Gradle module as the project grows.
 
@@ -144,7 +139,7 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 
 **Purpose**: DTOs for the HTTP API (request/response).
 
-**Contains**: Request/Response DTOs, Sealed DTOs with `type` discriminator, `ApiErrorDto`.
+**Contains**: Request/Response DTOs, sealed DTOs with `type` discriminator, `ApiErrorDto`.
 
 **Dependencies**: Kotlin stdlib, kotlinx.serialization.
 
@@ -156,7 +151,7 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 
 **Dependencies**: `domain`, `api:contract`, Arrow.
 
-> Mapping is placed in a KMP module because it is used both on the server (`server:transport`) and on the client (`features`).
+> Mapping lives in a KMP module because it is used on both the server (`server:transport`) and the client (`features`).
 
 ---
 
@@ -172,14 +167,13 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 
 **Purpose**: Koin modules for wiring `api:client`.
 
-**Contains**: Koin module with `TgVideoDownloaderClient` factory, platform-specific Ktor engine (expect/actual).
+**Contains**: Koin module with `TgVideoDownloaderClient` factory, platform-specific Ktor engine (`expect/actual`).
 
 **Dependencies**: `api:client`, Koin core, Ktor Client engine.
 
 ```kotlin
 // commonMain
 val apiClientModule = module {
-    single<HttpClient> { createPlatformHttpClient(get()) }
     single<TgVideoDownloaderClient> { TgVideoDownloaderClientImpl(get()) }
 }
 
@@ -205,22 +199,18 @@ actual fun createPlatformHttpClient(config: ClientConfig): HttpClient =
 **Does NOT contain**: Platform-specific code (Telegram interop, Android Activity, etc.)
 
 ```
-features/src/commonMain/kotlin/io/github/alelk/tgvd/features/
 ├── common/
 │   ├── component/
 │   │   ├── WorkspaceTopBar.kt       ← current workspace in TopBar, switch via bottom sheet
-│   │   ├── CreateWorkspaceDialog.kt  ← dialog for creating a new workspace
-│   │   ├── WorkspaceSelector.kt      ← dropdown for workspace selection
-│   │   ├── SectionCard.kt
-│   │   ├── ErrorCard.kt
+│   │   ├── CreateWorkspaceDialog.kt ← dialog for creating a new workspace
+│   │   ├── WorkspaceSelector.kt     ← dropdown for workspace selection
 │   │   └── InfoRow.kt
 │   ├── persistence/
-│   │   └── PreferencesStorage.kt     ← interface for persisting settings (KMP)
-│   ├── state/
-│   │   └── WorkspaceState.kt         ← shared state: workspaces + selectedWorkspace + persistence
+│   │   ├── PreferencesStorage.kt    ← KMP interface for persisting settings
+│   │   └── WorkspaceState.kt        ← shared state: workspaces + selectedWorkspace + persistence
 │   └── theme/
 ├── navigation/
-│   └── AppNavigation.kt              ← Scaffold with TopBar (workspace) + BottomBar (tabs)
+│   └── AppNavigation.kt             ← Scaffold with TopBar (workspace) + BottomBar (tabs)
 ├── download/
 ├── jobs/
 ├── rules/
@@ -229,9 +219,9 @@ features/src/commonMain/kotlin/io/github/alelk/tgvd/features/
     └── FeaturesModule.kt
 ```
 
-> This is the key module for multiplatform support. A new UI shell (web, macOS, Android) depends on `features` and only adds platform-specific glue.
+> This is the key module for multiplatform support. A new UI shell (web, macOS, Android) simply depends on `features` and adds only platform-specific glue.
 >
-> `PreferencesStorage` — KMP interface. Each shell provides its own implementation (JS → `localStorage`, Android → `SharedPreferences`, etc.)
+> `PreferencesStorage` is a KMP interface. Each shell provides its own implementation (JS → `localStorage`, Android → `SharedPreferences`, etc.)
 
 ---
 
@@ -239,38 +229,38 @@ features/src/commonMain/kotlin/io/github/alelk/tgvd/features/
 
 **Purpose**: Telegram Mini App shell (thin wrapper).
 
-**Contains**: Main.kt, LocalStoragePreferences.kt, TelegramWebApp interop, DI wiring.
+**Contains**: `Main.kt`, `LocalStoragePreferences.kt`, TelegramWebApp interop, DI wiring.
 
 **Dependencies**: `features`, `api:client:di`, Compose HTML/Web runtime.
 
-**Does NOT contain**: Business logic, screens, components — all in `features`.
+**Does NOT contain**: Business logic, screens, components — all of that lives in `features`.
 
-**Persistence**: Implements `PreferencesStorage` via browser `localStorage`. The selected workspace is persisted between sessions.
+**Persistence**: Implements `PreferencesStorage` via the browser's `localStorage`. The selected workspace is persisted across sessions.
 
-> Future shells will follow the same pattern: `webapp` (JS), `desktopapp` (JVM), `androidapp` — all depending on `features`.
+> Future shells: `webapp` (JS), `desktopapp` (JVM), `androidapp` — all depending on `features`.
 
 ---
 
 #### `server:infra` — JVM only
 
-**Purpose**: Implementation of domain ports (DB, processes, FS, LLM).
+**Purpose**: Implementation of domain ports (DB, processes, filesystem, LLM).
 
 **Contains**:
 - `db/` — tables, repositories, persistence models, mappings
-- `process/` — YtDlpRunner, FfmpegRunner, YtDlpServiceImpl
-- `service/` — JobProcessor (background task handler)
+- `process/` — `YtDlpRunner`, `FfmpegRunner`, `YtDlpServiceImpl`
+- `service/` — `JobProcessor` (background job handler)
 - `config/` — configuration data classes
 
-**JobProcessor** — background coroutine loop that:
-1. Polls the DB for `PENDING` jobs (interval from `JobsConfig.pollIntervalMs`)
+**JobProcessor** — a background coroutine loop that:
+1. Polls the DB for `QUEUED` jobs (interval from `JobsConfig.pollIntervalMs`)
 2. Limits concurrency via `Semaphore(maxConcurrentDownloads)`
 3. Downloads video via `VideoDownloader.downloadWithProgress()` with progress updates
-4. Updates job status: `PENDING → DOWNLOADING → COMPLETED / FAILED`
-5. Starts/stops automatically with the Ktor Application lifecycle
+4. Updates job status: `QUEUED → RUNNING → DONE / FAILED`
+5. Starts and stops automatically with the Ktor Application lifecycle
 
 **Dependencies**: `domain`, Exposed, Flyway, Ktor Client (JVM), kotlinx.serialization.
 
-> `server:infra` does **not** depend on `api:contract` or `api:mapping`. JSONB columns use their own persistence models (`*Pm`); the domain ↔ DB mapping is fully isolated from the API contract.
+> `server:infra` does **not** depend on `api:contract` or `api:mapping`. JSONB columns use their own persistence models (`*Pm`); domain ↔ DB mapping is fully isolated from the API contract.
 
 ---
 
@@ -307,12 +297,11 @@ features/src/commonMain/kotlin/io/github/alelk/tgvd/features/
 | `api:mapping`      | domain, api:contract, Arrow                            | server:*, api:client, features |
 | `api:client`       | api:contract, Ktor Client                              | domain, server:*, features     |
 | `api:client:di`    | api:client, Koin, Ktor engine                          | domain, server:*, features     |
-| `features`         | domain, api:client, api:mapping, Compose, Koin         | server:*, tgminiapp            |
+| `features`         | domain, api:client, api:mapping, Compose, Koin         | server:*                       |
 | `tgminiapp`        | features, api:client:di                                | server:*, domain directly      |
 | `server:infra`     | domain                                                 | api:*, transport, di, app      |
 | `server:transport` | domain, api:contract, api:mapping, Ktor Server         | infra, di, app, features       |
 | `server:di`        | domain, server:infra, server:transport, Koin           | api:*, app, features           |
-| `server:app`       | domain, api:contract, server:*, Hoplite, Netty         | api:mapping, features          |
 
 ---
 
@@ -320,24 +309,32 @@ features/src/commonMain/kotlin/io/github/alelk/tgvd/features/
 
 ### 3.1 Error Handling
 
-**In domain** (`commonMain`): `Either<DomainError, T>` (no exceptions).
+- **In domain** (`commonMain`): `Either<DomainError, T>` — no exceptions for business errors.
+- **In transport** (JVM): catch `DomainError`, map to HTTP status + `ApiErrorDto`.
 
-**In transport** (JVM): Catch `DomainError`, map to HTTP status + `ApiErrorDto`.
+See [ADR/004-error-handling.md](./ADR/004-error-handling.md).
 
 ### 3.2 Async
 
-- All I/O operations — `suspend fun`
-- `kotlinx-coroutines` used across all KMP modules
-- Job execution — `CoroutineDispatcher` from DI
+- All I/O operations are `suspend fun`
+- `kotlinx-coroutines` is used in all KMP modules
+- Job execution uses a `CoroutineDispatcher` from DI
 
 ### 3.3 Configuration
 
-- Hoplite for loading YAML/env (only `server:app`, JVM)
+- Hoplite for loading YAML/env (only in `server:app`, JVM)
 - Data classes for config
+
+See [CONFIGURATION.md](./CONFIGURATION.md).
 
 ### 3.4 KMP Source Set Conventions
 
-All reusable code in `commonMain`. Platform-specific code via `expect/actual`.
+All reusable code goes in `commonMain`. Platform-specific code uses `expect/actual`.
+
+Do NOT use JVM-only classes in `commonMain`:
+- `java.util.UUID` → `kotlin.uuid.Uuid`
+- `java.time.Instant` → `kotlin.time.Instant`
+- `java.time.Duration` → `kotlin.time.Duration`
 
 ---
 
@@ -438,7 +435,6 @@ dependencies {
     implementation(libs.exposed.jdbc)
     implementation(libs.exposed.json)
     implementation(libs.flyway.core)
-    implementation(libs.ktor.client.cio)
 }
 ```
 
@@ -485,7 +481,6 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 compose = { id = "org.jetbrains.compose", version.ref = "compose" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotest = { id = "io.kotest", version.ref = "kotest" }
-ksp = { id = "com.google.devtools.ksp", version = "2.3.0-1.0.30" }
 ```
 
 ---
@@ -494,36 +489,34 @@ ksp = { id = "com.google.devtools.ksp", version = "2.3.0-1.0.30" }
 
 ### 5.1 Preview Flow
 
-Preview is a **dialogue** between the frontend and backend. The user can refine the category and metadata fields —
-each refinement re-invokes `POST /preview` with `overrides`.
-VideoInfo is cached in PostgreSQL — yt-dlp is called only once.
+Preview is an **interactive dialog** between the frontend and backend. The user can refine the category and metadata fields — each change re-invokes `POST /preview` with `overrides`. `VideoInfo` is cached in PostgreSQL — `yt-dlp` is called only once per URL.
 
 ```
-┌─────────┐  POST /api/v1/workspaces/{slug}/preview  ┌─────────────────┐
-│  Mini   │ ──────────────────────────────────────▶ │ server:transport│
-│   App   │  { url, overrides? }                    │  (Ktor route)   │
-└─────────┘                                         └────────┬────────┘
-                                                             │
-                                                             ▼
-                                                    ┌────────────────┐
-                                                    │ PreviewUseCase │
-                                                    │    (domain)    │
-                                                    └────────┬───────┘
-                                                             │
-                    ┌────────────────────────────────────────┼──────────────────┐
-                    │                                        │                  │
-                    ▼                                        ▼                  ▼
-           ┌────────────────┐                       ┌──────────────┐   ┌──────────────┐
-           │ VideoInfoCache │                       │RuleMatching  │   │MetadataResolv│
-           │  (PostgreSQL)  │                       │  Service     │   │ + LlmPort    │
-           │ cache hit →    │                       │ (overrides)  │   │              │
-           │ skip yt-dlp    │                       └──────────────┘   └──────────────┘
-           │ cache miss →   │
-           │ yt-dlp extract │
-           └────────────────┘
+┌─────────┐                                              ┌─────────────────┐
+│  Mini   │ ───────────────────────────────────────────▶ │ server:transport│
+│   App   │  { url, overrides? }                         │  (Ktor route)   │
+└─────────┘                                              └────────┬────────┘
+                                                                  │
+                                                                  ▼
+                                                         ┌────────────────┐
+                                                         │ PreviewUseCase │
+                                                         │    (domain)    │
+                                                         └────────┬───────┘
+                                                                  │
+                      ┌───────────────────────────────────────────┼──────────────────┐
+                      │                                           │                  │
+                      ▼                                           ▼                  ▼
+             ┌────────────────┐                         ┌──────────────┐   ┌──────────────┐
+             │ VideoInfoCache │                         │RuleMatching  │   │MetadataResolv│
+             │  (PostgreSQL)  │                         │  Service     │   │ + LlmPort    │
+             │ cache hit →    │                         │ (overrides)  │   │              │
+             │ skip yt-dlp    │                         └──────────────┘   └──────────────┘
+             │ cache miss →   │
+             │ yt-dlp extract │
+             └────────────────┘
 ```
 
-See also: [ADR/007-interactive-preview-refinement.md](./ADR/007-interactive-preview-refinement.md)
+See [ADR/007-interactive-preview-refinement.md](./ADR/007-interactive-preview-refinement.md).
 
 ### 5.2 Job Execution Flow
 
@@ -532,13 +525,10 @@ JobScheduler (polls QUEUED)
        │
        ▼
 JobProcessor
-       │
        ├──▶ YtDlpDownloader.download()  (+ proxy, + thumbnail)
        │         │
        │         ▼
        │    downloaded file (webm/mkv — maximum quality)
-       │
-       ├──▶ Process original output (storagePlan.original):
        │         create directories
        │         move → original.path (rename, resolving actual filename from yt-dlp)
        │         embedMetadata? → ffmpeg embed tags (title, artist, album, ...)
@@ -563,14 +553,13 @@ JobProcessor
 ```
 
 > **Optimizations**:
-> - **ConversionKey deduplication**: if multiple outputs share the same conversion parameters
->   (format, quality, encodeSettings, embed flags), the first is fully converted
->   and subsequent outputs are simply copied — eliminating redundant ffmpeg invocations.
-> - **Smart transcoding**: before encoding, `ffprobe` determines the actual source resolution.
->   If it is ≤ `maxQuality`, only remuxing (`-c:v copy`) is performed, which is significantly faster.
+> - **ConversionKey deduplication**: if multiple outputs share identical conversion parameters
+>   (format, maxQuality, encodeSettings, embed flags), the first is fully converted and subsequent
+>   ones are just copied. Eliminates redundant ffmpeg invocations.
+> - **Smart transcoding**: before re-encoding, `ffprobe` determines the actual source resolution.
+>   If it is ≤ `maxQuality`, only a remux (`-c:v copy`) is performed — much faster than full transcoding.
 >
 > **VideoEncodeSettings** (per-output settings):
-> - `codec`: H264, H265, VP9, AV1
 > - `hwAccel`: VideoToolbox (macOS), NVENC (NVIDIA), QSV (Intel), VA-API, AMF (AMD)
 > - `preset`: ultrafast → veryslow (software codecs only)
 > - `crf`: 0–51 (23 = YouTube-like quality, 18 = high quality)
@@ -585,7 +574,7 @@ JobProcessor
 1. Create a new shell module (`:desktopapp`, `:androidapp`, `:webapp`)
 2. Depend on: `features`, `api:client:di`
 3. Implement platform-specific glue (entry point, DI setup)
-4. All screens and components are already available in `features`
+4. All screens and components are already in `features`
 
 ### 6.2 Adding a New Category
 

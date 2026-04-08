@@ -1,46 +1,45 @@
-# ADR-006: Workspace (мультитенантная изоляция ресурсов)
+# ADR-006: Workspace (Multi-tenant Resource Isolation)
 
-**Статус**: Принято  
-**Дата**: 2026-03-01  
-**Авторы**: Alex Elkin
-
----
-
-## Контекст
-
-Все ресурсы (правила, задачи, настройки хранения) принадлежат **workspace** — группе пользователей
-с общим рабочим пространством. Workspace обеспечивает мультитенантную изоляцию:
-- Пользователи одного workspace видят **все** ресурсы группы (правила, задачи)
-- Разные workspace полностью изолированы друг от друга
-- Один пользователь может состоять в нескольких workspace и переключаться между ними
-- Файлы скачиваются в директории, специфичные для workspace
+**Status**: Accepted  
+**Date**: 2026-03-01  
+**Authors**: Alex Elkin
 
 ---
 
-## Решение
+## Context
 
-### Нейминг: Workspace
+All resources (rules, jobs, storage settings) belong to a **workspace** — a group of users sharing a common working environment. Workspace provides multi-tenant isolation:
+- Users in the same workspace see **all** group resources (rules, jobs)
+- Different workspaces are completely isolated from each other
+- A single user can belong to multiple workspaces and switch between them
+- Files are downloaded to workspace-specific directories
 
-Рассмотренные варианты:
-- **Group** — перегружен (конфликт с Telegram Groups)
-- **Realm** — слишком абстрактен, не интуитивен
-- **Workspace** ✅ — интуитивно понятен, подразумевает общее рабочее пространство с ресурсами (аналогия: Slack, Notion, GitHub Organizations)
+---
 
-### Доменная модель
+## Decision
+
+### Naming: Workspace
+
+Options considered:
+- **Group** — overloaded (conflicts with Telegram Groups)
+- **Realm** — too abstract, not intuitive
+- **Workspace** ✅ — intuitive, implies a shared working environment with resources (analogy: Slack, Notion, GitHub Organizations)
+
+### Domain Model
 
 ```kotlin
 @JvmInline value class WorkspaceId(val value: Uuid)
 
 /**
- * Человекочитаемый уникальный идентификатор workspace.
- * Используется в URL path и конфигурации приложения.
- * Примеры: "personal", "my-team", "project-alpha-2"
+ * Human-readable unique workspace identifier.
+ * Used in URL paths and application configuration.
+ * Examples: "personal", "my-team", "project-alpha-2"
  */
 @JvmInline value class WorkspaceSlug(val value: String) // ^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$
 
 data class Workspace(
-    val id: WorkspaceId,      // UUID — внутренний технический ключ
-    val slug: WorkspaceSlug,  // "my-team" — человекочитаемый, используется в URL и конфиге
+    val id: WorkspaceId,      // UUID — internal technical key
+    val slug: WorkspaceSlug,  // "my-team" — human-readable, used in URLs and config
     val name: String,
     val createdAt: Instant,
 )
@@ -55,7 +54,7 @@ data class WorkspaceMember(
 )
 ```
 
-### Принадлежность ресурсов
+### Resource Ownership
 
 ```kotlin
 data class Rule(
@@ -65,14 +64,14 @@ data class Rule(
 
 data class Job(
     val workspaceId: WorkspaceId,
-    val createdBy: TelegramUserId, // для аудита — кто создал задачу
+    val createdBy: TelegramUserId, // audit — who created the job
     ...
 )
 ```
 
-### Workspace в URL (path-prefix)
+### Workspace in URL (path-prefix)
 
-Все доменные ресурсы вложены в workspace path:
+All domain resources are nested under the workspace path:
 
 ```
 /api/v1/workspaces/{workspaceId}/jobs
@@ -81,51 +80,51 @@ data class Job(
 /api/v1/workspaces/{workspaceId}/members
 ```
 
-Рассмотренные варианты:
-- **Header `X-Workspace-Id`** — implicit context, не REST-идиоматичен, не видно в URL/логах, не кешируемо
-- **Path-prefix** ✅ — REST-идиоматичен, type-safe через Ktor Resources, каждый URL самодостаточен, невозможно забыть workspaceId
+Options considered:
+- **Header `X-Workspace-Id`** — implicit context, not REST-idiomatic, not visible in URLs/logs, not cacheable
+- **Path-prefix** ✅ — REST-idiomatic, type-safe via Ktor Resources, every URL is self-contained, impossible to forget workspaceId
 
 ### Auto-provisioning
 
-При первой аутентификации пользователя (через Telegram auth) автоматически:
-1. Создаётся персональный workspace "Personal"
-2. Пользователь добавляется как OWNER
+On the user's first authentication (via Telegram auth):
+1. A personal workspace "Personal" is automatically created
+2. The user is added as OWNER
 
-### Авторизация
+### Authorization
 
-Двухуровневая:
-1. **Глобальный allowlist** (`telegram.allowedUserIds`) — gate-keeping, кто вообще может использовать сервис
-2. **Workspace membership** — кто имеет доступ к конкретному workspace
+Two-level:
+1. **Global allowlist** (`telegram.allowedUserIds`) — gate-keeping: who can use the service at all
+2. **Workspace membership** — who has access to a specific workspace
 
-### Роли
+### Roles
 
-- **OWNER** — может управлять участниками (добавлять/удалять)
-- **MEMBER** — полный доступ ко всем ресурсам workspace (правила, задачи)
+- **OWNER** — can manage members (add/remove)
+- **MEMBER** — full access to all workspace resources (rules, jobs)
 
-> Все участники workspace (OWNER и MEMBER) имеют **равный доступ к ресурсам**.
-> Роли различаются только в управлении составом workspace.
+> All workspace members (OWNER and MEMBER) have **equal access to resources**.
+> Roles differ only in workspace membership management.
 
 ---
 
-## Последствия
+## Consequences
 
-### Положительные
-- Пользователи в одной группе видят все задачи и правила
-- Полная изоляция между группами
-- Пользователь может участвовать в нескольких рабочих пространствах
-- Type-safe workspace context через Ktor Resources — невозможно забыть workspaceSlug
-- `{workspaceSlug}` в URL — читаемый, пригоден для закладок и логов
-- Slug используется в конфигурации приложения для преднастроек per-workspace
+### Positive
+- Users in a group see all jobs and rules
+- Complete isolation between groups
+- A user can participate in multiple workspaces
+- Type-safe workspace context via Ktor Resources — impossible to forget workspaceSlug
+- `{workspaceSlug}` in URL — readable, bookmark- and log-friendly
+- Slug is used in application configuration for per-workspace presets
 
-### Отрицательные
-- Дополнительная сложность: новые таблицы, middleware
-- UI должен поддерживать переключение workspace
+### Negative
+- Additional complexity: new tables, middleware
+- UI must support workspace switching
 
-### Что НЕ входит в первую итерацию
-- Invite-ссылки для приглашения в workspace
-- Гранулярные permissions (read-only, admin)
+### Out of scope for the first iteration
+- Invite links for workspace invitations
+- Granular permissions (read-only, admin)
 - Transfer ownership
-- Workspace settings (отдельные настройки хранения per workspace)
+- Workspace settings (separate storage settings per workspace)
 
 ---
 
@@ -154,7 +153,7 @@ PUT    /api/v1/workspaces/{slug}/rules/{id}                        → RuleDto
 DELETE /api/v1/workspaces/{slug}/rules/{id}                        → 204
 ```
 
-### System-wide (не привязаны к workspace)
+### System-wide (not scoped to workspace)
 ```
 GET    /api/v1/system/yt-dlp/status                                → YtDlpStatusDto
 POST   /api/v1/system/yt-dlp/update                                → YtDlpUpdateResponseDto
@@ -183,5 +182,5 @@ CREATE TABLE workspace_members (
 CREATE INDEX idx_workspace_members_user ON workspace_members(user_id);
 ```
 
-Столбец `workspace_id` в таблицах `rules` и `jobs` — FK на `workspaces(id)`.
-Столбец `created_by` в таблице `jobs` — для аудита, кто создал задачу.
+The `workspace_id` column in `rules` and `jobs` tables is a FK to `workspaces(id)`.
+The `created_by` column in the `jobs` table is for audit — who created the job.

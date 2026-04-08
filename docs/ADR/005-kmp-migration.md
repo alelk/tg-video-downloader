@@ -1,141 +1,140 @@
 # ADR-005: Kotlin Multiplatform
 
-**Статус**: Принято  
-**Дата**: 2026-02-25  
-**Авторы**: Alex Elkin
+**Status**: Accepted  
+**Date**: 2026-02-25  
+**Authors**: Alex Elkin
 
 ---
 
-## Контекст
+## Context
 
-Проект включает:
-- Backend-сервер (JVM)
+The project includes:
+- Backend server (JVM)
 - Telegram Mini App (JS, Browser)
-- Потенциально: desktop (macOS/Windows), Android, web без Telegram
+- Potentially: desktop (macOS/Windows), Android, web without Telegram
 
-Доменные модели, DTO, маппинг и UI-компоненты можно переиспользовать между платформами вместо дублирования.
+Domain models, DTOs, mapping, and UI components can be shared across platforms instead of being duplicated.
 
-Требования:
-- Единая доменная модель для сервера и клиентов
-- Type-safe API клиент для всех платформ
-- Переиспользуемые UI-компоненты (Compose Multiplatform)
-- Возможность добавить новую платформу минимальными усилиями
-
----
-
-## Решение
-
-Перевести `domain`, `api:*` и `features` на **Kotlin Multiplatform (KMP)**, оставив `server:*` на JVM only.
-
-### Классификация модулей
-
-| Модуль            | Plugin           | Targets    | Обоснование                                     |
-|-------------------|------------------|------------|-------------------------------------------------|
-| `domain`          | `multiplatform`  | jvm, js    | Чистый Kotlin, шарится везде                    |
-| `api:contract`    | `multiplatform`  | jvm, js    | DTO с kotlinx.serialization (KMP)               |
-| `api:mapping`     | `multiplatform`  | jvm, js    | Нужен на сервере и в features                   |
-| `api:client`      | `multiplatform`  | jvm, js    | Ktor Client (KMP-native)                        |
-| `api:client:di`   | `multiplatform`  | jvm, js    | Platform-specific engine selection               |
-| `features`        | `multiplatform`  | jvm, js    | Compose Multiplatform UI                        |
-| `tgminiapp`       | `multiplatform`  | js only    | Telegram shell, только браузер                  |
-| `server:*`        | `jvm`            | jvm only   | Exposed, Flyway, yt-dlp — JVM-only библиотеки  |
-
-### KMP-совместимость ключевых зависимостей
-
-| Зависимость           | KMP? | Замечания                                   |
-|-----------------------|------|---------------------------------------------|
-| Arrow (Either)        | ✅    | Полная KMP-поддержка                        |
-| kotlinx.serialization | ✅    | Полная KMP-поддержка                        |
-| kotlinx-coroutines    | ✅    | Полная KMP-поддержка                        |
-| `kotlin.time.Instant` | ✅    | Kotlin 2.1.20+, в stdlib                    |
-| `kotlin.uuid.Uuid`    | ✅    | Kotlin 2.0+, в stdlib                       |
-| `kotlin.text.Regex`   | ✅    | В stdlib                                    |
-| Ktor Client           | ✅    | CIO (JVM), Js (browser)                     |
-| Koin                  | ✅    | koin-core — KMP, koin-compose — KMP         |
-| Compose Multiplatform | ✅    | JVM (Desktop) + JS (Browser)                |
-| Exposed 1.0+          | ❌    | JVM only, но использует kotlin.time.Instant |
-| Ktor Server           | ❌    | JVM only — используется только в server     |
-| Flyway                | ❌    | JVM only — используется только в server     |
-
-### Архитектурные решения для KMP
-
-1. **UUID**: `kotlin.uuid.Uuid` вместо `java.util.UUID` — в stdlib
-2. **Timestamps**: `kotlin.time.Instant` вместо `java.time.Instant` — в stdlib с Kotlin 2.1.20+
-3. **Duration**: `kotlin.time.Duration` вместо `java.time.Duration` — в stdlib
-4. **Даты**: `value class LocalDate(val value: String)` — собственный value class с ISO 8601 валидацией, KMP stdlib не содержит аналога
-5. **URL**: `value class Url(val value: String)` — собственный value class, KMP stdlib не содержит аналога
-6. **Пути**: `value class FilePath(val value: String)` — собственный value class. `java.nio.file.Path` — только в `server:infra` (JVM) для маппинга
-7. **Value classes**: Поддерживаются на JS с Kotlin 2.1+. Используем `value class` в `commonMain`
-8. **Logging**: `expect/actual` для логирования или KMP logging библиотека
+Requirements:
+- A single domain model for both the server and clients
+- Type-safe API client for all platforms
+- Reusable UI components (Compose Multiplatform)
+- Ability to add a new platform with minimal effort
 
 ---
 
-## Альтернативы
+## Decision
 
-### 1. Всё на JVM, UI на React
+Migrate `domain`, `api:*`, and `features` to **Kotlin Multiplatform (KMP)**, keeping `server:*` JVM-only.
 
-**Плюсы**: Проще setup, большая экосистема React.
+### Module Classification
 
-**Минусы**: Два языка (Kotlin + TypeScript), дублирование DTO, нет type-safety между клиентом и сервером.
+| Module            | Plugin           | Targets    | Rationale                                              |
+|-------------------|------------------|------------|--------------------------------------------------------|
+| `domain`          | `multiplatform`  | jvm, js    | Pure Kotlin, shared everywhere                         |
+| `api:contract`    | `multiplatform`  | jvm, js    | DTOs with kotlinx.serialization (KMP)                  |
+| `api:mapping`     | `multiplatform`  | jvm, js    | Needed on both server and in features                  |
+| `api:client`      | `multiplatform`  | jvm, js    | Ktor Client (KMP-native)                               |
+| `api:client:di`   | `multiplatform`  | jvm, js    | Platform-specific engine selection                     |
+| `features`        | `multiplatform`  | jvm, js    | Compose Multiplatform UI                               |
+| `tgminiapp`       | `multiplatform`  | js only    | Telegram shell, browser only                           |
+| `server:*`        | `jvm`            | jvm only   | Exposed, Flyway, yt-dlp — JVM-only libraries           |
 
-### 2. KMP только для domain и api:contract
+### KMP Compatibility of Key Dependencies
 
-**Плюсы**: Меньше KMP-поверхности, проще.
+| Dependency            | KMP? | Notes                                          |
+|-----------------------|------|------------------------------------------------|
+| Arrow (Either)        | ✅    | Full KMP support                               |
+| kotlinx.serialization | ✅    | Full KMP support                               |
+| kotlinx-coroutines    | ✅    | Full KMP support                               |
+| `kotlin.time.Instant` | ✅    | Kotlin 2.1.20+, in stdlib                      |
+| `kotlin.uuid.Uuid`    | ✅    | Kotlin 2.0+, in stdlib                         |
+| `kotlin.text.Regex`   | ✅    | In stdlib                                      |
+| Ktor Client           | ✅    | CIO (JVM), Js (browser)                        |
+| Koin                  | ✅    | koin-core — KMP, koin-compose — KMP            |
+| Compose Multiplatform | ✅    | JVM (Desktop) + JS (Browser)                   |
+| Exposed 1.0+          | ❌    | JVM only, but uses kotlin.time.Instant         |
+| Ktor Server           | ❌    | JVM only — used only in server                 |
+| Flyway                | ❌    | JVM only — used only in server                 |
 
-**Минусы**: UI-компоненты не шарятся, `api:mapping` дублируется.
+### Architectural Decisions for KMP
 
-### 3. Kotlin/Wasm вместо Kotlin/JS
-
-**Плюсы**: Потенциально лучшая производительность.
-
-**Минусы**: Менее зрелый, ограниченная совместимость с JS-библиотеками (Telegram WebApp API).
-
----
-
-## Последствия
-
-### Положительные
-
-- Единая доменная модель и DTO на всех платформах
-- Type-safe API клиент для каждой платформы
-- UI-компоненты пишутся один раз в `features`
-- Добавление новой платформы = создание тонкого shell-модуля
-- Ошибки типизации ловятся на этапе компиляции
-
-### Отрицательные
-
-- Дополнительная сложность настройки Gradle (KMP boilerplate)
-- Не все библиотеки поддерживают KMP
-- `commonTest` не поддерживает MockK → ручные fake-реализации
-- Compose Multiplatform for Web менее зрелый, чем React
-- Больше время первичной сборки
-
-### Риски
-
-- **Compose Web stability**: Следить за релизами JetBrains, иметь fallback
-- **Value class JS support**: В Kotlin 2.1+ стабильно, но следить за edge cases
-- **Bundle size**: JS bundle от KMP может быть большим → настроить tree-shaking
-
----
-
-## Тестирование в KMP
-
-| Source set   | Фреймворк                                     | Что тестировать                   |
-|--------------|-----------------------------------------------|-----------------------------------|
-| `commonTest` | Kotest framework-engine + assertions          | Domain логика, маппинг, use-cases |
-| `jvmTest`    | Kotest runner-junit5 + MockK + Testcontainers | Интеграционные тесты, DB          |
-| `jsTest`     | Kotest framework-engine                       | JS-специфичные edge cases         |
-
-> MockK не поддерживает JS. Для мокирования в `commonTest` — создавать fake-реализации интерфейсов.
-> Kotest Gradle plugin + KSP обязательны для JS/Native тестов.
+1. **UUID**: `kotlin.uuid.Uuid` instead of `java.util.UUID` — in stdlib
+2. **Timestamps**: `kotlin.time.Instant` instead of `java.time.Instant` — in stdlib since Kotlin 2.1.20+
+3. **Duration**: `kotlin.time.Duration` instead of `java.time.Duration` — in stdlib
+4. **Dates**: `value class LocalDate(val value: String)` — custom value class with ISO 8601 validation; no KMP-compatible equivalent in stdlib
+5. **URL**: `value class Url(val value: String)` — custom value class; no KMP-compatible equivalent in stdlib
+6. **Paths**: `value class FilePath(val value: String)` — custom value class. `java.nio.file.Path` — only in `server:infra` (JVM) for mapping
+7. **Value classes**: Supported on JS since Kotlin 2.1+. Use `value class` in `commonMain`
+8. **Logging**: `expect/actual` for logging or a KMP logging library
 
 ---
 
-## Ссылки
+## Alternatives
+
+### 1. Everything on JVM, UI on React
+
+**Pros**: Simpler setup, larger React ecosystem.
+
+**Cons**: Two languages (Kotlin + TypeScript), DTO duplication, no type-safety between client and server.
+
+### 2. KMP only for domain and api:contract
+
+**Pros**: Less KMP surface area, simpler.
+
+**Cons**: UI components are not shared, `api:mapping` is duplicated.
+
+### 3. Kotlin/Wasm instead of Kotlin/JS
+
+**Pros**: Potentially better performance.
+
+**Cons**: Less mature, limited compatibility with JS libraries (Telegram WebApp API).
+
+---
+
+## Consequences
+
+### Positive
+
+- Single domain model and DTOs across all platforms
+- Type-safe API client for every platform
+- UI components written once in `features`
+- Adding a new platform = creating a thin shell module
+- Type errors caught at compile time
+
+### Negative
+
+- Additional Gradle configuration complexity (KMP boilerplate)
+- Not all libraries support KMP
+- `commonTest` does not support MockK → manual fake implementations
+- Compose Multiplatform for Web is less mature than React
+- Longer initial build time
+
+### Risks
+
+- **Compose Web stability**: Monitor JetBrains releases, have a fallback plan
+- **Value class JS support**: Stable in Kotlin 2.1+, but watch for edge cases
+- **Bundle size**: JS bundle from KMP can be large → configure tree-shaking
+
+---
+
+## Testing in KMP
+
+| Source set   | Framework                                      | What to test                        |
+|--------------|------------------------------------------------|-------------------------------------|
+| `commonTest` | Kotest framework-engine + assertions           | Domain logic, mapping, use-cases    |
+| `jvmTest`    | Kotest runner-junit5 + MockK + Testcontainers  | Integration tests, DB               |
+| `jsTest`     | Kotest framework-engine                        | JS-specific edge cases              |
+
+> MockK does not support JS. For mocking in `commonTest` — create fake implementations of interfaces.
+> Kotest Gradle plugin + KSP are required for JS/Native tests.
+
+---
+
+## References
 
 - [Kotlin Multiplatform](https://kotlinlang.org/docs/multiplatform.html)
 - [Compose Multiplatform](https://www.jetbrains.com/lp/compose-multiplatform/)
 - [Ktor Client KMP](https://ktor.io/docs/client-create-multiplatform-application.html)
 - [Arrow KMP](https://arrow-kt.io/docs/quickstart/)
 - [kotlin.uuid.Uuid](https://kotlinlang.org/api/core/kotlin/-uuid/)
-

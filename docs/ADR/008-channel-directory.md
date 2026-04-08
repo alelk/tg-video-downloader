@@ -1,85 +1,85 @@
-# ADR-008: Справочник каналов (Channel Directory)
+# ADR-008: Channel Directory
 
-**Статус**: Принято, реализовано  
-**Дата**: 2026-03-05  
-**Авторы**: Alex Elkin
+**Status**: Accepted, implemented  
+**Date**: 2026-03-05  
+**Authors**: Alex Elkin
 
 ---
 
-## Контекст
+## Context
 
-### Проблема
+### Problem
 
-Правила (`Rule`) позволяют тонко настраивать скачивание видео: выбор формата, конвертация, метаданные, пути сохранения. Каждое правило — сложная конфигурация.
+Rules (`Rule`) allow fine-grained control over video downloading: format selection, conversion, metadata, storage paths. Each rule is a complex configuration.
 
-Типичный сценарий: пользователь хочет **одно правило** для 30+ музыкальных YouTube-каналов. Сейчас для этого нужно:
+A typical scenario: the user wants **one rule** for 30+ music YouTube channels. Currently this requires:
 
 ```kotlin
 RuleMatch.AnyOf(listOf(
     RuleMatch.ChannelId("UC1..."),
     RuleMatch.ChannelId("UC2..."),
-    // ... ещё 28 каналов
+    // ... 28 more channels
 ))
 ```
 
-**Проблемы этого подхода:**
+**Problems with this approach:**
 
-1. **Громоздкий match** — десятки каналов в одном JSON. Неудобно читать, редактировать, отлаживать.
-2. **Нет переопределения метаданных per-channel** — если название артиста отличается от канала (например, канал "VEVO" → артист "Adele"), нужно отдельное правило для каждого канала.
-3. **Нет удобного UI** — нельзя просто "добавить канал в список", нужно редактировать JSON-дерево match.
-4. **Нет переиспользования** — один канал нельзя использовать в нескольких правилах без дублирования.
+1. **Unwieldy match** — dozens of channels in a single JSON. Hard to read, edit, and debug.
+2. **No per-channel metadata overrides** — if the artist name differs from the channel (e.g. channel "VEVO" → artist "Adele"), a separate rule is needed for each channel.
+3. **No convenient UI** — you can't simply "add a channel to a list"; you have to edit the JSON match tree.
+4. **No reuse** — a single channel can't be used across multiple rules without duplication.
 
-### Желаемый UX
+### Desired UX
 
-Пользователь:
-1. Создаёт **справочник каналов** — коллекцию каналов с тегами и метаданными
-2. Присваивает каналам **теги** (`music-video`, `lofi`, `tech-review`)
-3. Для каждого канала опционально задаёт **переопределения метаданных** (артист, серия, etc.)
-4. В правиле указывает match: `HasTag("music-video")` — и правило автоматически применяется ко всем каналам с этим тегом
-5. При матче — переопределения из канала в справочнике автоматически используются как начальные overrides
+The user:
+1. Creates a **channel directory** — a collection of channels with tags and metadata
+2. Assigns **tags** to channels (`music-video`, `lofi`, `tech-review`)
+3. Optionally sets **metadata overrides** per channel (artist, series name, etc.)
+4. Specifies in the rule: `HasTag("music-video")` — and the rule automatically applies to all channels with that tag
+5. On match — overrides from the channel directory are automatically applied as an additional layer in the metadata pipeline
 
 ---
 
-## Решение
+## Decision
 
-### Обзор
+### Overview
 
-Вводим новую сущность **`Channel`** — запись в справочнике каналов workspace.
+We introduce a new entity **`Channel`** — a record in the workspace's channel directory.
 
 ```
-Channel Directory (справочник)
+Channel Directory
     │
     ├── Channel { channelId="UC_adele", name="Adele", tags=["music-video"], overrides=MusicVideo(artist="Adele") }
     ├── Channel { channelId="UC_lofi", name="Lofi Girl", tags=["music-video", "lofi"], overrides=MusicVideo(artist="Lofi Girl") }
     └── Channel { channelId="UC_tech", name="MKBHD", tags=["tech-review"], overrides=null }
 
 Rule { match = HasTag("music-video"), ... }
-    → матчит: Adele, Lofi Girl
-    → НЕ матчит: MKBHD
+    → matches: Adele, Lofi Girl
+    → does NOT match: MKBHD
 
 Rule { match = AllOf(HasTag("music-video"), HasTag("lofi")), ... }
-    → матчит: Lofi Girl
-    → НЕ матчит: Adele, MKBHD
+    → matches: Lofi Girl
+    → does NOT match: Adele, MKBHD
 ```
 
-При матче правила через `HasTag`:
-1. Ищем канал из видео в справочнике (по `channelId` + `extractor`)
-2. Проверяем, есть ли у канала нужный тег
-3. Если матч — используем `channel.metadataOverrides` как дополнительный слой в pipeline метаданных
+When a rule matches via `HasTag`:
+1. Look up the video's channel in the directory (by `channelId` + `extractor`)
+2. Check whether the channel has the required tag
+3. On match — use `channel.metadataOverrides` as an additional layer in the metadata pipeline
 
-### Архитектурные принципы
+### Architectural Principles
 
-- **Channel** — сущность домена, living в `domain/channel/`
-- **Справочник привязан к workspace** (как и правила)
-- **Теги — plain strings** (не отдельная сущность). Гибко, не требует миграций при добавлении нового тега
-- **Переопределения метаданных** переиспользуют существующий sealed `MetadataTemplate` — те же поля `artistOverride`, `seriesNameOverride` и т.д.
-- **Матчинг обогащается**, а не заменяется — `HasTag` — новый лист в `RuleMatch` sealed hierarchy
+- **Channel** is a domain entity, living in `domain/channel/`
+- **The directory is scoped to a workspace** (just like rules)
+- **Tags are plain strings** (not a separate entity). Flexible, no migrations needed when adding a new tag
+- **Metadata overrides** reuse the existing sealed `MetadataTemplate` — same fields: `artistOverride`, `seriesNameOverride`, etc.
+- **Matching is enriched, not replaced** — `HasTag` is a new leaf in the `RuleMatch` sealed hierarchy
 
 ---
 
 ## 1. Domain Model
 
-### 1.1 Новые типы в `common/`
+### 1.1 New Types in `common/`
 
 ```kotlin
 // domain/common/ChannelDirectoryId.kt
@@ -100,10 +100,10 @@ value class Tag(val value: String) {
 }
 ```
 
-> **Tag** — value class с валидацией. Lowercase, alphanumeric + hyphens. Примеры: `music-video`, `lofi`, `tech`, `series`.
-> Это не enum — пользователь создаёт теги свободно. Но формат нормализован для надёжного поиска.
+> **Tag** — a value class with validation. Lowercase, alphanumeric + hyphens. Examples: `music-video`, `lofi`, `tech`, `series`.
+> Not an enum — users create tags freely. But the format is normalized for reliable lookup.
 
-### 1.2 Channel (сущность справочника)
+### 1.2 Channel (directory entity)
 
 ```kotlin
 // domain/channel/Channel.kt
@@ -127,18 +127,18 @@ data class Channel(
 }
 ```
 
-**Ключевые решения:**
+**Key decisions:**
 
-| Поле                      | Тип                       | Зачем                                                                                                                                                |
-|---------------------------|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `channelId` + `extractor` | `ChannelId` + `Extractor` | Уникальный идентификатор канала на платформе. YouTube channelId ≠ RuTube channelId                                                                   |
-| `name`                    | `String`                  | Человекочитаемое название (может отличаться от `channelName` в yt-dlp)                                                                               |
-| `tags`                    | `Set<Tag>`                | Теги для группировки. Unordered, unique                                                                                                              |
-| `metadataOverrides`       | `MetadataTemplate?`       | Переопределения метаданных. Sealed — тип определяет категорию (MusicVideo, SeriesEpisode, Other). Переиспользуем уже существующий `MetadataTemplate` |
-| `notes`                   | `String?`                 | Произвольные заметки пользователя                                                                                                                    |
+| Field                     | Type                      | Purpose                                                                                                                                               |
+|---------------------------|---------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `channelId` + `extractor` | `ChannelId` + `Extractor` | Unique channel identifier on the platform. YouTube channelId ≠ RuTube channelId                                                                      |
+| `name`                    | `String`                  | Human-readable name (may differ from `channelName` in yt-dlp)                                                                                        |
+| `tags`                    | `Set<Tag>`                | Tags for grouping. Unordered, unique                                                                                                                  |
+| `metadataOverrides`       | `MetadataTemplate?`       | Metadata overrides. Sealed — the type determines the category (MusicVideo, SeriesEpisode, Other). Reuses the existing `MetadataTemplate`              |
+| `notes`                   | `String?`                 | Arbitrary user notes                                                                                                                                  |
 
-> **Почему `MetadataTemplate` для overrides, а не `UserOverrides`?**
-> `MetadataTemplate` содержит и override-поля (`artistOverride`), и pattern-поля (`artistPattern`). Для справочника каналов patterns тоже полезны — если канал загружает видео в формате "Artist - Title", pattern пригодится. `UserOverrides` — слишком упрощённый (только значения, без patterns).
+> **Why `MetadataTemplate` for overrides instead of `UserOverrides`?**
+> `MetadataTemplate` contains both override fields (`artistOverride`) and pattern fields (`artistPattern`). For the channel directory, patterns are also useful — if a channel uploads videos in the "Artist - Title" format, a regex pattern is appropriate. `UserOverrides` is too simplified (values only, no patterns).
 
 ### 1.3 ChannelRepository (port)
 
@@ -156,43 +156,43 @@ interface ChannelRepository {
 }
 ```
 
-### 1.4 RuleMatch.HasTag (новый лист)
+### 1.4 RuleMatch.HasTag (new leaf)
 
 ```kotlin
-// domain/rule/RuleMatch.kt (дополнение)
+// domain/rule/RuleMatch.kt (addition)
 sealed interface RuleMatch {
     // ...existing variants...
 
     /**
-     * Матчит если канал видео зарегистрирован в справочнике и имеет указанный тег.
-     * Матчинг: channelId + extractor из VideoInfo → поиск в ChannelRepository → проверка tag.
+     * Matches if the video's channel is registered in the directory and has the given tag.
+     * Matching: channelId + extractor from VideoInfo → lookup in ChannelRepository → check tag.
      */
     data class HasTag(val tag: Tag) : RuleMatch
 }
 ```
 
-**Специфичность**: 70 — между `ChannelName` (80) и `UrlRegex` (60).
+**Specificity**: 70 — between `ChannelName` (80) and `UrlRegex` (60).
 
-> Обоснование: `HasTag` — менее точный, чем конкретный канал (`ChannelId`/`ChannelName`), 
-> но более целенаправленный, чем регулярные выражения на URL/title. Тег подразумевает сознательную группировку каналов.
+> Rationale: `HasTag` is less precise than a specific channel (`ChannelId`/`ChannelName`),
+> but more targeted than regular expressions on URL/title. A tag implies intentional channel grouping.
 
-### 1.5 MatchContext (обогащение)
+### 1.5 MatchContext (enriched)
 
-Для матчинга `HasTag` нужен доступ к справочнику каналов. Добавляем в контекст:
+To match `HasTag`, access to the channel directory is needed. We add to the context:
 
 ```kotlin
 // domain/rule/MatchContext.kt
 data class MatchContext(
     val video: VideoInfo,
     val overrides: UserOverrides? = null,
-    val channel: Channel? = null,  // NEW: канал из справочника (если найден)
+    val channel: Channel? = null,  // NEW: channel from the directory (if found)
 )
 ```
 
-> **`channel` загружается один раз** при формировании `MatchContext`, а не при каждом вызове `matches()`.
-> `RuleMatchingService` ищет канал по `video.channelId` + `video.extractor` в `ChannelRepository`, затем передаёт в контекст.
+> **`channel` is loaded once** when forming `MatchContext`, not on every `matches()` call.
+> `RuleMatchingService` looks up the channel by `video.channelId` + `video.extractor` in `ChannelRepository`, then passes it in the context.
 
-**Матчинг `HasTag`:**
+**Matching `HasTag`:**
 
 ```kotlin
 fun RuleMatch.matches(ctx: MatchContext): Boolean = when (this) {
@@ -206,7 +206,7 @@ fun RuleMatch.matchSpecificity(): Int = when (this) {
 }
 ```
 
-### 1.6 RuleMatchingService (изменение)
+### 1.6 RuleMatchingService (updated)
 
 ```kotlin
 class RuleMatchingService(
@@ -230,8 +230,8 @@ class RuleMatchingService(
 }
 
 /**
- * Результат матчинга — правило + опционально найденный канал из справочника.
- * Канал нужен для применения channel-level overrides к метаданным.
+ * Matching result — matched rule + optionally the channel from the directory.
+ * The channel is needed to apply channel-level metadata overrides.
  */
 data class MatchResult(
     val rule: Rule,
@@ -239,18 +239,18 @@ data class MatchResult(
 )
 ```
 
-> **Изменение сигнатуры**: `findMatchingRule` теперь возвращает `MatchResult?` вместо `Rule?`.
-> Это ломающее изменение — но мы не заботимся об обратной совместимости (по условию задачи).
+> **Signature change**: `findMatchingRule` now returns `MatchResult?` instead of `Rule?`.
+> This is a breaking change — but backward compatibility is not a concern here.
 
-### 1.7 Metadata Resolution Pipeline (обогащение)
+### 1.7 Metadata Resolution Pipeline (enriched)
 
-Текущий pipeline метаданных:
+Current pipeline:
 
 ```
 VideoInfo → MetadataResolver(template from Rule) → ResolvedMetadata → applyOverrides(UserOverrides) → final
 ```
 
-Новый pipeline с Channel:
+New pipeline with Channel:
 
 ```
 VideoInfo → MetadataResolver(effectiveTemplate) → ResolvedMetadata → applyOverrides(UserOverrides) → final
@@ -258,15 +258,15 @@ VideoInfo → MetadataResolver(effectiveTemplate) → ResolvedMetadata → apply
                         mergeTemplates(rule.metadataTemplate, channel.metadataOverrides)
 ```
 
-Если канал найден и имеет `metadataOverrides` — они **мержатся** с template правила:
+If the channel is found and has `metadataOverrides` — they are **merged** with the rule's template:
 
 ```kotlin
 // domain/metadata/MetadataTemplateMerger.kt
 
 /**
- * Мержит два MetadataTemplate.
- * Поля из [overlay] имеют приоритет над [base].
- * Оба должны быть одного типа (category). Если типы разные — overlay побеждает.
+ * Merges two MetadataTemplates.
+ * Fields from [overlay] take priority over [base].
+ * Both should be the same type (category). If types differ — overlay wins completely.
  */
 fun mergeTemplates(base: MetadataTemplate, overlay: MetadataTemplate?): MetadataTemplate {
     if (overlay == null) return base
@@ -304,18 +304,18 @@ fun mergeTemplates(base: MetadataTemplate, overlay: MetadataTemplate?): Metadata
 }
 ```
 
-**Приоритет слоёв (от низшего к высшему):**
+**Layer priority (lowest to highest):**
 
 ```
-1. Rule.metadataTemplate          ← базовые настройки правила
-2. Channel.metadataOverrides      ← per-channel переопределения (из справочника)
-3. UserOverrides                  ← ручные правки пользователя в UI (высший приоритет)
+1. Rule.metadataTemplate          ← base rule settings
+2. Channel.metadataOverrides      ← per-channel overrides (from directory)
+3. UserOverrides                  ← manual user edits in UI (highest priority)
 ```
 
-### 1.8 PreviewUseCase (изменение)
+### 1.8 PreviewUseCase (updated)
 
 ```kotlin
-// domain/preview/PreviewUseCase.kt (обновлённый фрагмент)
+// domain/preview/PreviewUseCase.kt (updated fragment)
 
 private suspend fun resolveMetadata(
     video: VideoInfo, matchResult: MatchResult?,
@@ -336,7 +336,7 @@ private suspend fun resolveMetadata(
 
 ## 2. Database
 
-### 2.1 Таблица `channels`
+### 2.1 Table `channels`
 
 ```sql
 CREATE TABLE channels (
@@ -351,49 +351,49 @@ CREATE TABLE channels (
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    -- Один канал (channel_id + extractor) — одна запись в workspace
+    -- One channel (channel_id + extractor) per workspace
     UNIQUE (workspace_id, channel_id, extractor)
 );
 
--- Индексы
+-- Indexes
 CREATE INDEX idx_channels_workspace ON channels(workspace_id);
 CREATE INDEX idx_channels_tags ON channels USING GIN (tags);
 CREATE INDEX idx_channels_extractor ON channels(extractor);
 CREATE INDEX idx_channels_channel_id ON channels(channel_id);
 ```
 
-> **Теги как `TEXT[]`** (PostgreSQL array) — выбрано осознанно:
-> - GIN-индекс по array поддерживает оператор `@>` (contains) → быстрый поиск по тегу
-> - `SELECT * FROM channels WHERE workspace_id = ? AND tags @> ARRAY['music-video']` — использует оба индекса
-> - Проще, чем JSONB для списка строк
-> - Нативная поддержка в Exposed через `arrayLiteral`
+> **Tags as `TEXT[]`** (PostgreSQL array) — a deliberate choice:
+> - GIN index on array supports `@>` operator (contains) → fast tag-based lookup
+> - `SELECT * FROM channels WHERE workspace_id = ? AND tags @> ARRAY['music-video']` — uses both indexes
+> - Simpler than JSONB for a list of strings
+> - Native support in Exposed via `arrayLiteral`
 
-> **`metadata_overrides` как JSONB** — sealed тип MetadataTemplate, та же структура что `rules.metadata_template`.
+> **`metadata_overrides` as JSONB** — sealed type MetadataTemplate, same structure as `rules.metadata_template`.
 
-### 2.2 Примеры SQL-запросов
+### 2.2 Example SQL Queries
 
 ```sql
--- Найти канал по channelId + extractor в workspace
+-- Find a channel by channelId + extractor in a workspace
 SELECT * FROM channels 
 WHERE workspace_id = $1 AND channel_id = $2 AND extractor = $3;
 
--- Найти все каналы с тегом
+-- Find all channels with a tag
 SELECT * FROM channels 
 WHERE workspace_id = $1 AND tags @> ARRAY[$2];
 
--- Найти каналы с ВСЕМИ указанными тегами (AND)
+-- Find channels with ALL specified tags (AND)
 SELECT * FROM channels 
 WHERE workspace_id = $1 AND tags @> ARRAY['music-video', 'lofi'];
 
--- Найти каналы с ЛЮБЫМ из указанных тегов (OR)
+-- Find channels with ANY of the specified tags (OR)
 SELECT * FROM channels 
 WHERE workspace_id = $1 AND tags && ARRAY['music-video', 'lofi'];
 
--- Все уникальные теги в workspace (для autocomplete в UI)
+-- All unique tags in a workspace (for autocomplete in UI)
 SELECT DISTINCT unnest(tags) AS tag FROM channels WHERE workspace_id = $1 ORDER BY tag;
 ```
 
-### 2.3 Миграция
+### 2.3 Migration
 
 ```
 server/infra/src/main/resources/db/migration/
@@ -423,18 +423,18 @@ CREATE INDEX idx_channels_tags ON channels USING GIN (tags);
 CREATE INDEX idx_channels_extractor ON channels(extractor);
 CREATE INDEX idx_channels_channel_id ON channels(channel_id);
 
-COMMENT ON TABLE channels IS 'Справочник каналов — каналы с тегами и переопределениями метаданных';
-COMMENT ON COLUMN channels.channel_id IS 'ID канала на платформе (YouTube channel ID, RuTube channel ID, etc.)';
-COMMENT ON COLUMN channels.extractor IS 'Платформа: youtube, rutube, vk, etc.';
-COMMENT ON COLUMN channels.tags IS 'Теги для группировки каналов (PostgreSQL text array)';
-COMMENT ON COLUMN channels.metadata_overrides IS 'MetadataTemplatePm JSON — переопределения метаданных для канала';
+COMMENT ON TABLE channels IS 'Channel directory — channels with tags and metadata overrides';
+COMMENT ON COLUMN channels.channel_id IS 'Platform channel ID (YouTube channel ID, RuTube channel ID, etc.)';
+COMMENT ON COLUMN channels.extractor IS 'Platform: youtube, rutube, vk, etc.';
+COMMENT ON COLUMN channels.tags IS 'Tags for grouping channels (PostgreSQL text array)';
+COMMENT ON COLUMN channels.metadata_overrides IS 'MetadataTemplatePm JSON — metadata overrides for the channel';
 ```
 
 ---
 
 ## 3. API Contract
 
-### 3.1 DTO
+### 3.1 DTOs
 
 ```kotlin
 // api:contract/channel/ChannelDto.kt
@@ -474,7 +474,7 @@ data class UpdateChannelDto(
 ### 3.2 RuleMatchDto.HasTag
 
 ```kotlin
-// api:contract/rule/RuleMatchDto.kt (дополнение)
+// api:contract/rule/RuleMatchDto.kt (addition)
 @Serializable
 @SerialName("has-tag")
 data class HasTag(val tag: String) : RuleMatchDto
@@ -484,19 +484,19 @@ data class HasTag(val tag: String) : RuleMatchDto
 
 ```
 # Channel Directory CRUD
-GET    /api/v1/workspaces/{workspaceId}/channels                  — список каналов (фильтр по тегу: ?tag=music-video)
-GET    /api/v1/workspaces/{workspaceId}/channels/{channelId}      — канал по ID
-POST   /api/v1/workspaces/{workspaceId}/channels                  — создать канал
-PUT    /api/v1/workspaces/{workspaceId}/channels/{channelId}      — обновить канал
-DELETE /api/v1/workspaces/{workspaceId}/channels/{channelId}      — удалить канал
+GET    /api/v1/workspaces/{workspaceId}/channels                  — list channels (filter by tag: ?tag=music-video)
+GET    /api/v1/workspaces/{workspaceId}/channels/{channelId}      — get channel by ID
+POST   /api/v1/workspaces/{workspaceId}/channels                  — create channel
+PUT    /api/v1/workspaces/{workspaceId}/channels/{channelId}      — update channel
+DELETE /api/v1/workspaces/{workspaceId}/channels/{channelId}      — delete channel
 
-# Теги (вспомогательный)
-GET    /api/v1/workspaces/{workspaceId}/channels/tags             — все уникальные теги в workspace
+# Tags (utility)
+GET    /api/v1/workspaces/{workspaceId}/channels/tags             — all unique tags in workspace
 ```
 
 ---
 
-## 4. Infra (server:infra)
+## 4. Infrastructure (server:infra)
 
 ### 4.1 Exposed Table
 
@@ -547,19 +547,19 @@ class ChannelRepositoryImpl(private val database: Database) : ChannelRepository 
             .map { it.toChannel() }
     }
     
-    // ... остальные методы
+    // ... other methods
 }
 ```
 
 ---
 
-## 5. Полный Flow (пример)
+## 5. Full Flow Example
 
-### Сценарий: пользователь скачивает видео с канала Adele
+### Scenario: User downloads a video from Adele's channel
 
-**Подготовка (один раз):**
+**One-time setup:**
 
-1. Пользователь добавляет канал в справочник:
+1. User adds the channel to the directory:
    ```json
    POST /api/v1/workspaces/{wsId}/channels
    {
@@ -574,7 +574,7 @@ class ChannelRepositoryImpl(private val database: Database) : ChannelRepository 
    }
    ```
 
-2. Пользователь создаёт правило:
+2. User creates a rule:
    ```json
    POST /api/v1/workspaces/{wsId}/rules
    {
@@ -593,29 +593,29 @@ class ChannelRepositoryImpl(private val database: Database) : ChannelRepository 
    }
    ```
 
-**При скачивании:**
+**On download:**
 
-1. Пользователь отправляет URL: `https://youtube.com/watch?v=abc`
-2. `yt-dlp` извлекает `VideoInfo`: `channelId=UCKiHMVB6VWzjmOMKOFED2wA`, `extractor=youtube`
+1. User submits URL: `https://youtube.com/watch?v=abc`
+2. `yt-dlp` extracts `VideoInfo`: `channelId=UCKiHMVB6VWzjmOMKOFED2wA`, `extractor=youtube`
 3. `RuleMatchingService`:
-   - Ищет канал в справочнике по `channelId` + `extractor` → находит "Adele"
-   - Формирует `MatchContext(video, overrides=null, channel=Adele)`
-   - Правило "Music Videos" с `HasTag("music-video")` → проверяет `"music-video" in channel.tags` → **match!**
-   - Возвращает `MatchResult(rule="Music Videos", channel=Adele)`
+   - Looks up the channel in the directory by `channelId` + `extractor` → finds "Adele"
+   - Forms `MatchContext(video, overrides=null, channel=Adele)`
+   - Rule "Music Videos" with `HasTag("music-video")` → checks `"music-video" in channel.tags` → **match!**
+   - Returns `MatchResult(rule="Music Videos", channel=Adele)`
 4. `PreviewUseCase`:
    - `mergeTemplates(rule.template, channel.metadataOverrides)` → `MusicVideo(artistOverride="Adele", defaultTags=["music"])`
    - `MetadataResolver.resolve(video, effectiveTemplate)` → `artist="Adele"`, `title="Hello"`
-   - Путь: `/media/Music/Adele/Hello [abc].m4a`
+   - Path: `/media/Music/Adele/Hello [abc].m4a`
 
-**Без справочника** (тот же URL):
+**Without the directory** (same URL):
 
-- Канал не найден в справочнике → `channel = null`
-- `HasTag` не матчит → правило не срабатывает
-- Fallback на LLM или generic metadata
+- Channel not found in directory → `channel = null`
+- `HasTag` does not match → rule does not fire
+- Fallback to LLM or generic metadata
 
 ---
 
-## 6. Модули и файлы (план реализации)
+## 6. Modules and Files (Implementation Plan)
 
 ### domain/ (commonMain)
 
@@ -654,7 +654,7 @@ domain/src/commonTest/kotlin/.../domain/
 ├── channel/
 │   └── ChannelTest.kt               (new)
 ├── common/
-│   └── TagTest.kt                   (new — в ValueClassValidationTest или отдельно)
+│   └── TagTest.kt                   (new)
 ├── rule/
 │   ├── RuleMatchTest.kt             (add HasTag tests)
 │   └── RuleMatchingServiceTest.kt   (add channel lookup tests)
@@ -734,63 +734,62 @@ features/src/commonMain/kotlin/.../features/
 
 ---
 
-## 7. Порядок реализации
+## 7. Implementation Order
 
-1. **Domain**: `Tag`, `ChannelDirectoryEntryId`, `Channel`, `ChannelRepository`, тесты
-2. **Domain**: `RuleMatch.HasTag`, `MatchContext.channel`, обновление `matches()` и `matchSpecificity()`, тесты
-3. **Domain**: `MetadataTemplateMerger`, тесты
-4. **Domain**: `MatchResult`, обновление `RuleMatchingService`, тесты
-5. **Domain**: обновление `PreviewUseCase`
-6. **DB**: миграция `V2__channel_directory.sql`
-7. **Infra**: `ChannelsTable`, `ChannelPm`, маппинги, `ChannelRepositoryImpl`
-8. **Infra**: обновление `RuleMatchPm` (HasTag)
+1. **Domain**: `Tag`, `ChannelDirectoryEntryId`, `Channel`, `ChannelRepository`, tests
+2. **Domain**: `RuleMatch.HasTag`, `MatchContext.channel`, update `matches()` and `matchSpecificity()`, tests
+3. **Domain**: `MetadataTemplateMerger`, tests
+4. **Domain**: `MatchResult`, update `RuleMatchingService`, tests
+5. **Domain**: update `PreviewUseCase`
+6. **DB**: migration `V2__channel_directory.sql`
+7. **Infra**: `ChannelsTable`, `ChannelPm`, mappings, `ChannelRepositoryImpl`
+8. **Infra**: update `RuleMatchPm` (HasTag)
 9. **API Contract**: `ChannelDto`, `CreateChannelDto`, `UpdateChannelDto`, `RuleMatchDto.HasTag`
-10. **API Mapping**: маппинги channel, маппинг HasTag
+10. **API Mapping**: channel mappings, HasTag mapping
 11. **Transport**: `channelRoutes.kt`
 12. **DI**: wiring
-13. **Features (UI)**: экраны управления каналами
-14. **Документация**: обновить `DOMAIN.md`, `DATABASE.md`, `API_CONTRACT.md`
+13. **Features (UI)**: channel management screens
+14. **Docs**: update `DOMAIN.md`, `DATABASE.md`, `API_CONTRACT.md`
 
 ---
 
-## 8. Альтернативы (отвергнутые)
+## 8. Rejected Alternatives
 
-### 8.1 RuleMatch.ChannelIdList (вариант 1 из запроса)
+### 8.1 RuleMatch.ChannelIdList
 
 ```kotlin
 data class ChannelIdList(val channelIds: List<String>) : RuleMatch
 ```
 
-**Отвергнуто**: не решает проблему per-channel переопределений метаданных. Список ID без контекста — не сильно лучше `AnyOf(ChannelId(...), ChannelId(...))`.
+**Rejected**: does not solve the per-channel metadata override problem. A list of IDs without context is not significantly better than `AnyOf(ChannelId(...), ChannelId(...))`.
 
-### 8.2 Теги как отдельная таблица (нормализация)
+### 8.2 Tags as a Separate Table (normalized)
 
 ```sql
 CREATE TABLE tags (id SERIAL PRIMARY KEY, name TEXT UNIQUE);
 CREATE TABLE channel_tags (channel_id UUID, tag_id INT, ...);
 ```
 
-**Отвергнуто**: overhead на JOIN, усложнение без выгоды. PostgreSQL `TEXT[]` + GIN — быстрее и проще для нашего масштаба (сотни каналов, десятки тегов). Если понадобится — можно мигрировать позже.
+**Rejected**: JOIN overhead, unnecessary complexity. PostgreSQL `TEXT[]` + GIN is faster and simpler at our scale (hundreds of channels, dozens of tags). Can be migrated later if needed.
 
-### 8.3 Теги в JSONB вместо TEXT[]
+### 8.3 Tags as JSONB Instead of TEXT[]
 
 ```sql
 tags JSONB NOT NULL DEFAULT '[]'
 ```
 
-**Отвергнуто**: `TEXT[]` + GIN — нативнее для PostgreSQL, оператор `@>` работает напрямую. JSONB `@>` тоже работает, но `TEXT[]` семантически точнее для списка строк.
+**Rejected**: `TEXT[]` + GIN is more idiomatic in PostgreSQL; the `@>` operator works directly. JSONB `@>` also works, but `TEXT[]` is semantically more precise for a list of strings.
 
-### 8.4 Channel.metadataOverrides как UserOverrides
+### 8.4 Channel.metadataOverrides as UserOverrides
 
-**Отвергнуто**: `UserOverrides` содержит только plain values (`artist`, `title`). `MetadataTemplate` содержит ещё patterns (`artistPattern`, `titlePattern`), что полезнее для справочника — один канал может иметь стабильный формат заголовков, для которого regex-pattern уместен.
+**Rejected**: `UserOverrides` contains only plain values (`artist`, `title`). `MetadataTemplate` also contains pattern fields (`artistPattern`, `titlePattern`), which are more useful for the directory — a channel may have a consistent title format for which a regex pattern is appropriate.
 
 ---
 
-## 9. Открытые вопросы
+## 9. Open Questions
 
-1. **Auto-discovery каналов**: стоит ли при первом скачивании с нового канала автоматически предлагать добавить его в справочник? (Можно реализовать в UI позже, не блокирует MVP.)
+1. **Channel auto-discovery**: should the first download from a new channel automatically prompt the user to add it to the directory? (Can be implemented in UI later, not blocking MVP.)
 
-2. **Bulk import**: нужен ли импорт каналов из файла (CSV/JSON)? (Можно добавить отдельным endpoint позже.)
+2. **Bulk import**: is there a need to import channels from a file (CSV/JSON)? (Can be added as a separate endpoint later.)
 
-3. **Channel URL**: стоит ли хранить URL канала (например, `https://youtube.com/@adele`) для удобства навигации? (Можно добавить как optional field позже.)
-
+3. **Channel URL**: should the channel URL be stored (e.g. `https://youtube.com/@adele`) for convenience? (Can be added as an optional field later.)

@@ -1,43 +1,43 @@
-# ADR-007: Интерактивный Preview с User Overrides
+# ADR-007: Interactive Preview with User Overrides
 
-**Статус**: Принято  
-**Дата**: 2026-03-04  
-**Авторы**: Alex Elkin
-
----
-
-## Контекст
-
-Preview flow — ключевой сценарий приложения:
-1. Пользователь вводит URL видео
-2. Сервер извлекает метаданные через yt-dlp, подбирает правило, определяет категорию, резолвит metadata и storage plan
-3. Пользователь видит результат и может отредактировать перед скачиванием
-
-Но preview — это не одноразовое действие. Пользователь **взаимодействует** с формой: меняет категорию, уточняет артиста, корректирует название. Каждое уточнение должно **переоцениваться сервером** — найти более подходящее правило, пересчитать пути.
-
-При этом вызов yt-dlp — дорогая операция (3-10 сек). Метаданные видео не меняются между уточнениями — кэширование обязательно.
+**Status**: Accepted  
+**Date**: 2026-03-04  
+**Authors**: Alex Elkin
 
 ---
 
-## Решение
+## Context
 
-### Обзор
+The preview flow is the core user scenario of the application:
+1. The user enters a video URL
+2. The server extracts metadata via yt-dlp, finds a matching rule, determines the category, resolves metadata and the storage plan
+3. The user sees the result and can edit it before downloading
 
-Preview — это **диалог** между фронтом и бекендом:
+But preview is not a one-shot action. The user **interacts** with the form: changes the category, refines the artist, corrects the title. Each refinement must be **re-evaluated by the server** — find a better matching rule, recalculate paths.
+
+At the same time, calling yt-dlp is an expensive operation (3–10 sec). Video metadata does not change between refinements — caching is mandatory.
+
+---
+
+## Decision
+
+### Overview
+
+Preview is an **interactive dialog** between the frontend and backend:
 
 ```
-  Фронт                                   Бекенд
+  Frontend                                Backend
     │                                        │
     │  POST /preview {url}                   │
-    │───────────────────────────────────────▶│──▶ yt-dlp (медленно)
-    │                                        │──▶ кэш VideoInfo в PostgreSQL
+    │───────────────────────────────────────▶│──▶ yt-dlp (slow)
+    │                                        │──▶ cache VideoInfo in PostgreSQL
     │◀───────────────────────────────────────│    rule matching → fallback
     │  category=OTHER, artist="?"            │
     │                                        │
-    │  *** пользователь: category=music ***  │
+    │  *** user: category=music ***          │
     │                                        │
     │  POST /preview {url, overrides}        │
-    │───────────────────────────────────────▶│──▶ кэш HIT (мгновенно)
+    │───────────────────────────────────────▶│──▶ cache HIT (instant)
     │                                        │──▶ rule matching + overrides → Rule!
     │◀───────────────────────────────────────│    metadata + storage plan
     │  category=MUSIC_VIDEO                  │
@@ -45,17 +45,17 @@ Preview — это **диалог** между фронтом и бекендо�
     │  storagePlan=correct paths             │
 ```
 
-Единый endpoint `POST /preview` принимает URL и optional user overrides. Сервер кэширует VideoInfo в PostgreSQL, при повторном запросе не обращается к yt-dlp.
+A single endpoint `POST /preview` accepts a URL and optional user overrides. The server caches `VideoInfo` in PostgreSQL and does not call yt-dlp on subsequent requests for the same URL.
 
 ---
 
-## 1. Кэш VideoInfo (PostgreSQL)
+## 1. VideoInfo Cache (PostgreSQL)
 
-### Цель
+### Goal
 
-Не вызывать yt-dlp повторно для одного и того же URL.
+Avoid calling yt-dlp again for the same URL.
 
-### Порт (domain)
+### Port (domain)
 
 ```kotlin
 // domain/video/VideoInfoCache.kt
@@ -65,12 +65,12 @@ interface VideoInfoCache {
 }
 ```
 
-Размещение в `domain/video/` — рядом с `VideoInfoExtractor` port. Это доменный порт, который `PreviewUseCase` использует напрямую.
+Located in `domain/video/` — alongside the `VideoInfoExtractor` port. This is a domain port that `PreviewUseCase` uses directly.
 
-### Таблица PostgreSQL
+### PostgreSQL Table
 
 ```sql
--- V1__initial_schema.sql (добавляется в существующую миграцию)
+-- V1__initial_schema.sql (added to the existing migration)
 
 CREATE TABLE video_info_cache (
     url         TEXT PRIMARY KEY,
@@ -78,7 +78,7 @@ CREATE TABLE video_info_cache (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-COMMENT ON TABLE video_info_cache IS 'Кэш VideoInfo из yt-dlp для избежания повторных вызовов';
+COMMENT ON TABLE video_info_cache IS 'VideoInfo cache from yt-dlp to avoid redundant calls';
 COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
 ```
 
@@ -95,7 +95,7 @@ object VideoInfoCacheTable : Table("video_info_cache") {
 }
 ```
 
-### Реализация (server:infra)
+### Implementation (server:infra)
 
 ```kotlin
 // server:infra/db/repository/VideoInfoCacheImpl.kt
@@ -119,20 +119,20 @@ class VideoInfoCacheImpl(
 }
 ```
 
-`VideoInfoPm` уже существует в `server:infra/db/model/`. Маппинг `VideoInfo` ↔ `VideoInfoPm` добавляется в `db/mapping/videoInfo.kt`.
+`VideoInfoPm` already exists in `server:infra/db/model/`. The `VideoInfo` ↔ `VideoInfoPm` mapping is added in `db/mapping/videoInfo.kt`.
 
 ---
 
 ## 2. User Overrides (sealed)
 
-### Концепция
+### Concept
 
-Пользователь может уточнить категорию и поля метаданных. Overrides — sealed по категории (зеркалит `ResolvedMetadata`), потому что набор доступных полей зависит от категории:
+The user can refine the category and metadata fields. Overrides are sealed by category (mirroring `ResolvedMetadata`), because the set of available fields depends on the category:
 - `MusicVideo` → artist, title, album
 - `SeriesEpisode` → seriesName, season, episode, title
 - `Other` → title
 
-Если пользователь не уточнял ничего — overrides == null.
+If the user has not refined anything — overrides == null.
 
 ### Domain model
 
@@ -158,7 +158,7 @@ sealed interface UserOverrides {
     ) : UserOverrides
 }
 
-/** Категория, подразумеваемая overrides. */
+/** The category implied by the overrides. */
 val UserOverrides.category: Category get() = when (this) {
     is UserOverrides.MusicVideo -> Category.MUSIC_VIDEO
     is UserOverrides.SeriesEpisode -> Category.SERIES
@@ -166,7 +166,7 @@ val UserOverrides.category: Category get() = when (this) {
 }
 ```
 
-> Категория **не передаётся отдельным полем** — она определяется по типу sealed. Если пользователь переключил category на `MUSIC_VIDEO` → фронт создаёт `UserOverrides.MusicVideo(...)`.
+> The category is **not passed as a separate field** — it is determined by the sealed type. If the user switches category to `MUSIC_VIDEO` → the frontend creates `UserOverrides.MusicVideo(...)`.
 
 ### API Contract
 
@@ -226,16 +226,16 @@ data class PreviewResponseDto(
 )
 ```
 
-`appliedOverrides` — эхо overrides, которые сервер учёл в ответе. Фронт сверяет: если его текущие overrides расходятся с `appliedOverrides` — ответ устарел (из-за debounce race condition), игнорировать.
+`appliedOverrides` is an echo of the overrides the server took into account. The frontend checks: if its current overrides differ from `appliedOverrides` — the response is stale (due to a debounce race condition) and should be ignored.
 
-### JSON примеры
+### JSON Examples
 
-**Первый запрос** (без overrides):
+**First request** (no overrides):
 ```json
 { "url": "https://youtube.com/watch?v=dQw4w9WgXcQ" }
 ```
 
-**Повторный запрос** (пользователь выбрал music-video):
+**Subsequent request** (user selected music-video):
 ```json
 {
   "url": "https://youtube.com/watch?v=dQw4w9WgXcQ",
@@ -248,7 +248,7 @@ data class PreviewResponseDto(
 }
 ```
 
-**Повторный запрос** (пользователь выбрал music-video и уточнил artist):
+**Subsequent request** (user selected music-video and refined the artist):
 ```json
 {
   "url": "https://youtube.com/watch?v=dQw4w9WgXcQ",
@@ -265,11 +265,11 @@ data class PreviewResponseDto(
 
 ## 3. RuleMatch.CategoryEquals
 
-### Мотивация
+### Motivation
 
-Правила матчат по свойствам видео (канал, title, url). Но иногда правило должно срабатывать по **контексту запроса** — если пользователь явно выбрал категорию.
+Rules match on video properties (channel, title, url). But sometimes a rule should trigger based on **request context** — when the user has explicitly selected a category.
 
-Пример: «Дефолтное правило для музыкальных видео» — задаёт пути `/media/Music Videos/...` и шаблон `MetadataTemplate.MusicVideo`. Не привязано к конкретному каналу. Срабатывает когда пользователь выбрал `MUSIC_VIDEO`.
+Example: "Default rule for music videos" — sets paths `/media/Music Videos/...` and template `MetadataTemplate.MusicVideo`. Not tied to a specific channel. Triggers when the user selects `MUSIC_VIDEO`.
 
 ### Domain
 
@@ -284,12 +284,12 @@ sealed interface RuleMatch {
     data class TitleRegex(val pattern: String) : RuleMatch { ... }
     data class UrlRegex(val pattern: String) : RuleMatch { ... }
     
-    /** Матчит по категории из user overrides. Если overrides == null — не матчит. */
+    /** Matches on the category from user overrides. If overrides == null — does not match. */
     data class CategoryEquals(val category: Category) : RuleMatch
 }
 ```
 
-Специфичность = 20 (самая низкая — широкий критерий):
+Specificity = 20 (lowest — broad criterion):
 
 ```kotlin
 fun RuleMatch.matchSpecificity(): Int = when (this) {
@@ -305,7 +305,7 @@ fun RuleMatch.matchSpecificity(): Int = when (this) {
 
 ### MatchContext
 
-`RuleMatch` матчит по **контексту** — видео + user overrides. Это основная (и единственная) функция матчинга:
+`RuleMatch` matches on **context** — video + user overrides. This is the primary (and only) matching function:
 
 ```kotlin
 // domain/rule/MatchContext.kt
@@ -328,8 +328,8 @@ fun RuleMatch.matches(ctx: MatchContext): Boolean = when (this) {
 }
 ```
 
-> `CategoryEquals` матчит **только** когда overrides != null и категория совпадает.
-> Если overrides не предоставлены (первый запрос) — `CategoryEquals` не матчит.
+> `CategoryEquals` matches **only** when overrides != null and the category matches.
+> If overrides are not provided (first request) — `CategoryEquals` does not match.
 
 ### RuleMatchingService
 
@@ -372,9 +372,9 @@ data class CategoryEquals(
 ) : RuleMatchPm
 ```
 
-### Примеры правил
+### Rule Examples
 
-**Дефолтное правило для музыкальных видео** (низкий приоритет):
+**Default rule for music videos** (low priority):
 ```json
 {
   "name": "Default Music Video",
@@ -389,7 +389,7 @@ data class CategoryEquals(
 }
 ```
 
-**Правило для конкретного канала + категории** (высокий приоритет):
+**Rule for a specific channel + category** (higher priority):
 ```json
 {
   "name": "Rick Astley Music Videos",
@@ -423,17 +423,17 @@ class PreviewUseCase(
         workspaceId: WorkspaceId,
         overrides: UserOverrides? = null,
     ): Either<DomainError, PreviewResult> = either {
-        // 1. VideoInfo: кэш (PostgreSQL) или yt-dlp
+        // 1. VideoInfo: cache (PostgreSQL) or yt-dlp
         val videoInfo = videoInfoCache.get(url)
             ?: videoInfoExtractor.extract(url).bind().also { videoInfoCache.put(url, it) }
 
-        // 2. Rule matching с учётом overrides
+        // 2. Rule matching with overrides
         val matchedRule = ruleMatchingService.findMatchingRule(videoInfo, workspaceId, overrides)
 
         // 3. Resolve metadata (rule → LLM → fallback)
         val (metadata, source) = resolveMetadata(videoInfo, matchedRule)
 
-        // 4. Apply user overrides поверх resolved metadata
+        // 4. Apply user overrides on top of resolved metadata
         val finalMetadata = applyOverrides(metadata, overrides)
 
         // 5. Outputs
@@ -449,9 +449,9 @@ class PreviewUseCase(
     }
 
     /**
-     * Применяет user overrides поверх resolved metadata.
-     * Override-поля имеют наивысший приоритет.
-     * Тип sealed overrides определяет целевую категорию.
+     * Applies user overrides on top of resolved metadata.
+     * Override fields have the highest priority.
+     * The sealed overrides type determines the target category.
      */
     private fun applyOverrides(
         metadata: ResolvedMetadata,
@@ -512,58 +512,58 @@ class PreviewUseCase(
 }
 ```
 
-### Порядок приоритетов метаданных
+### Metadata Priority Order
 
 ```
-1. UserOverrides (ручной ввод пользователя)          ← наивысший
-2. Rule MetadataTemplate (если правило найдено)
-3. LLM suggestion (если LLM настроен, правило не найдено)
-4. Fallback (парсинг title по разделителям)           ← наименьший
+1. UserOverrides (manual user input)                ← highest
+2. Rule MetadataTemplate (if a rule matched)
+3. LLM suggestion (if LLM is configured and no rule matched)
+4. Fallback (parse title by separators)             ← lowest
 ```
 
-Шаги 2–4 определяют «базовые» метаданные. Шаг 1 (`applyOverrides`) перезаписывает только те поля, которые пользователь явно задал (не null).
+Steps 2–4 determine "base" metadata. Step 1 (`applyOverrides`) overwrites only fields the user explicitly set (not null).
 
 ---
 
-## 5. Фронтенд
+## 5. Frontend
 
-### Два слоя state на PreviewScreen
+### Two State Layers on PreviewScreen
 
-| Слой | Описание |
-|------|----------|
-| `serverPreview` | Последний ответ от `POST /preview` |
-| `userEdits` | `Set<String>` — поля, которые пользователь менял вручную |
+| Layer         | Description                                                      |
+|---------------|------------------------------------------------------------------|
+| `serverPreview` | Last response from `POST /preview`                             |
+| `userEdits`   | `Set<String>` — fields the user has manually changed            |
 
-При получении нового ответа от сервера:
-- Поля **не** в `userEdits` — обновляются из ответа
-- Поля **в** `userEdits` — сохраняют значение пользователя
+When a new server response is received:
+- Fields **not** in `userEdits` — updated from the response
+- Fields **in** `userEdits` — keep the user's value
 
-### Debounce-стратегия
+### Debounce Strategy
 
-| Триггер | Debounce | Обоснование |
-|---------|----------|-------------|
-| Смена category (SegmentedButton) | 0ms — сразу | Дискретный выбор, пользователь завершил действие |
-| Текстовые поля (artist, title, album...) | 700ms | Пользователь ещё печатает |
+| Trigger                                    | Debounce | Rationale                                              |
+|--------------------------------------------|----------|--------------------------------------------------------|
+| Category change (SegmentedButton)          | 0ms — immediate | Discrete selection, user has completed the action |
+| Text fields (artist, title, album...)      | 700ms    | User is still typing                               |
 
-### Re-preview flow
+### Re-preview Flow
 
 ```
-Пользователь меняет поле
+User changes a field
     ↓
-[debounce 0ms/700ms]
+[debounce 0ms / 700ms]
     ↓
-Собираются ВСЕ текущие userEdits → UserOverridesDto (sealed, тип = текущая category)
+Collect ALL current userEdits → UserOverridesDto (sealed, type = current category)
     ↓
 POST /preview { url, overrides: { type: "music-video", artist: "Rick Astley" } }
     ↓
-Ответ получен, сверяем appliedOverrides
+Response received, verify appliedOverrides
     ↓
-Обновляем поля НЕ из userEdits
+Update fields NOT in userEdits
 ```
 
-### Построение UserOverridesDto из userEdits
+### Building UserOverridesDto from userEdits
 
-Фронт собирает overrides на основе текущей выбранной категории:
+The frontend constructs overrides based on the currently selected category:
 
 ```kotlin
 fun buildOverrides(
@@ -592,24 +592,24 @@ fun buildOverrides(
 }
 ```
 
-> Когда пользователь переключает category — это **всегда** создаёт overrides (даже без изменения текстовых полей), потому что сам тип sealed определяет категорию. Именно поэтому debounce для category = 0ms.
+> When the user switches category — it **always** creates overrides (even without changing text fields), because the sealed type itself determines the category. This is why the debounce for category = 0ms.
 
-### Race conditions
+### Race Conditions
 
-`appliedOverrides` в ответе позволяет фронту отличить актуальный ответ от устаревшего. Если `appliedOverrides` не совпадает с текущими overrides фронта — ответ пришёл на устаревший запрос, игнорируем.
+`appliedOverrides` in the response allows the frontend to distinguish an up-to-date response from a stale one. If `appliedOverrides` does not match the frontend's current overrides — the response arrived for a stale request; ignore it.
 
-Дополнительно: при отправке нового запроса — отменяем предыдущий in-flight запрос (coroutine cancellation).
+Additionally: when sending a new request — cancel the previous in-flight request (coroutine cancellation).
 
-### Индикация загрузки
+### Loading Indicator
 
-При re-preview — subtle inline indicator (shimmer или маленький progress на секциях Metadata / Storage Plan). Поля остаются редактируемыми.
+During re-preview — a subtle inline indicator (shimmer or small progress bar on the Metadata / Storage Plan sections). Fields remain editable.
 
 ---
 
-## 6. Полный Sequence Diagram
+## 6. Full Sequence Diagram
 
 ```
-┌──────────┐                    ┌──────────────┐                  ┌──────────────┐
+┌──────────┐                    ┌──────────────┐                  ┌───────────────┐
 │  MiniApp │                    │   Transport  │                  │ PreviewUseCase│
 │  (Front) │                    │  (Ktor route)│                  │   (Domain)    │
 └────┬─────┘                    └──────┬───────┘                  └──────┬────────┘
@@ -639,7 +639,7 @@ fun buildOverrides(
      │                                 │  preview(url, wsId, overrides)  │
      │                                 │────────────────────────────────▶│
      │                                 │                                 │──▶ PostgreSQL cache HIT
-     │                                 │                                 │    (мгновенно)
+     │                                 │                                 │    (instant)
      │                                 │                                 │──▶ findMatchingRule(overrides)
      │                                 │                                 │    → "Default Music Video" rule
      │                                 │                                 │──▶ resolve metadata via rule
@@ -651,62 +651,62 @@ fun buildOverrides(
      │  artist="Rick Astley"           │                                 │
      │  storagePlan=correct paths      │                                 │
      │                                 │                                 │
-     │ *** фронт: обновляет поля,      │                                 │
-     │   которые user не менял ***     │                                 │
+     │ *** frontend: updates fields    │                                 │
+     │   user didn't manually edit *** │                                 │
 ```
 
 ---
 
-## Чек-лист реализации
+## Implementation Checklist
 
-### Кэш VideoInfo (PostgreSQL)
-- [x] `VideoInfoCache` interface в `domain/video/`
-- [x] Таблица `video_info_cache` в `V1__initial_schema.sql`
-- [x] `VideoInfoCacheTable` в `server:infra/db/table/`
-- [x] `VideoInfoCacheImpl` в `server:infra/db/repository/`
-- [x] Маппинг `VideoInfo` ↔ `VideoInfoPm` (полный, с thumbnails) в `db/mapping/videoInfo.kt`
-- [x] DI wiring в `server:di`
-- [ ] Unit тесты для кэша
+### VideoInfo Cache (PostgreSQL)
+- [x] `VideoInfoCache` interface in `domain/video/`
+- [x] Table `video_info_cache` in `V1__initial_schema.sql`
+- [x] `VideoInfoCacheTable` in `server:infra/db/table/`
+- [x] `VideoInfoCacheImpl` in `server:infra/db/repository/`
+- [x] `VideoInfo` ↔ `VideoInfoPm` mapping (full, with thumbnails) in `db/mapping/videoInfo.kt`
+- [x] DI wiring in `server:di`
+- [ ] Unit tests for cache
 
 ### UserOverrides (sealed) + PreviewUseCase
-- [x] `UserOverrides` sealed interface в `domain/preview/`
+- [x] `UserOverrides` sealed interface in `domain/preview/`
 - [x] Extension property `UserOverrides.category`
-- [x] `UserOverridesDto` sealed interface в `api:contract/preview/`
-- [x] Маппинг `UserOverridesDto` ↔ `UserOverrides` в `api:mapping`
-- [x] `PreviewRequestDto` — поле `overrides: UserOverridesDto?`
-- [x] `PreviewResponseDto` — поле `appliedOverrides: UserOverridesDto?`
-- [x] `PreviewUseCase.preview()` — приём overrides, кэш, `applyOverrides()`
-- [x] `previewRoutes.kt` — передача overrides
-- [ ] Unit тесты для `applyOverrides`
+- [x] `UserOverridesDto` sealed interface in `api:contract/preview/`
+- [x] Mapping `UserOverridesDto` ↔ `UserOverrides` in `api:mapping`
+- [x] `PreviewRequestDto` — field `overrides: UserOverridesDto?`
+- [x] `PreviewResponseDto` — field `appliedOverrides: UserOverridesDto?`
+- [x] `PreviewUseCase.preview()` — accepts overrides, uses cache, calls `applyOverrides()`
+- [x] `previewRoutes.kt` — passes overrides
+- [ ] Unit tests for `applyOverrides`
 
 ### RuleMatch.CategoryEquals
-- [x] `RuleMatch.CategoryEquals` в `domain/rule/`
-- [x] `matches(ctx: MatchContext)` вместо `matchesVideo(video)`
-- [x] `MatchContext` data class в `domain/rule/`
+- [x] `RuleMatch.CategoryEquals` in `domain/rule/`
+- [x] `matches(ctx: MatchContext)` instead of `matchesVideo(video)`
+- [x] `MatchContext` data class in `domain/rule/`
 - [x] `matchSpecificity()` += CategoryEquals → 20
-- [x] `RuleMatchDto.CategoryEquals` в `api:contract`
-- [x] `RuleMatchPm.CategoryEquals` в `server:infra/db/model/`
-- [x] Маппинг domain ↔ DTO ↔ Pm
-- [x] `RuleMatchingService.findMatchingRule()` → принимает overrides
-- [x] Arb.ruleMatch() генератор — CategoryEquals
-- [ ] Unit тесты
+- [x] `RuleMatchDto.CategoryEquals` in `api:contract`
+- [x] `RuleMatchPm.CategoryEquals` in `server:infra/db/model/`
+- [x] Mapping domain ↔ DTO ↔ Pm
+- [x] `RuleMatchingService.findMatchingRule()` — accepts overrides
+- [x] `Arb.ruleMatch()` generator — CategoryEquals
+- [ ] Unit tests
 
-### Фронтенд
-- [ ] `userEdits: Set<String>` state на PreviewScreen
-- [ ] `buildOverrides()` — сборка sealed UserOverridesDto из текущего state
-- [ ] Debounce: category → 0ms, текст → 700ms
-- [ ] Повторный `POST /preview` с overrides
-- [ ] Логика merge: ответ сервера + userEdits
-- [ ] Проверка `appliedOverrides` для race conditions
-- [ ] Cancel предыдущего in-flight запроса
-- [ ] Subtle loading indicator при re-preview
+### Frontend
+- [ ] `userEdits: Set<String>` state on PreviewScreen
+- [ ] `buildOverrides()` — build sealed UserOverridesDto from current state
+- [ ] Debounce: category → 0ms, text → 700ms
+- [ ] Repeated `POST /preview` with overrides
+- [ ] Merge logic: server response + userEdits
+- [ ] Check `appliedOverrides` for race conditions
+- [ ] Cancel previous in-flight request
+- [ ] Subtle loading indicator during re-preview
 
 ---
 
-## Связанные документы
+## Related Documents
 
 - [DOMAIN.md](../DOMAIN.md) — §5 Rule, §6 Metadata, §9 Preview
 - [API_CONTRACT.md](../API_CONTRACT.md) — §6.1 POST /preview
-- [DATABASE.md](../DATABASE.md) — §2 Схема, §4 Exposed Tables
+- [DATABASE.md](../DATABASE.md) — §2 Schema, §4 Exposed Tables
 - [ADR-002: Sealed Classes](002-sealed-classes.md) — RuleMatch, ResolvedMetadata hierarchy
 
