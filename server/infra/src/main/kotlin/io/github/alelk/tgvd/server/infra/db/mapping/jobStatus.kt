@@ -4,21 +4,25 @@ import io.github.alelk.tgvd.domain.job.JobPhase
 import io.github.alelk.tgvd.domain.job.JobStatus
 
 internal fun JobStatus.toDbString(): String = when (this) {
-    JobStatus.PENDING -> "queued"
-    JobStatus.DOWNLOADING -> "running"
+    JobStatus.PENDING -> "pending"
+    JobStatus.DOWNLOADING -> "downloading"
     JobStatus.POST_PROCESSING -> "post-processing"
-    JobStatus.COMPLETED -> "done"
+    JobStatus.COMPLETED -> "completed"
     JobStatus.FAILED -> "failed"
     JobStatus.CANCELLED -> "cancelled"
 }
 
 internal fun String.toJobStatus(): JobStatus = when (this) {
-    "queued" -> JobStatus.PENDING
-    "running" -> JobStatus.DOWNLOADING
+    "pending" -> JobStatus.PENDING
+    "downloading" -> JobStatus.DOWNLOADING
     "post-processing" -> JobStatus.POST_PROCESSING
-    "done" -> JobStatus.COMPLETED
+    "completed" -> JobStatus.COMPLETED
     "failed" -> JobStatus.FAILED
     "cancelled" -> JobStatus.CANCELLED
+    // Legacy values (pre-V3 migration, kept for safety)
+    "queued" -> JobStatus.PENDING
+    "running" -> JobStatus.DOWNLOADING
+    "done" -> JobStatus.COMPLETED
     else -> error("Unknown job status: $this")
 }
 

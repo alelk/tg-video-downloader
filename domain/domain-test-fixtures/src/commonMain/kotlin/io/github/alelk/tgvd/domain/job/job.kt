@@ -23,6 +23,7 @@ fun Arb.Companion.job(
     phase: Arb<JobPhase?> = Arb.jobPhase().orNull(0.4),
     progress: Arb<Int?> = Arb.int(0..100).orNull(0.5),
     errorMessage: Arb<String?> = Arb.string(5..50, Codepoint.az()).orNull(0.7),
+    attempt: Arb<Int> = Arb.int(0..5),
 ): Arb<Job> = arbitrary {
     val now = Clock.System.now()
     Job(
@@ -38,6 +39,7 @@ fun Arb.Companion.job(
         phase = phase.bind(),
         progress = progress.bind(),
         errorMessage = errorMessage.bind(),
+        attempt = attempt.bind(),
         createdAt = now,
         updatedAt = now,
     )

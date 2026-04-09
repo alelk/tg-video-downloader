@@ -4,8 +4,8 @@ import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
 import io.github.alelk.tgvd.domain.common.*
-import io.github.alelk.tgvd.domain.job.DownloadProgress
-import io.github.alelk.tgvd.domain.job.VideoDownloader
+import io.github.alelk.tgvd.domain.video.DownloadProgress
+import io.github.alelk.tgvd.domain.video.VideoDownloader
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
 import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.github.alelk.tgvd.domain.video.VideoInfoExtractor

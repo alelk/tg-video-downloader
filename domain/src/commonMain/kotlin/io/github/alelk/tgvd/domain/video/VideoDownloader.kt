@@ -1,4 +1,4 @@
-package io.github.alelk.tgvd.domain.job
+package io.github.alelk.tgvd.domain.video
 
 import arrow.core.Either
 import io.github.alelk.tgvd.domain.common.DomainError

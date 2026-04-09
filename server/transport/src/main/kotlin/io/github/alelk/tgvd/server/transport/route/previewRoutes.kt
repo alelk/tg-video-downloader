@@ -5,7 +5,8 @@ import io.github.alelk.tgvd.api.contract.preview.PreviewRequestDto
 import io.github.alelk.tgvd.api.contract.preview.PreviewResponseDto
 import io.github.alelk.tgvd.api.contract.resource.ApiV1
 import io.github.alelk.tgvd.api.contract.rule.RuleSummaryDto
-import io.github.alelk.tgvd.api.mapping.common.toDto
+import io.github.alelk.tgvd.api.mapping.common.toDto as categoryToDto
+import io.github.alelk.tgvd.api.mapping.metadata.metadataSourceToDto
 import io.github.alelk.tgvd.api.mapping.metadata.toDto
 import io.github.alelk.tgvd.api.mapping.preview.toDomain
 import io.github.alelk.tgvd.api.mapping.preview.toDto
@@ -19,6 +20,8 @@ import io.github.alelk.tgvd.domain.storage.PathTemplateEngine
 import io.github.alelk.tgvd.domain.video.VideoSource
 import io.github.alelk.tgvd.domain.workspace.WorkspaceRepository
 import io.github.alelk.tgvd.server.transport.auth.parseWorkspaceSlug
+import io.github.alelk.tgvd.server.transport.auth.telegramUser
+import io.github.alelk.tgvd.server.transport.util.requireWorkspaceMember
 import io.github.alelk.tgvd.server.transport.util.respondEither
 import io.ktor.server.request.*
 import io.ktor.server.resources.post
@@ -34,12 +37,13 @@ fun Route.previewRoutes() {
 
     post<ApiV1.Workspaces.ById.Preview> { res ->
         val request = call.receive<PreviewRequestDto>()
+        val user = call.telegramUser
 
-        val result = either<DomainError, PreviewResponseDto> {
+        val result = either {
             val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
-            val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
+            val ws = workspaceRepository.requireWorkspaceMember(slug, user).bind()
             val overrides = request.overrides?.toDomain()
-            val preview = previewUseCase.preview(request.url, ws.id, overrides).bind()
+            val preview = previewUseCase(request.url, ws.id, overrides).bind()
             val context = pathTemplateEngine.buildContext(preview.videoInfo, preview.metadata)
             val storagePlan = pathTemplateEngine.buildStoragePlan(preview.outputs, context, preview.videoInfo)
 
@@ -53,8 +57,8 @@ fun Route.previewRoutes() {
                 matchedRule = preview.matchedRule?.let {
                     RuleSummaryDto(id = it.id.value.toString(), name = it.name)
                 },
-                metadataSource = preview.metadataSource.toDto(),
-                category = preview.metadata.category.toDto(),
+                metadataSource = metadataSourceToDto(preview.metadataSource),
+                category = preview.metadata.category.categoryToDto(),
                 metadata = preview.metadata.toDto(),
                 storagePlan = storagePlan.toDto(),
                 appliedOverrides = overrides?.toDto(),

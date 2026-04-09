@@ -26,13 +26,21 @@ This structure:
 domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 ├── common/             # Shared types: Category, DomainError, Tag, value objects (WorkspaceId, JobId, etc.)
 ├── workspace/          # Workspace, WorkspaceMember, WorkspaceRole, WorkspaceRepository port
+│                       # + CreateWorkspaceUseCase, AddWorkspaceMemberUseCase, RemoveWorkspaceMemberUseCase
 ├── channel/            # Channel (channel directory), ChannelRepository port
-├── video/              # VideoSource, VideoInfo, VideoInfoExtractor port
+│                       # + CreateChannelUseCase, UpdateChannelUseCase, DeleteChannelUseCase
+│                       # + CreateChannelRequest, UpdateChannelRequest
+├── video/              # VideoSource, VideoInfo, VideoInfoExtractor port, VideoInfoCache port, VideoDownloader port
 ├── rule/               # Rule, RuleMatch, MatchResult, RuleMatchingService, RuleRepository port
+│                       # + CreateRuleUseCase, UpdateRuleUseCase, DeleteRuleUseCase
+│                       # + CreateRuleRequest, UpdateRuleRequest
 ├── metadata/           # ResolvedMetadata, MetadataResolver, MetadataTemplate, MetadataTemplateMerger, LlmPort
-├── storage/            # StoragePlan, OutputRule, OutputFormat, PathTemplateEngine
-├── job/                # Job, JobStatus, CreateJobUseCase, JobRepository port
-└── preview/            # PreviewUseCase (orchestrates video + rule + channel + metadata + storage)
+├── storage/            # StoragePlan, OutputRule, OutputFormat, PathTemplateEngine, validateStoragePaths()
+├── job/                # Job, JobStatus, JobRepository port
+│                       # + CreateJobUseCase, CancelJobUseCase, RetryJobUseCase
+│                       # + CreateJobRequest + toJob()
+├── preview/            # PreviewUseCase (orchestrates video + rule + channel + metadata + storage)
+└── tx/                 # TransactionRunner, RoTransactionScope, RwTransactionScope, NoopTransactionRunner
 ```
 
 ### Package Dependency Graph
@@ -355,8 +363,9 @@ Dependencies: `common`
 domain/video/
 ├── VideoSource.kt
 ├── VideoInfo.kt
-├── VideoInfoExtractor.kt    # port
-└── VideoInfoCache.kt        # port
+├── VideoInfoExtractor.kt    # port: extract metadata via yt-dlp
+├── VideoInfoCache.kt        # port: cache metadata in DB
+└── VideoDownloader.kt       # port: download video file via yt-dlp
 ```
 
 ### 4.1 VideoSource
@@ -412,6 +421,25 @@ interface VideoInfoCache {
 > During interactive preview the user may change overrides multiple times for the same URL.
 > The cache ensures yt-dlp is called only once.
 > Implementation: `VideoInfoCacheImpl` in `server:infra/db/repository/`.
+
+### 4.5 VideoDownloader (port)
+
+```kotlin
+interface VideoDownloader {
+    suspend fun download(
+        source: VideoSource,
+        outputPath: FilePath,
+        policy: DownloadPolicy,
+        onProgress: (JobProgress) -> Unit,
+    ): Either<DomainError, DownloadResult>
+
+    data class DownloadResult(val filePath: FilePath, val container: MediaContainer, val fileSize: Long)
+}
+```
+
+> **This is an outgoing (driven) port** — the domain defines the contract, `server:infra` provides the adapter (`YtDlpRunner`).
+>
+> All three `video/` ports form a cohesive group: `VideoInfoExtractor` and `VideoInfoCache` handle metadata, `VideoDownloader` handles the actual file download. The adapter for all three is `YtDlpRunner`.
 
 ---
 
@@ -911,7 +939,7 @@ domain/storage/
 ├── StoragePlan.kt
 ├── DownloadPolicy.kt
 ├── PathTemplateEngine.kt
-└── VideoDownloader.kt         # port
+└── validateStoragePaths.kt    # domain validation for user-supplied paths
 ```
 
 ### 7.1 MediaContainer, AudioFormat, ImageFormat
@@ -1299,20 +1327,7 @@ class PathTemplateEngine(
 }
 ```
 
-### 7.8 VideoDownloader (port)
-
-```kotlin
-interface VideoDownloader {
-    suspend fun download(
-        source: VideoSource,
-        outputPath: FilePath,
-        policy: DownloadPolicy,
-        onProgress: (JobProgress) -> Unit,
-    ): Either<DomainError, DownloadResult>
-    
-    data class DownloadResult(val filePath: FilePath, val container: MediaContainer, val fileSize: Long)
-}
-```
+> See section **4.5 VideoDownloader** — the port has been moved to `domain/video/` alongside the other video ports.
 
 ---
 
@@ -1327,8 +1342,12 @@ domain/job/
 ├── JobPhase.kt
 ├── JobProgress.kt
 ├── JobError.kt
+├── CreateJobRequest.kt       # request model + toJob() mapping
 ├── CreateJobUseCase.kt
-└── JobRepository.kt           # port
+├── CancelJobUseCase.kt
+├── RetryJobUseCase.kt
+└── JobRepository.kt          # port
+```
 ```
 
 ### 8.1 JobStatus & JobPhase
@@ -1382,45 +1401,49 @@ data class Job(
 
 ### 8.4 CreateJobUseCase
 
+Checks for an existing active job with the same `videoId` and, if none exists, persists a new `PENDING` job.
+The check and the insert run inside a single **read-write transaction** (`TransactionRunner.inRwTransaction`)
+to prevent the TOCTOU race condition that would otherwise allow two concurrent requests to create
+duplicate jobs for the same video.
+
 ```kotlin
 class CreateJobUseCase(
     private val jobRepository: JobRepository,
-    private val clock: Clock,
+    private val txRunner: TransactionRunner,
+    private val clock: Clock = Clock.System,
 ) {
-    suspend fun execute(request: CreateJobRequest): Either<DomainError, Job> = either {
-        ensure(request.category.matches(request.metadata)) {
-            DomainError.ValidationError("category", "Category doesn't match metadata type")
+    suspend operator fun invoke(request: CreateJobRequest): Either<DomainError, Job> =
+        txRunner.inRwTransaction {
+            either {
+                val activeJobs = jobRepository.findActive()
+                    .filter { it.source.videoId == request.source.videoId }
+                ensure(activeJobs.isEmpty()) {
+                    DomainError.JobAlreadyExists(request.source.videoId, activeJobs.first().id)
+                }
+                val now = clock.now()
+                val job = Job(
+                    id = JobId(Uuid.random()),
+                    workspaceId = request.workspaceId,
+                    createdBy = request.createdBy,
+                    source = request.source,
+                    metadata = request.metadata,
+                    metadataSource = request.metadataSource,
+                    storagePlan = request.storagePlan,
+                    ruleId = request.ruleId,
+                    status = JobStatus.PENDING,
+                    phase = null, progress = null, errorMessage = null,
+                    createdAt = now, updatedAt = now,
+                )
+                jobRepository.save(job).bind()
+            }
         }
-        val existing = jobRepository.findByVideoId(request.source.videoId).filter { it.isActive() }
-        if (existing.isNotEmpty()) {
-            raise(DomainError.JobAlreadyExists(request.source.videoId, existing.first().id))
-        }
-        val now = clock.now()
-        val job = Job(
-            id = JobId(Uuid.random()),
-            workspaceId = request.workspaceId,
-            status = JobStatus.QUEUED,
-            source = request.source,
-            ruleId = request.ruleId,
-            category = request.category,
-            rawInfo = request.videoInfo,
-            metadata = request.metadata,
-            storagePlan = request.storagePlan,
-            progress = null, error = null, attempt = 0,
-            createdBy = request.createdBy,
-            createdAt = now, updatedAt = now,
-            startedAt = null, finishedAt = null,
-        )
-        jobRepository.save(job)
-    }
-    
+
     data class CreateJobRequest(
         val workspaceId: WorkspaceId,
         val source: VideoSource,
         val ruleId: RuleId?,
-        val category: Category,
-        val videoInfo: VideoInfo,
         val metadata: ResolvedMetadata,
+        val metadataSource: MetadataSource,
         val storagePlan: StoragePlan,
         val createdBy: TelegramUserId,
     )
@@ -1495,6 +1518,11 @@ val UserOverrides.category: Category get() = when (this) {
 `PreviewUseCase` is an orchestrator that ties all features together.
 Preview is an **interactive dialog**: the user refines data, and the server re-evaluates rules.
 
+Transaction boundary is split intentionally:
+- Steps 1–2 (VideoInfo cache + rule matching) run inside a **read-only transaction**.
+- The LLM call (step 3, fallback path) happens **outside** the transaction — it is a long-running
+  network request that must not hold a DB connection open.
+
 ```kotlin
 class PreviewUseCase(
     private val videoInfoExtractor: VideoInfoExtractor,
@@ -1502,33 +1530,38 @@ class PreviewUseCase(
     private val ruleMatchingService: RuleMatchingService,
     private val metadataResolver: MetadataResolver,
     private val llmPort: LlmPort?,
+    private val txRunner: TransactionRunner,
 ) {
-    suspend fun preview(
+    suspend operator fun invoke(
         url: String,
         workspaceId: WorkspaceId,
         overrides: UserOverrides? = null,
     ): Either<DomainError, PreviewResult> = either {
-        // 1. VideoInfo: cache (PostgreSQL) or yt-dlp
-        val videoInfo = videoInfoCache.get(url)
-            ?: videoInfoExtractor.extract(url).bind().also { videoInfoCache.put(url, it) }
+        // 1 & 2: VideoInfo + rule matching — within a single read-only transaction
+        val (videoInfo, matchResult) = txRunner.inRoTransaction {
+            either {
+                val info = videoInfoCache.get(url)
+                    ?: videoInfoExtractor.extract(url).bind().also { videoInfoCache.put(url, it) }
+                val match = ruleMatchingService.findMatchingRule(info, workspaceId, overrides)
+                info to match
+            }.bind()
+        }
 
-        // 2. Rule matching with overrides
-        val matchedRule = ruleMatchingService.findMatchingRule(videoInfo, workspaceId, overrides)
-
-        // 3. Resolve metadata (rule → LLM → fallback)
-        val (metadata, source) = resolveMetadata(videoInfo, matchedRule)
+        // 3. Resolve metadata (rule + channel overrides → LLM → fallback)
+        // LLM call is outside the transaction — network I/O must not hold a DB connection.
+        val (metadata, source) = resolveMetadata(videoInfo, matchResult)
 
         // 4. Apply user overrides on top of resolved metadata
         val finalMetadata = applyOverrides(metadata, overrides)
 
         // 5. Outputs
-        val outputs = matchedRule?.outputs ?: OutputDefaults.defaultFor(finalMetadata.category)
+        val outputs = matchResult?.rule?.outputs ?: OutputDefaults.defaultFor(finalMetadata.category)
 
         PreviewResult(
             videoInfo = videoInfo,
             metadata = finalMetadata,
             metadataSource = source,
-            matchedRule = matchedRule,
+            matchedRule = matchResult?.rule,
             outputs = outputs,
         )
     }
@@ -1559,9 +1592,33 @@ See also: [ADR/007-interactive-preview-refinement.md](./ADR/007-interactive-prev
 
 ---
 
-## 10. Invariants and Validation
+## 10. `tx` — Transaction Abstraction
 
-### 10.1 General Rules
+**Purpose**: Decouples use cases from the concrete transaction mechanism (Exposed, in-memory, no-op).
+
+```kotlin
+interface TransactionRunner {
+    suspend fun <T> inRoTransaction(block: suspend RoTransactionScope.() -> T): T
+    suspend fun <T> inRwTransaction(block: suspend RwTransactionScope.() -> T): T
+}
+
+interface RoTransactionScope           // marker: read-only
+interface RwTransactionScope : RoTransactionScope  // marker: read-write
+```
+
+**Rules**:
+- Use cases that **read only** → `inRoTransaction`
+- Use cases that **write** → `inRwTransaction`
+- Long-running I/O (LLM, yt-dlp) must be kept **outside** any transaction block
+- In tests → `NoopTransactionRunner` (executes the block inline, no DB required)
+
+**Implementation**: `ExposedTransactionRunner` in `server:infra/db/` wraps `suspendTransaction` with the appropriate `readOnly` flag.
+
+---
+
+## 11. Invariants and Validation
+
+### 11.1 General Rules
 
 | Field                             | Rule                                        |
 |-----------------------------------|---------------------------------------------|
@@ -1572,11 +1629,11 @@ See also: [ADR/007-interactive-preview-refinement.md](./ADR/007-interactive-prev
 | `percent` (progress)              | 0–100                                       |
 | Path templates                    | Must include at least `{title}` or `{videoId}` |
 
-### 10.2 Validation at Creation
+### 11.2 Validation at Creation
 
 All invariants are checked in `init {}` blocks of data/value classes.
 On violation — `IllegalArgumentException`.
 
-### 10.3 Business Rule Validation
+### 11.3 Business Rule Validation
 
 Business validation (e.g. "a job for this videoId already exists") — via `Either<DomainError, T>` in use cases.

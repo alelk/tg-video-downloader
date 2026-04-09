@@ -17,10 +17,11 @@ class RuleMatchingService(
         val rules = ruleRepository.findEnabledByWorkspace(workspaceId)
         val channel = channelRepository.findByChannelId(workspaceId, video.channelId, video.extractor)
         val ctx = MatchContext(video, overrides, channel)
-        val rule = rules
-            .filter { it.match.matches(ctx) }
-            .maxByOrNull { it.priority * 1000 + it.match.matchSpecificity() }
-            ?: return null
+        val rule =
+            rules
+                .filter { it.match.matches(ctx) }
+                .maxByOrNull { it.priority * 1000 + it.match.matchSpecificity() }
+                ?: return null
         return MatchResult(rule, channel)
     }
 }

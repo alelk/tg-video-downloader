@@ -26,6 +26,7 @@ object JobsTable : UuidTable("jobs") {
     val storagePlan = jsonb<StoragePlanPm>("storage_plan", jsonb)
     val progress = jsonb<JobProgressPm>("progress", jsonb).nullable()
     val error = jsonb<JobErrorPm>("error", jsonb).nullable()
+    val metadataSource = varchar("metadata_source", 20).default("rule")
     val attempt = integer("attempt").default(0)
     val createdByTelegramUserId = long("created_by_telegram_user_id")
     val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)

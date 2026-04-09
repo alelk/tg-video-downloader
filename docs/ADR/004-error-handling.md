@@ -39,7 +39,7 @@ sealed interface DomainError {
 }
 
 // Use case returns Either
-suspend fun PreviewUseCase.execute(url: String): Either<DomainError, PreviewResult>
+suspend operator fun invoke(url: String, workspaceId: WorkspaceId): Either<DomainError, PreviewResult>
 ```
 
 ### DTO → Domain Mapping
@@ -152,25 +152,32 @@ install(StatusPages) {
 ### 1. Use Case with Either
 
 ```kotlin
-class CreateJobUseCase(...) {
-    suspend fun execute(request: CreateJobRequest): Either<DomainError, Job> = either {
-        // ensure = check with early exit
-        ensure(request.url.isNotBlank()) {
-            DomainError.ValidationError("url", "cannot be blank")
+class CreateJobUseCase(
+    private val jobRepository: JobRepository,
+    private val txRunner: TransactionRunner,
+    private val clock: Clock = Clock.System,
+) {
+    suspend operator fun invoke(request: CreateJobRequest): Either<DomainError, Job> =
+        txRunner.inRwTransaction {
+            either {
+                // ensure = check with early exit
+                ensure(request.source.url.value.isNotBlank()) {
+                    DomainError.ValidationError("url", "cannot be blank")
+                }
+
+                // bind = extract from Either or exit early
+                val activeJobs = jobRepository.findActive()
+                    .filter { it.source.videoId == request.source.videoId }
+
+                // raise = explicit exit with error
+                if (activeJobs.isNotEmpty()) {
+                    raise(DomainError.JobAlreadyExists(request.source.videoId, activeJobs.first().id))
+                }
+
+                // Success
+                jobRepository.save(newJob).bind()
+            }
         }
-        
-        // bind = extract from Either or exit early
-        val videoInfo = videoInfoExtractor.extract(request.url).bind()
-        
-        // raise = explicit exit with error
-        val existing = jobRepository.findActive(videoInfo.videoId)
-        if (existing != null) {
-            raise(DomainError.JobAlreadyExists(videoInfo.videoId, existing.id))
-        }
-        
-        // Success
-        jobRepository.save(newJob)
-    }
 }
 ```
 
@@ -185,7 +192,7 @@ post<ApiV1.Workspaces.ById.Jobs> { res ->
         return@post
     }
     
-    when (val result = createJobUseCase.execute(domainRequest)) {
+    when (val result = createJobUseCase(domainRequest)) {
         is Either.Left -> call.respond(result.value.toHttpResponse(call.correlationId))
         is Either.Right -> call.respond(HttpStatusCode.Created, result.value.toDto())
     }

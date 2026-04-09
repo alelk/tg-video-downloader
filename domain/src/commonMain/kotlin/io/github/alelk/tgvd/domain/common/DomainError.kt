@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.domain.common
 
+import io.github.alelk.tgvd.domain.job.JobPhase
 import io.github.alelk.tgvd.domain.job.JobStatus
 import kotlin.uuid.ExperimentalUuidApi
 
@@ -27,7 +28,7 @@ sealed interface DomainError {
     data class JobCannotBeCancelled(val id: JobId, val currentStatus: JobStatus, override val message: String = "Cannot cancel job in status $currentStatus") : DomainError
     data class JobCannotBeRetried(val id: JobId, val currentStatus: JobStatus, override val message: String = "Cannot retry job in status $currentStatus") : DomainError
     data class DownloadFailed(val jobId: JobId, val cause: String, override val message: String = "Download failed: $cause") : DomainError
-    data class PostProcessingFailed(val jobId: JobId, val phase: io.github.alelk.tgvd.domain.job.JobPhase, val cause: String, override val message: String = "Post-processing failed at $phase: $cause") : DomainError
+    data class PostProcessingFailed(val jobId: JobId, val phase: JobPhase, val cause: String, override val message: String = "Post-processing failed at $phase: $cause") : DomainError
 
     // === Storage ===
     data class PathTraversalAttempt(val path: FilePath, override val message: String = "Path traversal attempt: ${path.value}") : DomainError

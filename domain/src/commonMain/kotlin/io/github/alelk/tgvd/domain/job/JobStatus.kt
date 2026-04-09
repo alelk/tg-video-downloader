@@ -13,11 +13,3 @@ enum class JobStatus {
     val isRetryable: Boolean get() = this == FAILED || this == CANCELLED
 }
 
-enum class JobPhase {
-    DOWNLOAD,
-    CONVERT,
-    EMBED_METADATA,
-    EMBED_THUMBNAIL,
-    NORMALIZE_AUDIO,
-    MOVE_FILE,
-}

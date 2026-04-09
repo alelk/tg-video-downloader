@@ -14,6 +14,14 @@ A self-hosted service for downloading videos from YouTube, RuTube, VK Video, and
 
 ## ✨ Features
 
+<div align="center">
+
+| Ввод URL | Preview метаданных | Список заданий |
+|:---:|:---:|:---:|
+| <img src="docs/img/01-url-input.png" width="220" alt="URL Input"> | <img src="docs/img/03-preview-metadata-music.png" width="220" alt="Preview"> | <img src="docs/img/06-jobs-list.png" width="220" alt="Jobs"> |
+
+</div>
+
 - 🎬 **Video downloads** via `yt-dlp` (YouTube, RuTube, VK Video, 1000+ sites)
 - 🏷️ **Automatic metadata recognition** — artist, title, season/episode
 - 🧠 **Smart metadata via LLM** (Gemini/OpenAI) for new, unknown channels
@@ -156,6 +164,8 @@ See [CONFIGURATION.md](docs/CONFIGURATION.md) for all available options.
 
 ### Scenario 1: Downloading a Music Video
 
+<img src="docs/img/01-url-input.png" width="320" alt="URL Input Screen">
+
 ```
 1. User opens the Mini App in Telegram
 2. Pastes a link: https://youtube.com/watch?v=dQw4w9WgXcQ
@@ -166,6 +176,11 @@ See [CONFIGURATION.md](docs/CONFIGURATION.md) for all available options.
 4. User sees a preview with the planned storage layout:
    - Original: /media/Music Videos/original/Rick Astley/Never Gonna Give You Up [dQw4w9WgXcQ].webm
    - Converted: /media/Music Videos/converted/Rick Astley/Never Gonna Give You Up.mp4
+```
+
+<img src="docs/img/05-preview-storage-plan.png" width="320" alt="Preview Screen">
+
+```
 5. User reviews metadata, adjusts if needed, and clicks "Download"
 6. Job executes:
    a. Downloads original in maximum quality → original/
@@ -173,6 +188,8 @@ See [CONFIGURATION.md](docs/CONFIGURATION.md) for all available options.
    c. Embeds metadata and cover art into both files
 7. User sees status: DONE
 ```
+
+<img src="docs/img/06-jobs-list.png" width="320" alt="Job Progress">
 
 ### Scenario 2: Smart Metadata via LLM
 

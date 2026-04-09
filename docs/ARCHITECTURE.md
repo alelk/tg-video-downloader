@@ -108,23 +108,28 @@ The project uses **Kotlin Multiplatform** to share code between the server (JVM)
 **Organization**: Package-by-feature (not by technical layers).
 
 **Contains**:
-- `workspace/` — `Workspace`, `WorkspaceMember`, `WorkspaceRole`, `WorkspaceRepository` port
-- `channel/` — `Channel` (channel directory), `ChannelRepository` port
-- `video/` — `VideoSource`, `VideoInfo`, `VideoInfoExtractor` port, `VideoInfoCache` port
-- `rule/` — `Rule`, `RuleMatch` (sealed, incl. `HasTag`, `CategoryEquals`), `MatchContext`, `MatchResult`, `RuleMatchingService`, `RuleRepository` port
+- `common/` — `Category`, `DomainError`, `Tag`, value objects (`WorkspaceId`, `JobId`, etc.)
+- `workspace/` — `Workspace`, `WorkspaceMember`, `WorkspaceRole`, `WorkspaceRepository` port, `CreateWorkspaceUseCase`, `AddWorkspaceMemberUseCase`, `RemoveWorkspaceMemberUseCase`
+- `channel/` — `Channel`, `ChannelRepository` port, `CreateChannelUseCase`, `UpdateChannelUseCase`, `DeleteChannelUseCase`, request models
+- `video/` — `VideoSource`, `VideoInfo`, `VideoInfoExtractor` port, `VideoInfoCache` port, `VideoDownloader` port
+- `rule/` — `Rule`, `RuleMatch` (sealed, incl. `HasTag`, `CategoryEquals`), `MatchContext`, `MatchResult`, `RuleMatchingService`, `RuleRepository` port, `CreateRuleUseCase`, `UpdateRuleUseCase`, `DeleteRuleUseCase`, request models
 - `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `MetadataTemplateMerger`, `MetadataResolver`, `LlmPort`
-- `storage/` — `StoragePlan`, `OutputRule`, `OutputFormat` (sealed), `PathTemplateEngine`, `VideoDownloader` port
-- `job/` — `Job`, `JobStatus`, `CreateJobUseCase`, `JobRepository` port
+- `storage/` — `StoragePlan`, `OutputRule`, `OutputFormat` (sealed), `PathTemplateEngine`, `VideoDownloader` port, `validateStoragePaths()`
+- `job/` — `Job`, `JobStatus`, `CreateJobUseCase`, `CancelJobUseCase`, `RetryJobUseCase`, `JobRepository` port, `CreateJobRequest` + `toJob()`
 - `preview/` — `UserOverrides` (sealed), `PreviewUseCase` (orchestrator)
+- `tx/` — `TransactionRunner`, `RoTransactionScope`, `RwTransactionScope`, `NoopTransactionRunner`
 
 ```
-├── workspace/      # Workspace, WorkspaceMember, WorkspaceRole, WorkspaceRepository port
-├── channel/        # Channel (channel directory), ChannelRepository port
-├── video/          # VideoSource, VideoInfo, VideoInfoExtractor port, VideoInfoCache port
+├── common/         # Shared types: Category, DomainError, Tag, value objects
+├── workspace/      # Workspace, WorkspaceRepository port + CreateWorkspaceUseCase, AddWorkspaceMemberUseCase, RemoveWorkspaceMemberUseCase
+├── channel/        # Channel, ChannelRepository port + CreateChannelUseCase, UpdateChannelUseCase, DeleteChannelUseCase
+├── video/          # VideoSource, VideoInfo, VideoInfoExtractor port, VideoInfoCache port, VideoDownloader port
+├── rule/           # Rule, RuleMatch (sealed), RuleMatchingService, RuleRepository port + CreateRuleUseCase, UpdateRuleUseCase, DeleteRuleUseCase
 ├── metadata/       # ResolvedMetadata (sealed), MetadataTemplate (sealed), MetadataResolver, LlmPort
-├── storage/        # StoragePlan, OutputRule, OutputFormat (sealed), PathTemplateEngine, VideoDownloader port
-├── job/            # Job, JobStatus, CreateJobUseCase, JobRepository port
-└── preview/        # UserOverrides (sealed), PreviewUseCase
+├── storage/        # StoragePlan, OutputRule, OutputFormat (sealed), PathTemplateEngine, validateStoragePaths()
+├── job/            # Job, JobStatus, JobRepository port + CreateJobUseCase, CancelJobUseCase, RetryJobUseCase
+├── preview/        # UserOverrides (sealed), PreviewUseCase
+└── tx/             # TransactionRunner, RoTransactionScope, RwTransactionScope, NoopTransactionRunner
 ```
 
 **Dependencies**: Kotlin stdlib (`kotlin.time.Instant`, `kotlin.time.Duration`, `kotlin.uuid.Uuid`), Arrow (Either), kotlinx-coroutines.

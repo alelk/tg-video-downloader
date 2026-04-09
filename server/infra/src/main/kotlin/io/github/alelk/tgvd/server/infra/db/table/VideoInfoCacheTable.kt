@@ -11,6 +11,7 @@ object VideoInfoCacheTable : Table("video_info_cache") {
     val url = text("url")
     val videoInfo = jsonb<VideoInfoPm>("video_info", jsonb)
     val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
+    val expiresAt = timestamp("expires_at").nullable()
 
     override val primaryKey = PrimaryKey(url)
 }

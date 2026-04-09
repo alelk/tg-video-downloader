@@ -23,10 +23,14 @@ data class Job(
     val phase: JobPhase? = null,
     val progress: Int? = null,
     val errorMessage: String? = null,
+    val attempt: Int = 0,
     val createdAt: Instant,
     val updatedAt: Instant,
+    val startedAt: Instant? = null,
+    val finishedAt: Instant? = null,
 ) {
     init {
         require(progress == null || progress in 0..100) { "Progress must be 0..100" }
+        require(attempt >= 0) { "Attempt must be >= 0" }
     }
 }

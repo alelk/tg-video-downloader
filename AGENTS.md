@@ -118,6 +118,8 @@ UI Shell (tgminiapp) → features (Compose)
 1. Define DTO in `api:contract`
 2. Add route in `server:transport`
 3. Implement use-case in `domain` (if business logic is needed)
+   - Inject `TransactionRunner`; use `inRwTransaction` for writes, `inRoTransaction` for reads
+   - Expose a single `suspend operator fun invoke(...)` method
 4. Add tests
 5. Update [API_CONTRACT.md](./docs/API_CONTRACT.md)
 
@@ -127,6 +129,13 @@ UI Shell (tgminiapp) → features (Compose)
 - In mapping: return `Either<ValidationError, T>`
 - In transport: map `DomainError` → HTTP status + `ApiErrorDto`
 - Never use exceptions for business errors
+
+### Use Case conventions
+
+- One class = one use case
+- Single public method: `suspend operator fun invoke(...)`  — call sites use `useCase(args)` syntax
+- Always inject `TransactionRunner txRunner`; wrap business logic in `txRunner.inRwTransaction { }` or `txRunner.inRoTransaction { }`
+- In tests: use `NoopTransactionRunner()` from `domain/tx`
 
 ---
 

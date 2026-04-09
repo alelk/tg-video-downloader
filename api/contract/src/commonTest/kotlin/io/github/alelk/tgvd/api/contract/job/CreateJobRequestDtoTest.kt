@@ -68,6 +68,7 @@ class CreateJobRequestDtoTest : FunSpec({
                         "tags": [],
                         "comment": null
                     },
+                    "metadataSource": "rule",
                     "storagePlan": {
                         "original": {
                             "path": "/tmp/test.webm",

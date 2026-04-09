@@ -35,3 +35,6 @@ fun MetadataSource.toDto(): MetadataSourceDto = when (this) {
     MetadataSource.FALLBACK -> MetadataSourceDto.FALLBACK
 }
 
+/** Non-extension alias for [MetadataSource.toDto] — avoids import ambiguity with other toDto functions. */
+fun metadataSourceToDto(source: MetadataSource): MetadataSourceDto = source.toDto()
+

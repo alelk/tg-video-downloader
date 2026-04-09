@@ -12,21 +12,12 @@ import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.metadata.category
 import io.github.alelk.tgvd.domain.metadata.mergeTemplates
 import io.github.alelk.tgvd.domain.rule.MatchResult
-import io.github.alelk.tgvd.domain.rule.Rule
 import io.github.alelk.tgvd.domain.rule.RuleMatchingService
 import io.github.alelk.tgvd.domain.storage.OutputDefaults
-import io.github.alelk.tgvd.domain.storage.OutputRule
+import io.github.alelk.tgvd.domain.tx.TransactionRunner
 import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.github.alelk.tgvd.domain.video.VideoInfoCache
 import io.github.alelk.tgvd.domain.video.VideoInfoExtractor
-
-data class PreviewResult(
-    val videoInfo: VideoInfo,
-    val metadata: ResolvedMetadata,
-    val metadataSource: MetadataSource,
-    val matchedRule: Rule?,
-    val outputs: List<OutputRule>,
-)
 
 class PreviewUseCase(
     private val videoInfoExtractor: VideoInfoExtractor,
@@ -34,23 +25,41 @@ class PreviewUseCase(
     private val ruleMatchingService: RuleMatchingService,
     private val metadataResolver: MetadataResolver,
     private val llmPort: LlmPort?,
+    private val txRunner: TransactionRunner,
 ) {
-    suspend fun preview(
+    /**
+     * Compute a preview for the given [url].
+     *
+     * The read-only transaction wraps the DB access (cache + rule matching) only.
+     * The LLM call is intentionally performed *outside* the transaction because it is
+     * a long-running network request that must not hold a DB connection open.
+     */
+    suspend operator fun invoke(
         url: String,
         workspaceId: WorkspaceId,
         overrides: UserOverrides? = null,
     ): Either<DomainError, PreviewResult> = either {
-        // 1. VideoInfo: кэш (PostgreSQL) или yt-dlp
-        val videoInfo = videoInfoCache.get(url)
-            ?: videoInfoExtractor.extract(url).bind().also { videoInfoCache.put(url, it) }
+        // 1 & 2: VideoInfo + rule matching — within a single read-only transaction
+        val (videoInfo, matchResult, cacheMiss) =
+            txRunner.inRoTransaction {
+                either {
+                    val cached = videoInfoCache.get(url)
+                    val info = cached ?: videoInfoExtractor.extract(url).bind()
+                    val match = ruleMatchingService.findMatchingRule(info, workspaceId, overrides)
+                    Triple(info, match, cached == null)
+                }.bind()
+            }
 
-        // 2. Rule matching с учётом overrides и channel directory
-        val matchResult = ruleMatchingService.findMatchingRule(videoInfo, workspaceId, overrides)
+        // Write cache outside the read-only transaction
+        if (cacheMiss) {
+            txRunner.inRwTransaction { either<DomainError, Unit> { videoInfoCache.put(url, videoInfo) } }
+        }
 
         // 3. Resolve metadata (rule + channel overrides → LLM → fallback)
+        // LLM call is outside the transaction — it is a network request and must not hold a DB connection.
         val (metadata, source) = resolveMetadata(videoInfo, matchResult)
 
-        // 4. Apply user overrides поверх resolved metadata
+        // 4. Apply user overrides on top of resolved metadata
         val finalMetadata = applyOverrides(metadata, overrides)
 
         // 5. Outputs
@@ -66,9 +75,9 @@ class PreviewUseCase(
     }
 
     /**
-     * Применяет user overrides поверх resolved metadata.
-     * Override-поля имеют наивысший приоритет.
-     * Тип sealed overrides определяет целевую категорию.
+     * Applies user overrides on top of resolved metadata.
+     * Override fields take the highest priority.
+     * The sealed overrides type determines the target [ResolvedMetadata] category.
      */
     private fun applyOverrides(
         metadata: ResolvedMetadata,
@@ -86,6 +95,7 @@ class PreviewUseCase(
                 tags = metadata.tags,
                 comment = metadata.comment,
             )
+
             is UserOverrides.SeriesEpisode -> ResolvedMetadata.SeriesEpisode(
                 seriesName = overrides.seriesName
                     ?: (metadata as? ResolvedMetadata.SeriesEpisode)?.seriesName
@@ -97,6 +107,7 @@ class PreviewUseCase(
                 tags = metadata.tags,
                 comment = metadata.comment,
             )
+
             is UserOverrides.Other -> ResolvedMetadata.Other(
                 title = overrides.title ?: metadata.title,
                 releaseDate = metadata.releaseDate,

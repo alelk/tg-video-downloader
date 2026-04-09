@@ -1,6 +1,7 @@
 package io.github.alelk.tgvd.api.contract.job
 
 import io.github.alelk.tgvd.api.contract.common.CategoryDto
+import io.github.alelk.tgvd.api.contract.metadata.MetadataSourceDto
 import io.github.alelk.tgvd.api.contract.metadata.ResolvedMetadataDto
 import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
 import io.github.alelk.tgvd.api.contract.video.VideoInfoDto
@@ -14,6 +15,7 @@ data class CreateJobRequestDto(
     val category: CategoryDto,
     val videoInfo: VideoInfoDto,
     val metadata: ResolvedMetadataDto,
+    val metadataSource: MetadataSourceDto = MetadataSourceDto.RULE,
     val storagePlan: StoragePlanDto,
     val saveAsRule: SaveAsRuleDto? = null,
 )

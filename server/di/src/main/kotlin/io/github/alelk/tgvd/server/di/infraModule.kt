@@ -1,8 +1,9 @@
 package io.github.alelk.tgvd.server.di
 
 import io.github.alelk.tgvd.domain.channel.ChannelRepository
+import io.github.alelk.tgvd.domain.job.JobOutputRepository
 import io.github.alelk.tgvd.domain.job.JobRepository
-import io.github.alelk.tgvd.domain.job.VideoDownloader
+import io.github.alelk.tgvd.domain.video.VideoDownloader
 import io.github.alelk.tgvd.domain.rule.RuleRepository
 import io.github.alelk.tgvd.domain.system.YtDlpService
 import io.github.alelk.tgvd.domain.video.VideoInfoCache
@@ -13,8 +14,11 @@ import io.github.alelk.tgvd.server.infra.config.FfmpegConfig
 import io.github.alelk.tgvd.server.infra.config.JobsConfig
 import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
+import io.github.alelk.tgvd.domain.tx.TransactionRunner
 import io.github.alelk.tgvd.server.infra.db.DatabaseFactory
+import io.github.alelk.tgvd.server.infra.db.ExposedTransactionRunner
 import io.github.alelk.tgvd.server.infra.db.repository.ChannelRepositoryImpl
+import io.github.alelk.tgvd.server.infra.db.repository.JobOutputRepositoryImpl
 import io.github.alelk.tgvd.server.infra.db.repository.JobRepositoryImpl
 import io.github.alelk.tgvd.server.infra.db.repository.RuleRepositoryImpl
 import io.github.alelk.tgvd.server.infra.db.repository.VideoInfoCacheImpl
@@ -32,6 +36,7 @@ internal fun infraModule() = module {
     // Database
     single { DatabaseFactory(get<DbConfig>()) }
     single { get<DatabaseFactory>().create() }
+    single<TransactionRunner> { ExposedTransactionRunner(db = get<Database>()) }
 
     // Mutable settings holder (initial values from config, overridable via API)
     single { SystemSettingsHolder(get<YtDlpConfig>(), get<ProxyConfig>()) }
@@ -41,6 +46,7 @@ internal fun infraModule() = module {
     single<RuleRepository> { RuleRepositoryImpl(get<Database>()) }
     single<ChannelRepository> { ChannelRepositoryImpl(get<Database>()) }
     single<JobRepository> { JobRepositoryImpl(get<Database>()) }
+    single<JobOutputRepository> { JobOutputRepositoryImpl(get<Database>()) }
     single<VideoInfoCache> { VideoInfoCacheImpl(get<Database>()) }
 
     // External process runners
@@ -57,6 +63,7 @@ internal fun infraModule() = module {
     single {
         JobProcessor(
             jobRepository = get<JobRepository>(),
+            jobOutputRepository = get<JobOutputRepository>(),
             ruleRepository = get<RuleRepository>(),
             videoDownloader = get<VideoDownloader>(),
             ffmpegRunner = get<FfmpegRunner>(),

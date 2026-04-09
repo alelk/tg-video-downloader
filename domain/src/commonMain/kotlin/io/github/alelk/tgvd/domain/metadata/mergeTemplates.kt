@@ -39,4 +39,3 @@ fun mergeTemplates(base: MetadataTemplate, overlay: MetadataTemplate?): Metadata
         }
     }
 }
-

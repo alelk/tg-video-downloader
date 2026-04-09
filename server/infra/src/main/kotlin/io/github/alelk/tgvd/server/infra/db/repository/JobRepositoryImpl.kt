@@ -5,7 +5,6 @@ import arrow.core.left
 import arrow.core.right
 import io.github.alelk.tgvd.domain.common.*
 import io.github.alelk.tgvd.domain.job.*
-import io.github.alelk.tgvd.domain.metadata.MetadataSource
 import io.github.alelk.tgvd.domain.video.VideoSource
 import io.github.alelk.tgvd.server.infra.db.dbQuery
 import io.github.alelk.tgvd.server.infra.db.mapping.*
@@ -46,7 +45,7 @@ class JobRepositoryImpl(
 
     override suspend fun findActive(): List<Job> = dbQuery(database) {
         JobsTable.selectAll()
-            .where { JobsTable.status inList listOf("queued", "running", "post-processing") }
+            .where { JobsTable.status inList listOf("pending", "downloading", "post-processing") }
             .orderBy(JobsTable.createdAt, SortOrder.ASC)
             .map { it.toJob() }
     }
@@ -68,15 +67,18 @@ class JobRepositoryImpl(
                 it[rawInfo] = job.source.toVideoInfoPm(job.metadata)
                 it[metadata] = job.metadata.toPm()
                 it[storagePlan] = job.storagePlan.toPm()
+                it[metadataSource] = job.metadataSource.toDbString()
                 it[progress] = job.phase?.let { phase ->
                     JobProgressPm(phase = phase.toDbString(), percent = job.progress ?: 0)
                 }
                 it[JobsTable.error] = job.errorMessage?.let { msg ->
                     JobErrorPm(code = "ERROR", message = msg)
                 }
-                it[attempt] = 1
+                it[attempt] = job.attempt
                 it[createdByTelegramUserId] = job.createdBy.value
                 it[updatedAt] = job.updatedAt
+                it[startedAt] = job.startedAt
+                it[finishedAt] = job.finishedAt
             }
         } else {
             JobsTable.insert {
@@ -91,9 +93,10 @@ class JobRepositoryImpl(
                 it[rawInfo] = job.source.toVideoInfoPm(job.metadata)
                 it[metadata] = job.metadata.toPm()
                 it[storagePlan] = job.storagePlan.toPm()
+                it[metadataSource] = job.metadataSource.toDbString()
                 it[progress] = null
                 it[JobsTable.error] = null
-                it[attempt] = 1
+                it[attempt] = job.attempt
                 it[createdByTelegramUserId] = job.createdBy.value
             }
         }
@@ -108,20 +111,38 @@ class JobRepositoryImpl(
         errorMessage: String?,
     ): Either<DomainError, Job> = dbQuery(database) {
         val timestamp = now()
-        JobsTable.update({ JobsTable.id eq id.value }) {
-            it[JobsTable.status] = status.toDbString()
-            it[JobsTable.progress] = phase?.let { p ->
-                JobProgressPm(phase = p.toDbString(), percent = progress ?: 0)
+
+        // On retry (PENDING): increment attempt first, then update status
+        if (status == JobStatus.PENDING) {
+            val currentAttempt = JobsTable.selectAll()
+                .where { JobsTable.id eq id.value }
+                .singleOrNull()
+                ?.get(JobsTable.attempt) ?: 0
+            JobsTable.update({ JobsTable.id eq id.value }) {
+                it[JobsTable.attempt] = currentAttempt + 1
+                it[JobsTable.status] = status.toDbString()
+                it[JobsTable.progress] = null
+                it[JobsTable.error] = null
+                it[startedAt] = null
+                it[finishedAt] = null
+                it[updatedAt] = timestamp
             }
-            if (errorMessage != null) {
-                it[JobsTable.error] = JobErrorPm(code = "ERROR", message = errorMessage, retryable = false)
-            }
-            it[updatedAt] = timestamp
-            if (status == JobStatus.DOWNLOADING || status == JobStatus.POST_PROCESSING) {
-                it[startedAt] = timestamp
-            }
-            if (status.isTerminal) {
-                it[finishedAt] = timestamp
+        } else {
+            JobsTable.update({ JobsTable.id eq id.value }) {
+                it[JobsTable.status] = status.toDbString()
+                it[JobsTable.progress] = phase?.let { p ->
+                    JobProgressPm(phase = p.toDbString(), percent = progress ?: 0)
+                }
+                if (errorMessage != null) {
+                    it[JobsTable.error] = JobErrorPm(code = "ERROR", message = errorMessage, retryable = false)
+                }
+                it[updatedAt] = timestamp
+                if (status == JobStatus.DOWNLOADING && phase == JobPhase.DOWNLOAD) {
+                    it[startedAt] = timestamp
+                }
+                if (status.isTerminal) {
+                    it[finishedAt] = timestamp
+                }
             }
         }
         findById(id)?.right() ?: DomainError.JobNotFound(id).left()
@@ -137,14 +158,17 @@ class JobRepositoryImpl(
             extractor = Extractor(this[JobsTable.sourceExtractor]),
         ),
         metadata = this[JobsTable.metadata].toDomain(),
-        metadataSource = MetadataSource.RULE,
+        metadataSource = this[JobsTable.metadataSource].toMetadataSource(),
         storagePlan = this[JobsTable.storagePlan].toDomain(),
         ruleId = this[JobsTable.ruleId]?.value?.let { RuleId(it) },
         status = this[JobsTable.status].toJobStatus(),
         phase = this[JobsTable.progress]?.phase?.toJobPhase(),
         progress = this[JobsTable.progress]?.percent,
         errorMessage = this[JobsTable.error]?.message,
+        attempt = this[JobsTable.attempt],
         createdAt = this[JobsTable.createdAt],
         updatedAt = this[JobsTable.updatedAt],
+        startedAt = this[JobsTable.startedAt],
+        finishedAt = this[JobsTable.finishedAt],
     )
 }

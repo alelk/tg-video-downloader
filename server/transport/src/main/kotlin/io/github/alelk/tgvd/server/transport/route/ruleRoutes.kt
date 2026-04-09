@@ -5,17 +5,17 @@ import io.github.alelk.tgvd.api.contract.resource.ApiV1
 import io.github.alelk.tgvd.api.contract.rule.CreateRuleRequestDto
 import io.github.alelk.tgvd.api.contract.rule.RuleDto
 import io.github.alelk.tgvd.api.contract.rule.RuleListResponseDto
-import io.github.alelk.tgvd.api.mapping.metadata.toDomain
-import io.github.alelk.tgvd.api.mapping.rule.toDomain
+import io.github.alelk.tgvd.api.mapping.rule.toDomainRequest
 import io.github.alelk.tgvd.api.mapping.rule.toDto
-import io.github.alelk.tgvd.api.mapping.storage.toDomain
+import io.github.alelk.tgvd.api.mapping.rule.toUpdateDomain
 import io.github.alelk.tgvd.domain.common.DomainError
 import io.github.alelk.tgvd.domain.common.RuleId
-import io.github.alelk.tgvd.domain.rule.Rule
-import io.github.alelk.tgvd.domain.rule.RuleRepository
+import io.github.alelk.tgvd.domain.rule.*
 import io.github.alelk.tgvd.domain.workspace.WorkspaceRepository
 import io.github.alelk.tgvd.server.transport.auth.parseWorkspaceSlug
+import io.github.alelk.tgvd.server.transport.auth.telegramUser
 import io.github.alelk.tgvd.server.transport.util.parseId
+import io.github.alelk.tgvd.server.transport.util.requireWorkspaceMember
 import io.github.alelk.tgvd.server.transport.util.respondEither
 import io.ktor.http.*
 import io.ktor.server.request.*
@@ -23,90 +23,75 @@ import io.ktor.server.resources.*
 import io.ktor.server.resources.delete
 import io.ktor.server.resources.post
 import io.ktor.server.resources.put
-import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.koin.ktor.ext.inject
-import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 fun Route.ruleRoutes() {
+    val createRule by inject<CreateRuleUseCase>()
+    val updateRule by inject<UpdateRuleUseCase>()
+    val deleteRule by inject<DeleteRuleUseCase>()
     val ruleRepository by inject<RuleRepository>()
     val workspaceRepository by inject<WorkspaceRepository>()
 
     get<ApiV1.Workspaces.ById.Rules> { res ->
-        val result = either<DomainError, RuleListResponseDto> {
+        val user = call.telegramUser
+        val result = either {
             val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
-            val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
-            val rules = ruleRepository.findByWorkspace(ws.id)
-            RuleListResponseDto(items = rules.map { it.toDto() })
+            val ws = workspaceRepository.requireWorkspaceMember(slug, user).bind()
+            RuleListResponseDto(items = ruleRepository.findByWorkspace(ws.id).map { it.toDto() })
         }
         call.respondEither(result)
     }
 
     post<ApiV1.Workspaces.ById.Rules> { res ->
         val request = call.receive<CreateRuleRequestDto>()
-
+        val user = call.telegramUser
         val result = either {
             val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
-            val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
-            val match = request.match.toDomain().bind()
-            val now = Clock.System.now()
-            val rule = Rule(
-                id = RuleId(Uuid.random()),
-                name = request.name,
-                workspaceId = ws.id,
-                match = match,
-                metadataTemplate = request.metadataTemplate.toDomain(),
-                downloadPolicy = request.downloadPolicy.toDomain(),
-                outputs = request.outputs.map { it.toDomain() },
-                enabled = request.enabled,
-                priority = request.priority,
-                createdAt = now,
-                updatedAt = now,
-            )
-            ruleRepository.save(rule).bind()
+            val ws = workspaceRepository.requireWorkspaceMember(slug, user).bind()
+            createRule(request.toDomainRequest(ws.id).bind()).bind()
         }
-
         call.respondEither<RuleDto, _>(result, HttpStatusCode.Created) { it.toDto() }
     }
 
     get<ApiV1.Workspaces.ById.Rules.ById> { res ->
-        val result = either<DomainError, Rule> {
+        val user = call.telegramUser
+        val result = either {
+            val slug = parseWorkspaceSlug(res.parent.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.requireWorkspaceMember(slug, user).bind()
             val ruleId = parseId(res.id, "ruleId", ::RuleId).bind()
-            ruleRepository.findById(ruleId) ?: raise(DomainError.RuleNotFound(ruleId))
+            val rule = ruleRepository.findById(ruleId) ?: raise(DomainError.RuleNotFound(ruleId))
+            if (rule.workspaceId != ws.id) raise(DomainError.RuleNotFound(ruleId))
+            rule
         }
         call.respondEither<RuleDto, _>(result) { it.toDto() }
     }
 
     put<ApiV1.Workspaces.ById.Rules.ById> { res ->
         val request = call.receive<CreateRuleRequestDto>()
-
+        val user = call.telegramUser
         val result = either {
+            val slug = parseWorkspaceSlug(res.parent.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.requireWorkspaceMember(slug, user).bind()
             val ruleId = parseId(res.id, "ruleId", ::RuleId).bind()
             val existing = ruleRepository.findById(ruleId) ?: raise(DomainError.RuleNotFound(ruleId))
-            val match = request.match.toDomain().bind()
-            val updated = existing.copy(
-                name = request.name,
-                match = match,
-                metadataTemplate = request.metadataTemplate.toDomain(),
-                downloadPolicy = request.downloadPolicy.toDomain(),
-                outputs = request.outputs.map { it.toDomain() },
-                enabled = request.enabled,
-                priority = request.priority,
-                updatedAt = Clock.System.now(),
-            )
-            ruleRepository.save(updated).bind()
+            if (existing.workspaceId != ws.id) raise(DomainError.RuleNotFound(ruleId))
+            updateRule(ruleId, request.toUpdateDomain().bind()).bind()
         }
-
         call.respondEither<RuleDto, _>(result) { it.toDto() }
     }
 
     delete<ApiV1.Workspaces.ById.Rules.ById> { res ->
+        val user = call.telegramUser
         val result = either {
+            val slug = parseWorkspaceSlug(res.parent.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.requireWorkspaceMember(slug, user).bind()
             val ruleId = parseId(res.id, "ruleId", ::RuleId).bind()
-            if (!ruleRepository.delete(ruleId)) raise(DomainError.RuleNotFound(ruleId))
+            val existing = ruleRepository.findById(ruleId) ?: raise(DomainError.RuleNotFound(ruleId))
+            if (existing.workspaceId != ws.id) raise(DomainError.RuleNotFound(ruleId))
+            deleteRule(ruleId).bind()
         }
         call.respondEither(result, HttpStatusCode.NoContent)
     }

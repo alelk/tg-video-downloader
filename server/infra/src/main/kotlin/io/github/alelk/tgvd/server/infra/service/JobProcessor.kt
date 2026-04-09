@@ -1,10 +1,12 @@
 package io.github.alelk.tgvd.server.infra.service
 
 import io.github.alelk.tgvd.domain.common.FilePath
+import io.github.alelk.tgvd.domain.job.JobOutput
+import io.github.alelk.tgvd.domain.job.JobOutputRepository
 import io.github.alelk.tgvd.domain.job.JobPhase
 import io.github.alelk.tgvd.domain.job.JobRepository
 import io.github.alelk.tgvd.domain.job.JobStatus
-import io.github.alelk.tgvd.domain.job.VideoDownloader
+import io.github.alelk.tgvd.domain.video.VideoDownloader
 import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.rule.RuleRepository
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
@@ -19,6 +21,7 @@ import kotlinx.coroutines.sync.Semaphore
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
 import io.github.alelk.tgvd.domain.job.Job as DomainJob
 
@@ -31,6 +34,7 @@ private val logger = KotlinLogging.logger {}
  */
 class JobProcessor(
     private val jobRepository: JobRepository,
+    private val jobOutputRepository: JobOutputRepository,
     private val ruleRepository: RuleRepository,
     private val videoDownloader: VideoDownloader,
     private val ffmpegRunner: FfmpegRunner,
@@ -131,6 +135,10 @@ class JobProcessor(
                 outputPath
             }
 
+            // Track all produced output paths for job_outputs table
+            val producedOutputs = mutableListOf<Pair<OutputTarget, FilePath>>()
+            producedOutputs.add(job.storagePlan.original to resolvedPath)
+
             // 6. Process additional outputs (conversions/copies)
             if (job.storagePlan.additional.isNotEmpty()) {
                 jobRepository.updateStatus(job.id, JobStatus.DOWNLOADING, JobPhase.CONVERT, 0)
@@ -149,16 +157,31 @@ class JobProcessor(
                         File(target.path.parent).mkdirs()
                         File(existingOutput.value).copyTo(File(target.path.value), overwrite = true)
                         logger.info { "Copied from identical output '${existingOutput.fileName}' → '${target.path.value}'" }
+                        producedOutputs.add(target to target.path)
                     } else {
                         processAdditionalOutput(job, resolvedPath, target)
                         if (File(target.path.value).exists()) {
                             completedOutputs[key] = target.path
+                            producedOutputs.add(target to target.path)
                         }
                     }
                 }
             }
 
-            // 7. Mark completed
+            // 7. Persist job outputs to DB
+            val now = Clock.System.now()
+            val outputRecords = producedOutputs.map { (target, path) ->
+                JobOutput(
+                    jobId = job.id,
+                    format = target.format.serialized,
+                    path = path,
+                    sizeBytes = File(path.value).takeIf { it.exists() }?.length(),
+                    createdAt = now,
+                )
+            }
+            jobOutputRepository.saveAll(outputRecords)
+
+            // 8. Mark completed
             jobRepository.updateStatus(job.id, JobStatus.COMPLETED, progress = 100)
 
             logger.info { "Job ${job.id.value} completed: ${resolvedPath.value}" +

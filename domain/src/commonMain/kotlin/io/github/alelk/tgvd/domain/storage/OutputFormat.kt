@@ -29,23 +29,31 @@ sealed interface OutputFormat {
 
     companion object {
         fun parse(value: String): OutputFormat {
-            val (kind, ext) = value.split("/", limit = 2).also {
-                require(it.size == 2) { "Invalid OutputFormat: '$value', expected 'kind/extension'" }
-            }
+            val (kind, ext) =
+                value
+                    .split("/", limit = 2)
+                    .also {
+                        require(it.size == 2) { "Invalid OutputFormat: '$value', expected 'kind/extension'" }
+                    }
             return when (kind) {
-                "original" -> OriginalVideo(
-                    MediaContainer.fromExtension(ext) ?: error("Unknown container: $ext")
-                )
-                "video" -> ConvertedVideo(
-                    MediaContainer.fromExtension(ext) ?: error("Unknown container: $ext")
-                )
-                "audio" -> AudioFormat.entries.find { it.extension == ext }
-                    ?.let { Audio(it) }
-                    ?: error("Unknown audio format: $ext")
-                "image" -> ImageFormat.entries.find { it.extension == ext }
-                    ?.let { Thumbnail(it) }
-                    ?: error("Unknown image format: $ext")
-                else -> error("Unknown OutputFormat kind: $kind")
+                "original" ->
+                    OriginalVideo(MediaContainer.fromExtension(ext) ?: error("Unknown container: $ext"))
+
+                "video" ->
+                    ConvertedVideo(MediaContainer.fromExtension(ext) ?: error("Unknown container: $ext"))
+
+                "audio" ->
+                    AudioFormat.entries.find { it.extension == ext }
+                        ?.let { Audio(it) }
+                        ?: error("Unknown audio format: $ext")
+
+                "image" ->
+                    ImageFormat.entries.find { it.extension == ext }
+                        ?.let { Thumbnail(it) }
+                        ?: error("Unknown image format: $ext")
+
+                else ->
+                    error("Unknown OutputFormat kind: $kind")
             }
         }
     }

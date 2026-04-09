@@ -26,10 +26,12 @@ fun Job.toDto(): JobDto = JobDto(
     error = errorMessage?.let {
         JobErrorDto(code = "ERROR", message = it)
     },
-    attempt = 1,
+    attempt = attempt,
     createdBy = createdBy.value.toString(),
     createdAt = createdAt.toString(),
     updatedAt = updatedAt.toString(),
+    startedAt = startedAt?.toString(),
+    finishedAt = finishedAt?.toString(),
 )
 
 

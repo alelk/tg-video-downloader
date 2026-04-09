@@ -8,9 +8,8 @@ import io.github.alelk.tgvd.api.contract.channel.TagListResponseDto
 import io.github.alelk.tgvd.api.contract.channel.UpdateChannelDto
 import io.github.alelk.tgvd.api.contract.resource.ApiV1
 import io.github.alelk.tgvd.api.mapping.channel.toDto
-import io.github.alelk.tgvd.api.mapping.metadata.toDomain
-import io.github.alelk.tgvd.domain.channel.Channel
-import io.github.alelk.tgvd.domain.channel.ChannelRepository
+import io.github.alelk.tgvd.api.mapping.channel.toDomain
+import io.github.alelk.tgvd.domain.channel.*
 import io.github.alelk.tgvd.domain.common.ChannelDirectoryEntryId
 import io.github.alelk.tgvd.domain.common.ChannelId
 import io.github.alelk.tgvd.domain.common.DomainError
@@ -18,7 +17,9 @@ import io.github.alelk.tgvd.domain.common.Extractor
 import io.github.alelk.tgvd.domain.common.Tag
 import io.github.alelk.tgvd.domain.workspace.WorkspaceRepository
 import io.github.alelk.tgvd.server.transport.auth.parseWorkspaceSlug
+import io.github.alelk.tgvd.server.transport.auth.telegramUser
 import io.github.alelk.tgvd.server.transport.util.parseId
+import io.github.alelk.tgvd.server.transport.util.requireWorkspaceMember
 import io.github.alelk.tgvd.server.transport.util.respondEither
 import io.ktor.http.*
 import io.ktor.server.request.*
@@ -28,105 +29,101 @@ import io.ktor.server.resources.post
 import io.ktor.server.resources.put
 import io.ktor.server.routing.*
 import org.koin.ktor.ext.inject
-import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 fun Route.channelRoutes() {
+    val createChannel by inject<CreateChannelUseCase>()
+    val updateChannel by inject<UpdateChannelUseCase>()
+    val deleteChannel by inject<DeleteChannelUseCase>()
     val channelRepository by inject<ChannelRepository>()
     val workspaceRepository by inject<WorkspaceRepository>()
 
-    // GET /api/v1/workspaces/{slug}/channels?tag=...&channelId=...&extractor=...
     get<ApiV1.Workspaces.ById.Channels> { res ->
-        val result = either<DomainError, ChannelListResponseDto> {
+        val user = call.telegramUser
+        val result = either {
             val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
-            val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
-            val channels = when {
-                res.channelId != null && res.extractor != null -> {
-                    val ch = channelRepository.findByChannelId(ws.id, ChannelId(res.channelId!!), Extractor(res.extractor!!))
-                    listOfNotNull(ch)
+            val ws = workspaceRepository.requireWorkspaceMember(slug, user).bind()
+            val channels =
+                when {
+                    res.channelId != null && res.extractor != null ->
+                        listOfNotNull(
+                            channelRepository
+                                .findByChannelId(
+                                    ws.id,
+                                    ChannelId(res.channelId!!),
+                                    Extractor(res.extractor!!)
+                                )
+                        )
+
+                    res.tag != null ->
+                        channelRepository.findByTag(ws.id, Tag(res.tag!!))
+
+                    else ->
+                        channelRepository.findByWorkspace(ws.id)
                 }
-                res.tag != null -> channelRepository.findByTag(ws.id, Tag(res.tag!!))
-                else -> channelRepository.findByWorkspace(ws.id)
-            }
             ChannelListResponseDto(items = channels.map { it.toDto() })
         }
         call.respondEither(result)
     }
 
-    // GET /api/v1/workspaces/{slug}/channels/tags
     get<ApiV1.Workspaces.ById.Channels.Tags> { res ->
-        val result = either<DomainError, TagListResponseDto> {
+        val user = call.telegramUser
+        val result = either {
             val slug = parseWorkspaceSlug(res.parent.parent.workspaceSlug).bind()
-            val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
-            val tags = channelRepository.findAllTags(ws.id)
-            TagListResponseDto(tags = tags.map { it.value }.sorted())
+            val ws = workspaceRepository.requireWorkspaceMember(slug, user).bind()
+            TagListResponseDto(tags = channelRepository.findAllTags(ws.id).map { it.value }.sorted())
         }
         call.respondEither(result)
     }
 
-    // POST /api/v1/workspaces/{slug}/channels
     post<ApiV1.Workspaces.ById.Channels> { res ->
         val request = call.receive<CreateChannelDto>()
-
+        val user = call.telegramUser
         val result = either {
             val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
-            val ws = workspaceRepository.findBySlug(slug) ?: raise(DomainError.WorkspaceNotFoundBySlug(slug))
-            val now = Clock.System.now()
-            val channel = Channel(
-                id = ChannelDirectoryEntryId(Uuid.random()),
-                workspaceId = ws.id,
-                channelId = ChannelId(request.channelId),
-                extractor = Extractor(request.extractor),
-                name = request.name,
-                tags = request.tags.map { Tag(it) }.toSet(),
-                metadataOverrides = request.metadataOverrides?.toDomain(),
-                notes = request.notes,
-                createdAt = now,
-                updatedAt = now,
-            )
-            channelRepository.save(channel).bind()
+            val ws = workspaceRepository.requireWorkspaceMember(slug, user).bind()
+            createChannel(request.toDomain(ws.id)).bind()
         }
-
         call.respondEither<ChannelDto, _>(result, HttpStatusCode.Created) { it.toDto() }
     }
 
-    // GET /api/v1/workspaces/{slug}/channels/{id}
     get<ApiV1.Workspaces.ById.Channels.ById> { res ->
-        val result = either<DomainError, Channel> {
+        val user = call.telegramUser
+        val result = either {
+            val slug = parseWorkspaceSlug(res.parent.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.requireWorkspaceMember(slug, user).bind()
             val channelId = parseId(res.id, "channelId", ::ChannelDirectoryEntryId).bind()
-            channelRepository.findById(channelId) ?: raise(DomainError.ChannelNotFound(channelId))
+            val channel = channelRepository.findById(channelId) ?: raise(DomainError.ChannelNotFound(channelId))
+            if (channel.workspaceId != ws.id) raise(DomainError.ChannelNotFound(channelId))
+            channel
         }
         call.respondEither<ChannelDto, _>(result) { it.toDto() }
     }
 
-    // PUT /api/v1/workspaces/{slug}/channels/{id}
     put<ApiV1.Workspaces.ById.Channels.ById> { res ->
         val request = call.receive<UpdateChannelDto>()
-
+        val user = call.telegramUser
         val result = either {
+            val slug = parseWorkspaceSlug(res.parent.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.requireWorkspaceMember(slug, user).bind()
             val channelId = parseId(res.id, "channelId", ::ChannelDirectoryEntryId).bind()
             val existing = channelRepository.findById(channelId) ?: raise(DomainError.ChannelNotFound(channelId))
-            val newOverrides = request.metadataOverrides?.toDomain()
-            val updated = existing.copy(
-                name = request.name ?: existing.name,
-                tags = request.tags?.map { Tag(it) }?.toSet() ?: existing.tags,
-                metadataOverrides = newOverrides ?: existing.metadataOverrides,
-                notes = request.notes ?: existing.notes,
-                updatedAt = Clock.System.now(),
-            )
-            channelRepository.save(updated).bind()
+            if (existing.workspaceId != ws.id) raise(DomainError.ChannelNotFound(channelId))
+            updateChannel(channelId, request.toDomain()).bind()
         }
-
         call.respondEither<ChannelDto, _>(result) { it.toDto() }
     }
 
-    // DELETE /api/v1/workspaces/{slug}/channels/{id}
     delete<ApiV1.Workspaces.ById.Channels.ById> { res ->
+        val user = call.telegramUser
         val result = either {
+            val slug = parseWorkspaceSlug(res.parent.parent.workspaceSlug).bind()
+            val ws = workspaceRepository.requireWorkspaceMember(slug, user).bind()
             val channelId = parseId(res.id, "channelId", ::ChannelDirectoryEntryId).bind()
-            if (!channelRepository.delete(channelId)) raise(DomainError.ChannelNotFound(channelId))
+            val existing = channelRepository.findById(channelId) ?: raise(DomainError.ChannelNotFound(channelId))
+            if (existing.workspaceId != ws.id) raise(DomainError.ChannelNotFound(channelId))
+            deleteChannel(channelId).bind()
         }
         call.respondEither(result, HttpStatusCode.NoContent)
     }
