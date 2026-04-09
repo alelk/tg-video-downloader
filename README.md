@@ -1,6 +1,8 @@
 # TG Video Downloader
 
-> **Version**: 0.1.0-SNAPSHOT | **Status**: In Development (MVP)
+> **Status**: In Development (MVP)
+
+[![GitHub Release](https://img.shields.io/github/v/release/alelk/tg-video-downloader?include_prereleases&label=version&color=blue)](https://github.com/alelk/tg-video-downloader/releases/latest)
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.3%2B-7F52FF?logo=kotlin)](https://kotlinlang.org)
 [![Ktor](https://img.shields.io/badge/Ktor-3.x-087CFA?logo=ktor)](https://ktor.io)
@@ -16,8 +18,8 @@ A self-hosted service for downloading videos from YouTube, RuTube, VK Video, and
 
 <div align="center">
 
-| URL Input | Metadata Preview | Job Queue |
-|:---:|:---:|:---:|
+|                             URL Input                             |                               Metadata Preview                               |                          Job Queue                           |
+|:-----------------------------------------------------------------:|:----------------------------------------------------------------------------:|:------------------------------------------------------------:|
 | <img src="docs/img/01-url-input.png" width="220" alt="URL Input"> | <img src="docs/img/03-preview-metadata-music.png" width="220" alt="Preview"> | <img src="docs/img/06-jobs-list.png" width="220" alt="Jobs"> |
 
 </div>
