@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.25.0](https://github.com/alelk/tg-video-downloader/compare/v1.24.0...v1.25.0) (2026-04-09)
+
+
+### Features
+
+* code refactoring; fix issues; update db schema ([d7d3ebc](https://github.com/alelk/tg-video-downloader/commit/d7d3ebc87ae0fd9d413f7f28d49c9afb5dc299bd))
+
 # [1.24.0](https://github.com/alelk/tg-video-downloader/compare/v1.23.0...v1.24.0) (2026-03-25)
 
 
