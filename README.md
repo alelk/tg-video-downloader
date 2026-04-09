@@ -16,7 +16,7 @@ A self-hosted service for downloading videos from YouTube, RuTube, VK Video, and
 
 <div align="center">
 
-| Ввод URL | Preview метаданных | Список заданий |
+| URL Input | Metadata Preview | Job Queue |
 |:---:|:---:|:---:|
 | <img src="docs/img/01-url-input.png" width="220" alt="URL Input"> | <img src="docs/img/03-preview-metadata-music.png" width="220" alt="Preview"> | <img src="docs/img/06-jobs-list.png" width="220" alt="Jobs"> |
 
@@ -229,18 +229,6 @@ https://t.me/<bot_username>/<mini_app_short_name>?startapp=<base64url(video_url)
 ```
 
 The `tgminiapp` automatically reads `start_param` / `tgWebAppStartParam` and pre-fills the Video URL field.
-
----
-
-## ✅ MVP Definition of Done
-
-- [ ] Preview: URL → metadata + storage plan
-- [ ] Create job: confirm/edit metadata → enqueue
-- [ ] Job execution: download → post-processing → final file paths
-- [ ] Progress: job statuses displayed via polling
-- [ ] Rules CRUD: create/edit/delete rules
-- [ ] Auth: Telegram initData + user allowlist
-- [ ] Tests: unit + integration for critical paths
 
 ---
 
