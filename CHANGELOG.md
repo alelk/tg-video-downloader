@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.26.0](https://github.com/alelk/tg-video-downloader/compare/v1.25.0...v1.26.0) (2026-04-12)
+
+
+### Features
+
+* add legacy server connect and certificate check options for yt-dlp configuration ([d22ff4d](https://github.com/alelk/tg-video-downloader/commit/d22ff4dff0f22ae8c28d7cd006e8503f2ae9b6ea))
+
 # [1.25.0](https://github.com/alelk/tg-video-downloader/compare/v1.24.0...v1.25.0) (2026-04-09)
 
 
