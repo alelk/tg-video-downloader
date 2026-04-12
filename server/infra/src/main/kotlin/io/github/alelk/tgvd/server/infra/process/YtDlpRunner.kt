@@ -11,6 +11,7 @@ import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.github.alelk.tgvd.domain.video.VideoInfoExtractor
 import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
+import io.github.alelk.tgvd.server.infra.config.YtDlpExtractorOverride
 import io.github.alelk.tgvd.server.infra.service.SystemSettingsHolder
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
@@ -54,6 +55,39 @@ class YtDlpRunner(
     private fun MutableList<String>.addCookiesArgs() {
         config.cookiesFromBrowser?.takeIf { it.isNotBlank() }?.let { add("--cookies-from-browser"); add(it) }
         config.cookiesFile?.takeIf { it.isNotBlank() }?.let { add("--cookies"); add(it) }
+    }
+
+    /**
+     * Resolve the per-extractor override for the given URL.
+     * Matches by checking whether the URL contains any key from [YtDlpConfig.extractorOverrides]
+     * as a substring (case-insensitive). Returns the first match, or null if none.
+     */
+    private fun resolveOverride(url: String): YtDlpExtractorOverride? =
+        config.extractorOverrides.entries
+            .firstOrNull { (key, _) -> url.contains(key, ignoreCase = true) }
+            ?.value
+
+    /** Effective SSL flags for the given URL (global merged with per-extractor override). */
+    private fun effectiveLegacyServerConnect(url: String): Boolean =
+        resolveOverride(url)?.legacyServerConnect ?: config.legacyServerConnect
+
+    private fun effectiveNoCheckCertificate(url: String): Boolean =
+        resolveOverride(url)?.noCheckCertificate ?: config.noCheckCertificate
+
+    /** Effective proxy URL for the given URL (respects per-extractor proxyEnabled override). */
+    private fun effectiveProxyUrl(url: String): String? {
+        val override = resolveOverride(url)
+        return when (override?.proxyEnabled) {
+            false -> null  // explicitly disabled for this extractor
+            true  -> proxyConfig.copy(enabled = true).toUrl()
+            null  -> proxyConfig.toUrl()  // inherit global setting
+        }
+    }
+
+    /** Append SSL workaround arguments for the given URL. */
+    private fun MutableList<String>.addSslArgs(url: String) {
+        if (effectiveLegacyServerConnect(url)) add("--legacy-server-connect")
+        if (effectiveNoCheckCertificate(url)) add("--no-check-certificate")
     }
 
     /**
@@ -116,7 +150,8 @@ class YtDlpRunner(
                 add("--no-download")
                 add("--no-playlist")
                 addCookiesArgs()
-                proxyConfig.toUrl()?.let { add("--proxy"); add(it) }
+                addSslArgs(url)
+                effectiveProxyUrl(url)?.let { add("--proxy"); add(it) }
                 add(url)
             }
 
@@ -181,10 +216,11 @@ class YtDlpRunner(
                 add("--fragment-retries"); add(config.fragmentRetries.toString())
                 add("--no-playlist")
                 addCookiesArgs()
+                addSslArgs(url.value)
                 addFormatArgs(policy.maxQuality)
                 addResilienceArgs()
                 policy.preferredContainer?.let { add("--merge-output-format"); add(it.extension) }
-                proxyConfig.toUrl()?.let { add("--proxy"); add(it) }
+                effectiveProxyUrl(url.value)?.let { add("--proxy"); add(it) }
 
                 add(url.value)
             }
@@ -229,6 +265,7 @@ class YtDlpRunner(
             add("--fragment-retries"); add(config.fragmentRetries.toString())
             add("--no-playlist")
             addCookiesArgs()
+            addSslArgs(url.value)
             addFormatArgs(policy.maxQuality)
             addResilienceArgs()
             policy.preferredContainer?.let { add("--merge-output-format"); add(it.extension) }
@@ -236,7 +273,7 @@ class YtDlpRunner(
             if (policy.writeThumbnail) {
                 add("--write-thumbnail")
             }
-            proxyConfig.toUrl()?.let { add("--proxy"); add(it) }
+            effectiveProxyUrl(url.value)?.let { add("--proxy"); add(it) }
             add(url.value)
         }
 

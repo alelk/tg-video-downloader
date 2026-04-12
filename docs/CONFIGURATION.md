@@ -65,6 +65,8 @@ ytDlp:
   allowUpdate: true                    # allow update via UI
   updateChannel: "stable"              # stable | nightly
   autoDownload: true                   # automatically download yt-dlp on startup if binary not found
+  legacyServerConnect: false           # --legacy-server-connect: workaround for SSL EOF errors (e.g. RuTube)
+  noCheckCertificate: false            # --no-check-certificate: disable TLS validation (use with caution!)
 
 # ffmpeg
 ffmpeg:
@@ -165,6 +167,10 @@ data class YtDlpConfig(
     val fragmentRetries: Int = 10,
     val allowUpdate: Boolean = true,
     val updateChannel: String = "stable",
+    /** --legacy-server-connect: workaround for SSL EOF errors (e.g. RuTube) */
+    val legacyServerConnect: Boolean = false,
+    /** --no-check-certificate: disable TLS validation (use with caution!) */
+    val noCheckCertificate: Boolean = false,
 )
 
 data class FfmpegConfig(
@@ -259,6 +265,8 @@ Hoplite automatically maps environment variables:
 | `TELEGRAM_BOT_MINI_APP_BUTTON_TEXT`             | `telegram.miniAppAutoReply.buttonText`            |
 | `TELEGRAM_BOT_MINI_APP_REPLY_TEXT`              | `telegram.miniAppAutoReply.replyText`             |
 | `TELEGRAM_BOT_MINI_APP_POLLING_TIMEOUT_SECONDS` | `telegram.miniAppAutoReply.pollingTimeoutSeconds` |
+| `YTDLP_LEGACY_SERVER_CONNECT`                   | `ytDlp.legacyServerConnect`                       |
+| `YTDLP_NO_CHECK_CERTIFICATE`                    | `ytDlp.noCheckCertificate`                        |
 
 ---
 

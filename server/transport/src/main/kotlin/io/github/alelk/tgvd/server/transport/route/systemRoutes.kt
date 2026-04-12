@@ -4,6 +4,7 @@ import io.github.alelk.tgvd.api.contract.resource.ApiV1
 import io.github.alelk.tgvd.api.contract.system.*
 import io.github.alelk.tgvd.domain.system.YtDlpService
 import io.github.alelk.tgvd.server.infra.config.ProxyConfig
+import io.github.alelk.tgvd.server.infra.config.YtDlpExtractorOverride
 import io.github.alelk.tgvd.server.infra.service.SystemSettingsHolder
 import io.github.alelk.tgvd.server.transport.error.apiError
 import io.github.alelk.tgvd.server.transport.util.correlationId
@@ -31,6 +32,15 @@ fun Route.systemRoutes() {
                 ytDlp = YtDlpSettingsDto(
                     cookiesFromBrowser = ytDlpConfig.cookiesFromBrowser,
                     cookiesFile = ytDlpConfig.cookiesFile,
+                    legacyServerConnect = ytDlpConfig.legacyServerConnect,
+                    noCheckCertificate = ytDlpConfig.noCheckCertificate,
+                    extractorOverrides = ytDlpConfig.extractorOverrides.mapValues { (_, v) ->
+                        YtDlpExtractorOverrideDto(
+                            legacyServerConnect = v.legacyServerConnect,
+                            noCheckCertificate = v.noCheckCertificate,
+                            proxyEnabled = v.proxyEnabled,
+                        )
+                    },
                 ),
                 proxy = ProxySettingsDto(
                     enabled = proxyConfig.enabled,
@@ -51,6 +61,15 @@ fun Route.systemRoutes() {
             current.copy(
                 cookiesFromBrowser = request.ytDlp.cookiesFromBrowser,
                 cookiesFile = request.ytDlp.cookiesFile,
+                legacyServerConnect = request.ytDlp.legacyServerConnect,
+                noCheckCertificate = request.ytDlp.noCheckCertificate,
+                extractorOverrides = request.ytDlp.extractorOverrides.mapValues { (_, v) ->
+                    YtDlpExtractorOverride(
+                        legacyServerConnect = v.legacyServerConnect,
+                        noCheckCertificate = v.noCheckCertificate,
+                        proxyEnabled = v.proxyEnabled,
+                    )
+                },
             )
         }
 

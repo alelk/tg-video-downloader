@@ -27,7 +27,7 @@ class SystemSettingsHolder(
         val old = ytDlpRef.get()
         val new = update(old)
         ytDlpRef.set(new)
-        logger.info { "YtDlpConfig updated: cookiesFromBrowser=${new.cookiesFromBrowser}, cookiesFile=${new.cookiesFile}" }
+        logger.info { "YtDlpConfig updated: cookiesFromBrowser=${new.cookiesFromBrowser}, cookiesFile=${new.cookiesFile}, legacyServerConnect=${new.legacyServerConnect}, noCheckCertificate=${new.noCheckCertificate}" }
     }
 
     fun updateProxyConfig(update: (ProxyConfig) -> ProxyConfig) {
