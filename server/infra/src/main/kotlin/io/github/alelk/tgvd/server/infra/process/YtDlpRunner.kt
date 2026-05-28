@@ -149,29 +149,60 @@ class YtDlpRunner(
             DownloadPolicy.VideoQuality.HD_720 -> 720
             DownloadPolicy.VideoQuality.SD_480 -> 480
         }
-
-        val videoFormats = formats.filter { it.vcodec != null && it.vcodec != "none" }
-        val audioFormats = formats.filter { (it.acodec != null && it.acodec != "none") && (it.vcodec == null || it.vcodec == "none") }
-
-        val bestVideo = videoFormats
-            .filter { (it.height ?: 0) <= maxRes }
-            .sortedWith(
-                compareByDescending<VideoInfo.Format> { it.height ?: 0 }
-                    .thenByDescending { it.width ?: 0 }
-                    .thenByDescending { it.tbr ?: 0.0 }
-                    .thenByDescending { it.fps ?: 0.0 }
-            ).firstOrNull() ?: videoFormats.minByOrNull { it.height ?: 0 }
-
-        val bestAudio = audioFormats.sortedWith(
-            compareByDescending<VideoInfo.Format> { it.tbr ?: 0.0 }
-        ).firstOrNull()
-
-        return when {
-            bestVideo != null && bestAudio != null -> "${bestVideo.formatId}+${bestAudio.formatId}"
-            bestVideo != null -> bestVideo.formatId
-            bestAudio != null -> bestAudio.formatId
-            else -> null
+        // Classify formats into video-only, audio-only and combined (have both codecs)
+        val videoOnly = formats.filter {
+            (it.vcodec != null && it.vcodec != "none") && (it.acodec == null || it.acodec == "none")
         }
+        val audioOnly = formats.filter {
+            (it.acodec != null && it.acodec != "none") && (it.vcodec == null || it.vcodec == "none")
+        }
+        val combined = formats.filter {
+            (it.vcodec != null && it.vcodec != "none") && (it.acodec != null && it.acodec != "none")
+        }
+
+        val sortVideoComparator = compareByDescending<VideoInfo.Format> { it.height ?: 0 }
+            .thenByDescending { it.width ?: 0 }
+            .thenByDescending { it.tbr ?: 0.0 }
+            .thenByDescending { it.fps ?: 0.0 }
+
+        val bestVideoOnly = videoOnly
+            .filter { (it.height ?: 0) <= maxRes }
+            .sortedWith(sortVideoComparator)
+            .firstOrNull() ?: videoOnly.minByOrNull { it.height ?: 0 }
+
+        val bestAudioOnly = audioOnly
+            .sortedWith(compareByDescending<VideoInfo.Format> { it.tbr ?: 0.0 })
+            .firstOrNull()
+
+        // Prefer combining best video-only + best audio-only if both available
+        if (bestVideoOnly != null && bestAudioOnly != null) {
+            logger.debug { "resolveBestFormatId: selected video-only=${bestVideoOnly.formatId}(${bestVideoOnly.width}x${bestVideoOnly.height}) + audio-only=${bestAudioOnly.formatId} (tbr=${bestAudioOnly.tbr})" }
+            return "${bestVideoOnly.formatId}+${bestAudioOnly.formatId}"
+        }
+
+        // Fallback to best combined format
+        val bestCombined = combined
+            .filter { (it.height ?: 0) <= maxRes }
+            .sortedWith(sortVideoComparator)
+            .firstOrNull() ?: combined.minByOrNull { it.height ?: 0 }
+
+        if (bestCombined != null) {
+            logger.debug { "resolveBestFormatId: selected combined=${bestCombined.formatId}(${bestCombined.width}x${bestCombined.height})" }
+            return bestCombined.formatId
+        }
+
+        // As last resort, return video-only or audio-only single format
+        if (bestVideoOnly != null) {
+            logger.debug { "resolveBestFormatId: selected video-only=${bestVideoOnly.formatId}(${bestVideoOnly.width}x${bestVideoOnly.height})" }
+            return bestVideoOnly.formatId
+        }
+        if (bestAudioOnly != null) {
+            logger.debug { "resolveBestFormatId: selected audio-only=${bestAudioOnly.formatId} (tbr=${bestAudioOnly.tbr})" }
+            return bestAudioOnly.formatId
+        }
+
+        logger.debug { "resolveBestFormatId: no suitable formats found" }
+        return null
     }
 
     /** Append retry/resilience arguments for robust downloads on slow/unstable networks. */
