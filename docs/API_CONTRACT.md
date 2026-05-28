@@ -770,6 +770,22 @@ data class VideoInfoDto(
     val webpageUrl: String,
     val thumbnails: List<ThumbnailDto> = emptyList(),
     val description: String? = null,
+    val availableFormats: List<VideoFormatDto> = emptyList(),
+)
+
+@Serializable
+data class VideoFormatDto(
+    val formatId: String,
+    val extension: String,
+    val width: Int? = null,
+    val height: Int? = null,
+    val fps: Double? = null,
+    val tbr: Double? = null,
+    val vcodec: String? = null,
+    val acodec: String? = null,
+    val formatNote: String? = null,
+    val filesize: Long? = null,
+    val filesizeApprox: Long? = null,
 )
 
 @Serializable

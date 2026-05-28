@@ -58,6 +58,19 @@ class VideoInfoCacheImpl(
         }
     }
 
+    override suspend fun updateActualFormat(url: String, actualFormat: VideoInfo.Format): Unit = dbQuery(database) {
+        val entry = VideoInfoCacheTable.selectAll().where { VideoInfoCacheTable.url eq url }.singleOrNull()
+        if (entry != null) {
+            val videoInfo = entry[VideoInfoCacheTable.videoInfo].toDomain()
+            val updated = videoInfo.copy(actualFormat = actualFormat)
+            VideoInfoCacheTable.upsert {
+                it[VideoInfoCacheTable.url] = url
+                it[VideoInfoCacheTable.videoInfo] = updated.toPm()
+                it[VideoInfoCacheTable.expiresAt] = entry[VideoInfoCacheTable.expiresAt]
+            }
+        }
+    }
+
     /** Deletes all expired cache entries. Call periodically (e.g. from a scheduled job). */
     suspend fun evictExpired(): Int = dbQuery(database) {
         val now = now()

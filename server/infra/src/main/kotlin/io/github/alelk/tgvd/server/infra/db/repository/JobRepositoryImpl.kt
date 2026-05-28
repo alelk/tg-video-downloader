@@ -64,7 +64,7 @@ class JobRepositoryImpl(
                 it[sourceExtractor] = job.source.extractor.value
                 it[ruleId] = job.ruleId?.value
                 it[category] = job.metadata.categoryDbString()
-                it[rawInfo] = job.source.toVideoInfoPm(job.metadata)
+                it[rawInfo] = job.videoInfo?.toPm() ?: job.source.toVideoInfoPm(job.metadata)
                 it[metadata] = job.metadata.toPm()
                 it[storagePlan] = job.storagePlan.toPm()
                 it[metadataSource] = job.metadataSource.toDbString()
@@ -90,7 +90,7 @@ class JobRepositoryImpl(
                 it[sourceExtractor] = job.source.extractor.value
                 it[ruleId] = job.ruleId?.value
                 it[category] = job.metadata.categoryDbString()
-                it[rawInfo] = job.source.toVideoInfoPm(job.metadata)
+                it[rawInfo] = job.videoInfo?.toPm() ?: job.source.toVideoInfoPm(job.metadata)
                 it[metadata] = job.metadata.toPm()
                 it[storagePlan] = job.storagePlan.toPm()
                 it[metadataSource] = job.metadataSource.toDbString()
@@ -158,6 +158,7 @@ class JobRepositoryImpl(
             extractor = Extractor(this[JobsTable.sourceExtractor]),
         ),
         metadata = this[JobsTable.metadata].toDomain(),
+        videoInfo = this[JobsTable.rawInfo].toDomain(),
         metadataSource = this[JobsTable.metadataSource].toMetadataSource(),
         storagePlan = this[JobsTable.storagePlan].toDomain(),
         ruleId = this[JobsTable.ruleId]?.value?.let { RuleId(it) },

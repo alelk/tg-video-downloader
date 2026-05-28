@@ -1,6 +1,7 @@
 package io.github.alelk.tgvd.api.mapping.video
 
 import io.github.alelk.tgvd.api.contract.video.ThumbnailDto
+import io.github.alelk.tgvd.api.contract.video.VideoFormatDto
 import io.github.alelk.tgvd.api.contract.video.VideoInfoDto
 import io.github.alelk.tgvd.api.contract.video.VideoSourceDto
 import io.github.alelk.tgvd.domain.video.VideoInfo
@@ -21,5 +22,35 @@ fun VideoInfo.toDto(): VideoInfoDto =
         webpageUrl = webpageUrl.value,
         thumbnails = thumbnails.map { ThumbnailDto(it.url.value, it.width, it.height) },
         description = description,
+        availableFormats = availableFormats.map {
+            VideoFormatDto(
+                formatId = it.formatId,
+                extension = it.extension,
+                width = it.width,
+                height = it.height,
+                fps = it.fps,
+                tbr = it.tbr,
+                vcodec = it.vcodec,
+                acodec = it.acodec,
+                formatNote = it.formatNote,
+                filesize = it.filesize,
+                filesizeApprox = it.filesizeApprox,
+            )
+        },
+        actualFormat = actualFormat?.let {
+            VideoFormatDto(
+                formatId = it.formatId,
+                extension = it.extension,
+                width = it.width,
+                height = it.height,
+                fps = it.fps,
+                tbr = it.tbr,
+                vcodec = it.vcodec,
+                acodec = it.acodec,
+                formatNote = it.formatNote,
+                filesize = it.filesize,
+                filesizeApprox = it.filesizeApprox,
+            )
+        }
     )
 

@@ -106,8 +106,18 @@ private fun JobCard(job: JobDto, client: TgVideoDownloaderClient, onRefresh: () 
 
             Spacer(modifier = Modifier.height(4.dp))
 
+            val actualQualityLabel = job.videoInfo.actualFormat?.let { format ->
+                val res = if (format.width != null && format.height != null) "${format.height}p" else null
+                val codec = format.vcodec?.split(".")?.firstOrNull()?.replace("avc1", "H264")?.replace("vp09", "VP9")?.replace("hvc1", "H265")?.uppercase()
+                listOfNotNull(res, codec).joinToString(" ")
+            }
+
             Text(
-                text = "${categoryLabel(job.category)} • ${job.source.extractor}",
+                text = listOfNotNull(
+                    categoryLabel(job.category),
+                    job.source.extractor,
+                    actualQualityLabel?.let { if (it.isNotBlank()) "[$it]" else null }
+                ).joinToString(" • "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

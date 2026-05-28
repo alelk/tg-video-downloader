@@ -6,7 +6,11 @@ import io.github.alelk.tgvd.domain.job.JobOutputRepository
 import io.github.alelk.tgvd.domain.job.JobPhase
 import io.github.alelk.tgvd.domain.job.JobRepository
 import io.github.alelk.tgvd.domain.job.JobStatus
+import io.github.alelk.tgvd.domain.video.DownloadEvent
+import io.github.alelk.tgvd.domain.video.DownloadProgress
 import io.github.alelk.tgvd.domain.video.VideoDownloader
+import io.github.alelk.tgvd.domain.video.VideoInfo
+import io.github.alelk.tgvd.domain.video.VideoInfoCache
 import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.rule.RuleRepository
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
@@ -37,6 +41,7 @@ class JobProcessor(
     private val jobOutputRepository: JobOutputRepository,
     private val ruleRepository: RuleRepository,
     private val videoDownloader: VideoDownloader,
+    private val videoInfoCache: VideoInfoCache,
     private val ffmpegRunner: FfmpegRunner,
     private val config: JobsConfig,
 ) {
@@ -99,15 +104,37 @@ class JobProcessor(
             val outputPath = job.storagePlan.original.path
             File(outputPath.parent).mkdirs()
 
-            // 4. Download with progress tracking
-            videoDownloader.downloadWithProgress(job.source.url, outputPath, downloadPolicy)
-                .collect { progress ->
-                    jobRepository.updateStatus(
-                        id = job.id,
-                        status = JobStatus.DOWNLOADING,
-                        phase = JobPhase.DOWNLOAD,
-                        progress = progress.percent,
-                    )
+            // 4. Try to get VideoInfo from cache for better format selection
+            val videoInfo = videoInfoCache.get(job.source.url.value)
+            if (videoInfo == null) {
+                logger.warn { "VideoInfo not found in cache for ${job.source.url.value}. Download might use generic format selection." }
+            }
+
+            // 5. Download with progress tracking
+            videoDownloader.downloadWithProgress(job.source.url, outputPath, downloadPolicy, videoInfo)
+                .collect { event ->
+                    when (event) {
+                        is DownloadEvent.Progress -> {
+                            jobRepository.updateStatus(
+                                id = job.id,
+                                status = JobStatus.DOWNLOADING,
+                                phase = JobPhase.DOWNLOAD,
+                                progress = event.progress.percent,
+                            )
+                        }
+                        is DownloadEvent.Completed -> {
+                            event.actualFormat?.let { format ->
+                                logger.info { "Download completed for job ${job.id.value}. Actual format: ${format.formatId} (${format.width ?: "?"}x${format.height ?: "?"})" }
+                                videoInfoCache.updateActualFormat(job.source.url.value, format)
+                                
+                                // Update current job's videoInfo as well
+                                val currentVideoInfo = videoInfoCache.get(job.source.url.value)
+                                if (currentVideoInfo != null) {
+                                    jobRepository.save(job.copy(videoInfo = currentVideoInfo))
+                                }
+                            }
+                        }
+                    }
                 }
 
             // 5. Resolve actual file (yt-dlp may add format suffixes like .f313.webm)

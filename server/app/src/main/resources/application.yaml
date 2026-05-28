@@ -18,6 +18,7 @@ telegram:
       - "youtube\\.com|youtu\\.be"
       - "rutube\\.ru"
       - "vk\\.com/video"
+      - "instagram\\.com"
     pollingTimeoutSeconds: ${TELEGRAM_BOT_MINI_APP_POLLING_TIMEOUT_SECONDS:-60}
 
 db:
@@ -42,15 +43,6 @@ ytDlp:
   autoDownload: true
   cookiesFromBrowser: "${YTDLP_COOKIES_FROM_BROWSER:-}"
   cookiesFile: "${YTDLP_COOKIES_FILE:-}"
-  legacyServerConnect: ${YTDLP_LEGACY_SERVER_CONNECT:-false}
-  noCheckCertificate: ${YTDLP_NO_CHECK_CERTIFICATE:-false}
-  # Per-extractor overrides. Each key = extractor name (substring of URL, case-insensitive).
-  # Fields left out (or null) inherit the global value above.
-  # Example: connect to RuTube without proxy and with --legacy-server-connect:
-  # extractorOverrides:
-  #   rutube:
-  #     legacyServerConnect: true
-  #     proxyEnabled: false
 
 ffmpeg:
   path: "ffmpeg"

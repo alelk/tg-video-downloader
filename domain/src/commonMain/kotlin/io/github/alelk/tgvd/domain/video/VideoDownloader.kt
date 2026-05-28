@@ -12,13 +12,20 @@ interface VideoDownloader {
         url: Url,
         outputPath: FilePath,
         policy: DownloadPolicy,
+        videoInfo: VideoInfo? = null,
     ): Either<DomainError, FilePath>
 
     fun downloadWithProgress(
         url: Url,
         outputPath: FilePath,
         policy: DownloadPolicy,
-    ): Flow<DownloadProgress>
+        videoInfo: VideoInfo? = null,
+    ): Flow<DownloadEvent>
+}
+
+sealed class DownloadEvent {
+    data class Progress(val progress: DownloadProgress) : DownloadEvent()
+    data class Completed(val actualFormat: VideoInfo.Format?) : DownloadEvent()
 }
 
 data class DownloadProgress(

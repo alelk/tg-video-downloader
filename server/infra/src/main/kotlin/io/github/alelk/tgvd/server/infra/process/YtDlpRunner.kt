@@ -4,6 +4,7 @@ import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
 import io.github.alelk.tgvd.domain.common.*
+import io.github.alelk.tgvd.domain.video.DownloadEvent
 import io.github.alelk.tgvd.domain.video.DownloadProgress
 import io.github.alelk.tgvd.domain.video.VideoDownloader
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
@@ -94,31 +95,39 @@ class YtDlpRunner(
      * Format selector for a given quality.
      *
      * Strategy:
-     * 1. Use `bestvideo*+bestaudio/bestvideo*` as format selector — this selects
-     *    the best video stream (with or without audio) merged with the best audio stream.
-     *    The fallback `bestvideo*` (without separate audio) is used only when no audio
-     *    stream is available (e.g. some extractors).
-     * 2. IMPORTANT: We intentionally do NOT fall back to `best` (muxed format).
-     *    YouTube and similar sites serve muxed progressive formats only in low quality
-     *    (typically 360p/480p). When the network is slow/unstable, yt-dlp might fail
-     *    to download DASH fragments and silently fall back to `best`, resulting in
-     *    very poor quality. It is better to fail and retry than to silently download 360p.
-     * 3. Use `-S` (--format-sort) to control maximum resolution:
-     *    - `res:1080` means "prefer formats closest to 1080p but not higher"
-     * 4. The `*` suffix on `bestvideo*` allows formats that contain both video and audio
-     *    (e.g. AV1/VP9 adaptive formats).
+     * 1. If [videoInfo] is provided, try to pre-select best video and audio format IDs
+     *    manually from [VideoInfo.availableFormats] to ensure the highest quality is used.
+     * 2. Otherwise, use `bestvideo*+bestaudio/bestvideo*` as format selector.
+     * 3. IMPORTANT: We use `-S` (--format-sort) to ensure resolution is prioritized.
      */
-    private fun MutableList<String>.addFormatArgs(quality: DownloadPolicy.VideoQuality) {
-        // Select best video + best audio; fallback to bestvideo* (no audio) — never to low-quality muxed 'best'
-        add("-f"); add("bestvideo*+bestaudio/bestvideo*")
+    private fun MutableList<String>.addFormatArgs(
+        quality: DownloadPolicy.VideoQuality,
+        videoInfo: VideoInfo? = null,
+    ) {
+        val formats = videoInfo?.availableFormats
+        if (formats != null && formats.isNotEmpty()) {
+            val bestFormatId = resolveBestFormatId(formats, quality)
+            if (bestFormatId != null) {
+                add("-f"); add(bestFormatId)
+                // We still add -S for safety, but with specific format ID it's less critical
+                add("-S"); add(when (quality) {
+                    DownloadPolicy.VideoQuality.BEST -> "res,tbr,fps"
+                    DownloadPolicy.VideoQuality.HD_1080 -> "res:1080,tbr,fps"
+                    DownloadPolicy.VideoQuality.HD_720 -> "res:720,tbr,fps"
+                    DownloadPolicy.VideoQuality.SD_480 -> "res:480,tbr,fps"
+                })
+                return
+            }
+        }
 
+        // Fallback to general strategy
+        add("-f"); add("bestvideo*+bestaudio/bestvideo*")
+        add("--check-formats")
         when (quality) {
             DownloadPolicy.VideoQuality.BEST -> {
-                // No resolution cap — just pick the highest quality available
                 add("-S"); add("res,tbr,fps")
             }
             DownloadPolicy.VideoQuality.HD_1080 -> {
-                // Cap at 1080p — yt-dlp will pick the closest resolution ≤1080
                 add("-S"); add("res:1080,tbr,fps")
             }
             DownloadPolicy.VideoQuality.HD_720 -> {
@@ -127,6 +136,41 @@ class YtDlpRunner(
             DownloadPolicy.VideoQuality.SD_480 -> {
                 add("-S"); add("res:480,tbr,fps")
             }
+        }
+    }
+
+    internal fun resolveBestFormatId(
+        formats: List<VideoInfo.Format>,
+        quality: DownloadPolicy.VideoQuality,
+    ): String? {
+        val maxRes = when (quality) {
+            DownloadPolicy.VideoQuality.BEST -> Int.MAX_VALUE
+            DownloadPolicy.VideoQuality.HD_1080 -> 1080
+            DownloadPolicy.VideoQuality.HD_720 -> 720
+            DownloadPolicy.VideoQuality.SD_480 -> 480
+        }
+
+        val videoFormats = formats.filter { it.vcodec != null && it.vcodec != "none" }
+        val audioFormats = formats.filter { (it.acodec != null && it.acodec != "none") && (it.vcodec == null || it.vcodec == "none") }
+
+        val bestVideo = videoFormats
+            .filter { (it.height ?: 0) <= maxRes }
+            .sortedWith(
+                compareByDescending<VideoInfo.Format> { it.height ?: 0 }
+                    .thenByDescending { it.width ?: 0 }
+                    .thenByDescending { it.tbr ?: 0.0 }
+                    .thenByDescending { it.fps ?: 0.0 }
+            ).firstOrNull() ?: videoFormats.minByOrNull { it.height ?: 0 }
+
+        val bestAudio = audioFormats.sortedWith(
+            compareByDescending<VideoInfo.Format> { it.tbr ?: 0.0 }
+        ).firstOrNull()
+
+        return when {
+            bestVideo != null && bestAudio != null -> "${bestVideo.formatId}+${bestAudio.formatId}"
+            bestVideo != null -> bestVideo.formatId
+            bestAudio != null -> bestAudio.formatId
+            else -> null
         }
     }
 
@@ -140,6 +184,8 @@ class YtDlpRunner(
         add("--retry-sleep"); add("http:exp=1:2:30")
         // Socket timeout — longer than default (20s) to tolerate slow connections
         add("--socket-timeout"); add("30")
+        // Concurrent fragment downloads — speeds up DASH/HLS downloads significantly
+        add("--concurrent-fragments"); add("5")
     }
 
     override suspend fun extract(url: String): Either<DomainError, VideoInfo> = withContext(Dispatchers.IO) {
@@ -179,8 +225,14 @@ class YtDlpRunner(
                 videoId = VideoId(obj.getString("id")),
                 extractor = Extractor(obj.getStringOrDefault("extractor_key", "generic").lowercase()),
                 title = obj.getString("title"),
-                channelId = ChannelId(obj.getStringOrDefault("channel_id", obj.getStringOrDefault("uploader_id", "unknown"))),
-                channelName = obj.getStringOrDefault("channel", obj.getStringOrDefault("uploader", "Unknown")),
+                channelId = ChannelId(
+                    obj.getStringOrNull("channel_id")?.takeIf { it.isNotBlank() }
+                        ?: obj.getStringOrNull("uploader_id")?.takeIf { it.isNotBlank() }
+                        ?: "unknown"
+                ),
+                channelName = obj.getStringOrNull("channel")?.takeIf { it.isNotBlank() }
+                    ?: obj.getStringOrNull("uploader")?.takeIf { it.isNotBlank() }
+                    ?: "Unknown",
                 uploadDate = obj.getStringOrNull("upload_date")?.let { parseUploadDate(it) },
                 duration = (obj.getDoubleOrNull("duration") ?: 0.0).seconds,
                 webpageUrl = Url(obj.getStringOrDefault("webpage_url", url)),
@@ -195,6 +247,22 @@ class YtDlpRunner(
                 } ?: emptyList(),
                 description = obj.getStringOrNull("description"),
                 viewCount = obj.getLongOrNull("view_count"),
+                availableFormats = obj["formats"]?.jsonArray?.map { fmt ->
+                    val fmtObj = fmt.jsonObject
+                    VideoInfo.Format(
+                        formatId = fmtObj.getString("format_id"),
+                        extension = fmtObj.getString("ext"),
+                        width = fmtObj.getIntOrNull("width"),
+                        height = fmtObj.getIntOrNull("height"),
+                        fps = fmtObj.getDoubleOrNull("fps"),
+                        tbr = fmtObj.getDoubleOrNull("tbr"),
+                        vcodec = fmtObj.getStringOrNull("vcodec"),
+                        acodec = fmtObj.getStringOrNull("acodec"),
+                        formatNote = fmtObj.getStringOrNull("format_note"),
+                        filesize = fmtObj.getLongOrNull("filesize"),
+                        filesizeApprox = fmtObj.getLongOrNull("filesize_approx"),
+                    )
+                } ?: emptyList(),
             ).right()
         } catch (e: Exception) {
             logger.error(e) { "Failed to extract video info from $url" }
@@ -207,6 +275,7 @@ class YtDlpRunner(
         url: Url,
         outputPath: FilePath,
         policy: DownloadPolicy,
+        videoInfo: VideoInfo?,
     ): Either<DomainError, FilePath> = withContext(Dispatchers.IO) {
         try {
             val args = buildList {
@@ -217,7 +286,7 @@ class YtDlpRunner(
                 add("--no-playlist")
                 addCookiesArgs()
                 addSslArgs(url.value)
-                addFormatArgs(policy.maxQuality)
+                addFormatArgs(policy.maxQuality, videoInfo)
                 addResilienceArgs()
                 policy.preferredContainer?.let { add("--merge-output-format"); add(it.extension) }
                 effectiveProxyUrl(url.value)?.let { add("--proxy"); add(it) }
@@ -256,7 +325,13 @@ class YtDlpRunner(
         url: Url,
         outputPath: FilePath,
         policy: DownloadPolicy,
-    ): Flow<DownloadProgress> = flow {
+        videoInfo: VideoInfo?,
+    ): Flow<DownloadEvent> = flow {
+        val formats = videoInfo?.availableFormats
+        val selectedFormatId = if (formats != null && formats.isNotEmpty()) {
+            resolveBestFormatId(formats, policy.maxQuality)
+        } else null
+
         val args = buildList {
             add(config.path)
             add("-o"); add(outputPath.value)
@@ -266,7 +341,7 @@ class YtDlpRunner(
             add("--no-playlist")
             addCookiesArgs()
             addSslArgs(url.value)
-            addFormatArgs(policy.maxQuality)
+            addFormatArgs(policy.maxQuality, videoInfo)
             addResilienceArgs()
             policy.preferredContainer?.let { add("--merge-output-format"); add(it.extension) }
 
@@ -285,6 +360,8 @@ class YtDlpRunner(
             .start()
 
         val outputLines = mutableListOf<String>()
+        var downloadedFormatId: String? = null
+
         process.inputStream.bufferedReader().useLines { lines ->
             for (line in lines) {
                 outputLines += line
@@ -293,7 +370,17 @@ class YtDlpRunner(
                     || line.contains("Downloading format") || line.contains("[warning]") || line.contains("[error]")) {
                     logger.info { "yt-dlp: $line" }
                 }
-                parseProgressLine(line)?.let { emit(it) }
+
+                // Try to extract downloaded format ID from log
+                // Example: [info] BaW_jenozKc: Downloading 1 format(s): 303+251
+                if (line.contains("Downloading 1 format(s):")) {
+                    downloadedFormatId = line.substringAfter("Downloading 1 format(s):").trim()
+                } else if (line.contains("Downloading format")) {
+                    // Example: [download] Downloading format 22
+                    downloadedFormatId = line.substringAfter("Downloading format").trim().split(" ").firstOrNull()
+                }
+
+                parseProgressLine(line)?.let { emit(DownloadEvent.Progress(it)) }
             }
         }
 
@@ -304,8 +391,30 @@ class YtDlpRunner(
             throw RuntimeException("yt-dlp download failed (exit=$exitCode): ${output.takeLast(500)}")
         } else {
             logger.info { "yt-dlp download completed successfully: ${outputPath.value}" }
+            val actualFormatId = downloadedFormatId ?: selectedFormatId
+            val actualFormat = if (actualFormatId != null && formats != null) {
+                resolveActualFormat(actualFormatId, formats)
+            } else null
+            emit(DownloadEvent.Completed(actualFormat))
         }
     }.flowOn(Dispatchers.IO)
+
+    private fun resolveActualFormat(formatId: String, availableFormats: List<VideoInfo.Format>): VideoInfo.Format? {
+        if (!formatId.contains("+")) {
+            return availableFormats.find { it.formatId == formatId }
+        }
+        val ids = formatId.split("+")
+        val videoFormat = availableFormats.find { it.formatId == ids[0] } ?: return null
+        val audioFormat = availableFormats.find { it.formatId == ids.getOrNull(1) }
+        
+        return if (audioFormat != null) {
+            videoFormat.copy(
+                formatId = formatId,
+                acodec = audioFormat.acodec,
+                tbr = (videoFormat.tbr ?: 0.0) + (audioFormat.tbr ?: 0.0)
+            )
+        } else videoFormat
+    }
 
     private fun parseProgressLine(line: String): DownloadProgress? {
         if (!line.contains("%")) return null

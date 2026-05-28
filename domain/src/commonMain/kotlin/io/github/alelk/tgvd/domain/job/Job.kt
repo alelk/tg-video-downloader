@@ -7,6 +7,7 @@ import io.github.alelk.tgvd.domain.common.WorkspaceId
 import io.github.alelk.tgvd.domain.metadata.MetadataSource
 import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.storage.StoragePlan
+import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.github.alelk.tgvd.domain.video.VideoSource
 import kotlin.time.Instant
 
@@ -15,6 +16,7 @@ data class Job(
     val workspaceId: WorkspaceId,
     val createdBy: TelegramUserId,
     val source: VideoSource,
+    val videoInfo: VideoInfo? = null,
     val metadata: ResolvedMetadata,
     val metadataSource: MetadataSource,
     val storagePlan: StoragePlan,

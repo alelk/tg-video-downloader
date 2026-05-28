@@ -55,9 +55,10 @@ class MiniAppDeepLinkTest : StringSpec({
     }
 
     "matches url patterns returns true on match" {
-        val patterns = listOf(Regex("youtube\\.com"), Regex("youtu\\.be"))
+        val patterns = listOf(Regex("youtube\\.com"), Regex("youtu\\.be"), Regex("instagram\\.com"))
         MiniAppDeepLink.matchesUrlPatterns("https://youtube.com/watch?v=1", patterns).shouldBeTrue()
         MiniAppDeepLink.matchesUrlPatterns("https://youtu.be/abc", patterns).shouldBeTrue()
+        MiniAppDeepLink.matchesUrlPatterns("https://www.instagram.com/p/abc", patterns).shouldBeTrue()
     }
 
     "matches url patterns returns false when no match" {

@@ -14,6 +14,23 @@ data class VideoInfoPm(
     val webpageUrl: String,
     val thumbnails: List<ThumbnailPm> = emptyList(),
     val description: String? = null,
+    val availableFormats: List<VideoFormatPm> = emptyList(),
+    val actualFormat: VideoFormatPm? = null,
+)
+
+@Serializable
+data class VideoFormatPm(
+    val formatId: String,
+    val extension: String,
+    val width: Int? = null,
+    val height: Int? = null,
+    val fps: Double? = null,
+    val tbr: Double? = null,
+    val vcodec: String? = null,
+    val acodec: String? = null,
+    val formatNote: String? = null,
+    val filesize: Long? = null,
+    val filesizeApprox: Long? = null,
 )
 
 @Serializable

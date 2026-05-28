@@ -37,7 +37,7 @@ telegram:
     buttonText: "Open Mini App"
     replyText: "Got your link. Open Mini App to continue."
     urlPatterns: []                      # list of regex patterns to filter URLs; empty => any URL
-                                         # example: ["youtube\\.com", "youtu\\.be", "rutube\\.ru"]
+                                         # example: ["youtube\\.com", "youtu\\.be", "rutube\\.ru", "instagram\\.com"]
     pollingTimeoutSeconds: 60
 
 # Database

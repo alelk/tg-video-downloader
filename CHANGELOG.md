@@ -1,5 +1,11 @@
 # TGVD CHANGELOG
 
+## [Unreleased]
+
+### Bug Fixes
+
+* fix `IllegalArgumentException: ChannelId cannot be blank` by ensuring `channelId` is never empty during video info mapping and extraction.
+
 # [1.26.0](https://github.com/alelk/tg-video-downloader/compare/v1.25.0...v1.26.0) (2026-04-12)
 
 
