@@ -1,5 +1,17 @@
 # TGVD CHANGELOG
 
+# [1.27.0](https://github.com/alelk/tg-video-downloader/compare/v1.26.0...v1.27.0) (2026-05-28)
+
+
+### Bug Fixes
+
+* fix tests ([fde5d49](https://github.com/alelk/tg-video-downloader/commit/fde5d4931cb8f1685ea28e5210cd977c5c1766da))
+
+
+### Features
+
+* add support for video formats and improve video info handling ([f8c47db](https://github.com/alelk/tg-video-downloader/commit/f8c47dbfa35e3df097554680075a024106ed66b2))
+
 ## [Unreleased]
 
 ### Bug Fixes
