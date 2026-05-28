@@ -57,7 +57,9 @@ class PreviewResponseDtoTest : FunSpec({
                         "durationSeconds": 300,
                         "webpageUrl": "https://youtube.com/watch?v=abc",
                         "thumbnails": [],
-                        "description": null
+                        "description": null,
+                        "availableFormats": [],
+                        "actualFormat": null
                     },
                     "matchedRule": {
                         "id": "rule-1",

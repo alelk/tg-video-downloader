@@ -59,7 +59,9 @@ class CreateJobRequestDtoTest : FunSpec({
                         "durationSeconds": 120,
                         "webpageUrl": "https://youtube.com/watch?v=abc123",
                         "thumbnails": [],
-                        "description": null
+                        "description": null,
+                        "availableFormats": [],
+                        "actualFormat": null
                     },
                     "metadata": {
                         "type": "other",
