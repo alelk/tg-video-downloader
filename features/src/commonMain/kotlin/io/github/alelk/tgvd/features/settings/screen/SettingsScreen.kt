@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -91,9 +92,10 @@ fun SettingsScreen() {
     var userAgent by remember { mutableStateOf("") }
 
     // ── UI collapse state ─────────────────────────────────────────────────────
-    var subsExpanded by remember { mutableStateOf(false) }
-    var advancedExpanded by remember { mutableStateOf(false) }
-    var cookieHintExpanded by remember { mutableStateOf(false) }
+    // rememberSaveable: Voyager restores these across tab switches
+    var subsExpanded: Boolean by rememberSaveable { mutableStateOf(false) }
+    var advancedExpanded: Boolean by rememberSaveable { mutableStateOf(false) }
+    var cookieHintExpanded: Boolean by rememberSaveable { mutableStateOf(false) }
 
     fun loadData() {
         scope.launch {
@@ -150,6 +152,23 @@ fun SettingsScreen() {
                 proxyPort = settings.proxy.port.toString()
                 proxyUsername = settings.proxy.username ?: ""
                 proxyPassword = "" // masked on server
+
+                // Auto-expand collapsible sections if they have non-default values
+                // Only expand if currently collapsed — respect user's manual collapse
+                if (!subsExpanded) {
+                    subsExpanded = writeSubs || writeAutoSubs || subLangs.isNotBlank() || embedSubs
+                }
+                if (!advancedExpanded) {
+                    advancedExpanded = rateLimit.isNotBlank()
+                        || sleepInterval.isNotBlank()
+                        || maxSleepInterval.isNotBlank()
+                        || (concurrentFragments.toIntOrNull() ?: 5) != 5
+                        || (socketTimeout.toIntOrNull() ?: 30) != 30
+                        || youtubePlayerClient != "ios"
+                        || extractorArgs.isNotBlank()
+                        || sponsorBlockRemove.isNotBlank()
+                        || userAgent.isNotBlank()
+                }
 
                 errorMessage = null
             } catch (e: Exception) {

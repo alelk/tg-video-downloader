@@ -60,14 +60,14 @@ LABEL org.opencontainers.image.source="https://github.com/alelk/tg-video-downloa
 LABEL org.opencontainers.image.description="TG Video Downloader — Ktor HTTP Server"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# ffmpeg — required for yt-dlp post-processing and video conversion
+# ffmpeg + python3 (python3 is needed to install yt-dlp plugins)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg && \
+    apt-get install -y --no-install-recommends ffmpeg python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
-# Non-root user
+# Non-root user (with -m to ensure home dir /home/appuser is created)
 RUN groupadd -g 1001 appgroup && \
-    useradd -u 1001 -g appgroup -s /bin/false appuser
+    useradd -u 1001 -g appgroup -s /bin/false -m appuser
 
 WORKDIR /app
 
@@ -77,6 +77,15 @@ COPY --from=builder /build/server/app/build/libs/tgvd-server.jar ./app.jar
 # /app/bin — writable dir for yt-dlp (downloaded/updated by YtDlpBootstrap at runtime)
 RUN mkdir -p /data/media /data/temp /app/bin && \
     chown -R appuser:appgroup /app /data
+
+# ── yt-dlp plugin: bgutil PO-token provider (YouTube 4K / no-cookie support) ──
+# Installs the plugin into the yt-dlp plugin search path for appuser.
+# The plugin talks to the bgutil HTTP server (configured via BGUTIL_HTTP_ENDPOINT).
+# Server: https://github.com/brainicism/bgutil-ytdlp-pot-provider
+RUN pip3 install bgutil-ytdlp-pot-provider \
+        --target /home/appuser/.config/yt-dlp/plugins \
+        --break-system-packages && \
+    chown -R appuser:appgroup /home/appuser/.config
 
 USER appuser
 

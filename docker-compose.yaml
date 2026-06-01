@@ -14,6 +14,19 @@
 
 services:
 
+  # ── bgutil PO-token provider (optional, YouTube 4K without cookies) ──
+  # Generates YouTube Proof-of-Origin tokens for yt-dlp.
+  # Plugin installed in server image talks to this service via BGUTIL_HTTP_ENDPOINT.
+  # To enable: set BGUTIL_HTTP_ENDPOINT=http://bgutil:4416 in .env
+  bgutil:
+    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    container_name: tgvd-bgutil
+    ports:
+      - "4416:4416"
+    networks:
+      - tgvd-network
+    restart: unless-stopped
+
   # ── PostgreSQL ──
   db:
     image: postgres:16-alpine
@@ -55,6 +68,10 @@ services:
       TELEGRAM_ALLOWED_USERNAMES: "${TELEGRAM_ALLOWED_USERNAMES:-}"
       TELEGRAM_DEV_MODE: "${TELEGRAM_DEV_MODE:-true}"
       YTDLP_COOKIES_FILE: "${YTDLP_COOKIES_FILE:-}"
+      # bgutil PO-token provider for YouTube (optional).
+      # Set to the bgutil service URL, e.g. http://bgutil:4416
+      # Requires the bgutil service to be running and on the same network.
+      BGUTIL_HTTP_ENDPOINT: "${BGUTIL_HTTP_ENDPOINT:-}"
       # Mini App auto-reply bot
       TELEGRAM_BOT_MINI_APP_ENABLED: "${TELEGRAM_BOT_MINI_APP_ENABLED:-false}"
       TELEGRAM_BOT_USERNAME: "${TELEGRAM_BOT_USERNAME:-}"
@@ -141,6 +158,9 @@ configs:
         updateChannel: "stable"
         autoDownload: true
         cookiesFile: "$${YTDLP_COOKIES_FILE:-}"
+        # "web" client is required for PO-token support (bgutil plugin).
+        # "ios" (default) does not request PO tokens and can be limited to 360p on some videos.
+        youtubePlayerClient: "web"
 
       ffmpeg:
         path: "ffmpeg"
