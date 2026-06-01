@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.29.0](https://github.com/alelk/tg-video-downloader/compare/v1.28.0...v1.29.0) (2026-06-01)
+
+
+### Features
+
+* add force refetch option and download history to preview functionality ([9865b4d](https://github.com/alelk/tg-video-downloader/commit/9865b4d71035949babcc2fdb90bb34fc26ca9aa7))
+
 # [1.28.0](https://github.com/alelk/tg-video-downloader/compare/v1.27.0...v1.28.0) (2026-05-28)
 
 
