@@ -110,34 +110,61 @@ class JobProcessor(
                 logger.warn { "VideoInfo not found in cache for ${job.source.url.value}. Download might use generic format selection." }
             }
 
-            // 5. Download with progress tracking
-            videoDownloader.downloadWithProgress(job.source.url, outputPath, downloadPolicy, videoInfo)
-                .collect { event ->
-                    when (event) {
-                        is DownloadEvent.Progress -> {
-                            jobRepository.updateStatus(
-                                id = job.id,
-                                status = JobStatus.DOWNLOADING,
-                                phase = JobPhase.DOWNLOAD,
-                                progress = event.progress.percent,
-                            )
-                        }
-                        is DownloadEvent.Completed -> {
-                            event.actualFormat?.let { format ->
-                                logger.info { "Download completed for job ${job.id.value}. Actual format: ${format.formatId} (${format.width ?: "?"}x${format.height ?: "?"})" }
-                                videoInfoCache.updateActualFormat(job.source.url.value, format)
-                                
-                                // Update current job's videoInfo as well
-                                val currentVideoInfo = videoInfoCache.get(job.source.url.value)
-                                if (currentVideoInfo != null) {
-                                    jobRepository.save(job.copy(videoInfo = currentVideoInfo))
+            // 4.5. Check if existing file has lower quality than requested — delete if so, skip if sufficient
+            val existingFile = File(outputPath.value)
+            if (existingFile.exists()) {
+                val requestedMaxHeight = downloadPolicy.maxQuality.toMaxHeight()
+                val existingHeight = ffmpegRunner.probeHeight(outputPath)
+                val existingIsLowerQuality = when {
+                    requestedMaxHeight == null -> false  // BEST: treat existing file as sufficient
+                    existingHeight == null -> true       // can't probe → re-download to be safe
+                    else -> existingHeight < requestedMaxHeight
+                }
+                if (existingIsLowerQuality) {
+                    logger.info {
+                        "Existing file has lower quality (${existingHeight}p < ${requestedMaxHeight}p) for job ${job.id.value}, " +
+                            "deleting '${outputPath.value}' to re-download at higher quality"
+                    }
+                    existingFile.delete()
+                } else {
+                    val qualityDesc = if (existingHeight != null && requestedMaxHeight != null)
+                        "${existingHeight}p >= ${requestedMaxHeight}p" else "BEST policy"
+                    logger.info {
+                        "File already exists at sufficient quality ($qualityDesc) for job ${job.id.value}, skipping download"
+                    }
+                }
+            }
+
+            // 5. Download with progress tracking (only if file does not already exist at sufficient quality)
+            if (!File(outputPath.value).exists()) {
+                videoDownloader.downloadWithProgress(job.source.url, outputPath, downloadPolicy, videoInfo)
+                    .collect { event ->
+                        when (event) {
+                            is DownloadEvent.Progress -> {
+                                jobRepository.updateStatus(
+                                    id = job.id,
+                                    status = JobStatus.DOWNLOADING,
+                                    phase = JobPhase.DOWNLOAD,
+                                    progress = event.progress.percent,
+                                )
+                            }
+                            is DownloadEvent.Completed -> {
+                                event.actualFormat?.let { format ->
+                                    logger.info { "Download completed for job ${job.id.value}. Actual format: ${format.formatId} (${format.width ?: "?"}x${format.height ?: "?"})" }
+                                    videoInfoCache.updateActualFormat(job.source.url.value, format)
+
+                                    // Update current job's videoInfo as well
+                                    val currentVideoInfo = videoInfoCache.get(job.source.url.value)
+                                    if (currentVideoInfo != null) {
+                                        jobRepository.save(job.copy(videoInfo = currentVideoInfo))
+                                    }
                                 }
                             }
                         }
                     }
-                }
+            }
 
-            // 5. Resolve actual file (yt-dlp may add format suffixes like .f313.webm)
+            // 6. Resolve actual file (yt-dlp may add format suffixes like .f313.webm)
             val actualFile = resolveDownloadedFile(outputPath)
             if (actualFile == null) {
                 jobRepository.updateStatus(
@@ -430,6 +457,14 @@ private fun DownloadPolicy.VideoQuality.toMaxResolution(): Pair<Int, Int>? = whe
     DownloadPolicy.VideoQuality.HD_1080 -> 1920 to 1080
     DownloadPolicy.VideoQuality.HD_720 -> 1280 to 720
     DownloadPolicy.VideoQuality.SD_480 -> 854 to 480
+}
+
+/** Map VideoQuality to maximum height in pixels for quality comparison. Null = no limit (BEST). */
+private fun DownloadPolicy.VideoQuality.toMaxHeight(): Int? = when (this) {
+    DownloadPolicy.VideoQuality.BEST -> null
+    DownloadPolicy.VideoQuality.HD_1080 -> 1080
+    DownloadPolicy.VideoQuality.HD_720 -> 720
+    DownloadPolicy.VideoQuality.SD_480 -> 480
 }
 
 /**

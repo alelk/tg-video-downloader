@@ -449,6 +449,12 @@ class FfmpegRunner(
     }
 
     /**
+     * Probe video height using ffprobe. Returns height in pixels, or null if detection fails.
+     * Used to compare existing file quality before re-downloading.
+     */
+    suspend fun probeHeight(input: FilePath): Int? = probeVideoResolution(input)?.second
+
+    /**
      * Probe video width and height using ffprobe. Returns (width, height) pair or null if detection fails.
      */
     private suspend fun probeVideoResolution(input: FilePath): Pair<Int, Int>? = withContext(Dispatchers.IO) {
