@@ -305,6 +305,8 @@ class YtDlpRunner(
         addCookiesArgs()
         addSslArgs(url)
         addSiteArgs()
+        addNetworkArgs()
+        add("--socket-timeout"); add(config.socketTimeout.toString())
         effectiveProxyUrl(url)?.let { add("--proxy"); add(it) }
         add(url)
     }
@@ -312,12 +314,20 @@ class YtDlpRunner(
     override suspend fun extract(url: String): Either<DomainError, VideoInfo> = withContext(Dispatchers.IO) {
         try {
             val args = buildExtractArgs(url)
-            logger.info { "Extracting video info: yt-dlp --dump-json $url (youtube player_client=${config.youtubePlayerClient.ifBlank { "yt-dlp default" }})" }
+            val effectiveArgs = effectiveExtractorArgs()
+            logger.info {
+                "Extracting video info: yt-dlp --dump-json $url " +
+                    "(player_client=${config.youtubePlayerClient.ifBlank { "yt-dlp default" }}, " +
+                    "extractor-args=${effectiveArgs ?: "none"}, " +
+                    "proxy=${effectiveProxyUrl(url) ?: "none"})"
+            }
+            logger.debug { "yt-dlp extract full command: ${args.joinToString(" ")}" }
 
             val (exitCode, stdout, stderr) = runExtractProcess(args)
 
             if (exitCode != 0) {
-                logger.error { "yt-dlp extract failed (exit=$exitCode): $stderr" }
+                logger.error { "yt-dlp extract failed (exit=$exitCode):\nSTDERR: $stderr\nSTDOUT (last 500): ${stdout.takeLast(500)}" }
+                logger.debug { "yt-dlp extract command was: ${args.joinToString(" ")}" }
                 return@withContext DomainError.VideoExtractionFailed(Url(url), stderr.takeLast(2000)).left()
             }
 
