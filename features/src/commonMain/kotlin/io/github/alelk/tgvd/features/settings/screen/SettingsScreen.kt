@@ -24,6 +24,12 @@ private val browserOptions = listOf("", "chrome", "firefox", "safari", "brave", 
 private val proxyTypes = listOf("HTTP", "SOCKS5")
 private val mergeOutputFormats = listOf("", "mkv", "mp4", "webm", "ogg")
 
+/**
+ * YouTube player clients. "ios" and "android" work without a JS runtime (deno/node).
+ * "web" requires deno but gives the most formats.
+ */
+private val youtubePlayerClients = listOf("ios", "android", "web", "mweb", "tv_embedded", "")
+
 /** Which source of cookies is currently active in the UI. */
 private enum class CookiesSource { BROWSER, TEXT, FILE }
 
@@ -79,6 +85,7 @@ fun SettingsScreen() {
     // ── Advanced state ────────────────────────────────────────────────────────
     var concurrentFragments by remember { mutableStateOf("5") }
     var socketTimeout by remember { mutableStateOf("30") }
+    var youtubePlayerClient by remember { mutableStateOf("ios") }
     var extractorArgs by remember { mutableStateOf("") }
     var sponsorBlockRemove by remember { mutableStateOf("") }
     var userAgent by remember { mutableStateOf("") }
@@ -131,6 +138,7 @@ fun SettingsScreen() {
                 // Advanced
                 concurrentFragments = ytDlp.concurrentFragments.toString()
                 socketTimeout = ytDlp.socketTimeout.toString()
+                youtubePlayerClient = ytDlp.youtubePlayerClient
                 extractorArgs = ytDlp.extractorArgs ?: ""
                 sponsorBlockRemove = ytDlp.sponsorBlockRemove ?: ""
                 userAgent = ytDlp.userAgent ?: ""
@@ -184,6 +192,7 @@ fun SettingsScreen() {
                         // Advanced
                         concurrentFragments = concurrentFragments.toIntOrNull() ?: 5,
                         socketTimeout       = socketTimeout.toIntOrNull() ?: 30,
+                        youtubePlayerClient = youtubePlayerClient,
                         extractorArgs       = extractorArgs.takeIf { it.isNotBlank() },
                         sponsorBlockRemove  = sponsorBlockRemove.takeIf { it.isNotBlank() },
                         userAgent           = userAgent.takeIf { it.isNotBlank() },
@@ -344,7 +353,7 @@ fun SettingsScreen() {
                         contentPadding = PaddingValues(0.dp),
                     ) {
                         Text(
-                            if (cookieHintExpanded) "▲ Hide instructions" else "ℹ How to get cookies from browser",
+                            if (cookieHintExpanded) "Hide instructions" else "How to get cookies from browser",
                             style = MaterialTheme.typography.labelMedium,
                         )
                     }
@@ -508,7 +517,7 @@ fun SettingsScreen() {
             ) {
                 Text("Subtitles settings", style = MaterialTheme.typography.bodyMedium)
                 TextButton(onClick = { subsExpanded = !subsExpanded }) {
-                    Text(if (subsExpanded) "▲ Collapse" else "▼ Expand")
+                    Text(if (subsExpanded) "Collapse" else "Expand")
                 }
             }
 
@@ -593,7 +602,7 @@ fun SettingsScreen() {
             ) {
                 Text("Rate limiting, performance, site-specific", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = { advancedExpanded = !advancedExpanded }) {
-                    Text(if (advancedExpanded) "▲ Collapse" else "▼ Expand")
+                    Text(if (advancedExpanded) "Collapse" else "Expand")
                 }
             }
 
@@ -658,14 +667,69 @@ fun SettingsScreen() {
                 Text("Site-specific", style = MaterialTheme.typography.labelLarge)
                 Spacer(modifier = Modifier.height(4.dp))
 
+                // YouTube player client dropdown
+                var ytClientExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(expanded = ytClientExpanded, onExpandedChange = { ytClientExpanded = it }) {
+                    OutlinedTextField(
+                        value = youtubePlayerClient.ifBlank { "yt-dlp default (web)" },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("YouTube Player Client") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(ytClientExpanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        singleLine = true,
+                        supportingText = {
+                            Text(
+                                when (youtubePlayerClient) {
+                                    "ios"         -> "No JS runtime (deno) needed"
+                                    "android"     -> "No JS runtime (deno) needed"
+                                    "web"         -> "Requires deno installed on server"
+                                    "mweb"        -> "No JS runtime needed, lower quality"
+                                    "tv_embedded" -> "No JS runtime needed"
+                                    ""            -> "yt-dlp default (web) — requires deno"
+                                    else          -> ""
+                                }
+                            )
+                        },
+                    )
+                    ExposedDropdownMenu(expanded = ytClientExpanded, onDismissRequest = { ytClientExpanded = false }) {
+                        youtubePlayerClients.forEach { client ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        when (client) {
+                                            "ios"         -> "ios  (recommended, no deno needed)"
+                                            "android"     -> "android  (no deno needed)"
+                                            "web"         -> "web  (most formats, requires deno)"
+                                            "mweb"        -> "mweb  (mobile, no deno)"
+                                            "tv_embedded" -> "tv_embedded  (no deno)"
+                                            ""            -> "yt-dlp default (web, requires deno)"
+                                            else          -> client
+                                        }
+                                    )
+                                },
+                                onClick = { youtubePlayerClient = client; ytClientExpanded = false },
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 OutlinedTextField(
                     value = extractorArgs,
                     onValueChange = { extractorArgs = it },
-                    label = { Text("Extractor args") },
-                    placeholder = { Text("youtube:player_client=web") },
+                    label = { Text("Extractor args (advanced)") },
+                    placeholder = { Text("vk:nocheckcertificate=1") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    supportingText = { Text("--extractor-args value. Fix issues on specific sites.") },
+                    supportingText = {
+                        Text(
+                            "--extractor-args for non-YouTube extractors. " +
+                            "For YouTube player client use the dropdown above. " +
+                            "If this field contains 'player_client', it takes full priority."
+                        )
+                    },
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(

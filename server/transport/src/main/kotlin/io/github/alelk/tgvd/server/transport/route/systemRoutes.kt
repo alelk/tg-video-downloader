@@ -31,9 +31,27 @@ fun Route.systemRoutes() {
             SystemSettingsDto(
                 ytDlp = YtDlpSettingsDto(
                     cookiesFromBrowser = ytDlpConfig.cookiesFromBrowser,
+                    cookiesContent = null,   // never echo back — sensitive
                     cookiesFile = ytDlpConfig.cookiesFile,
                     legacyServerConnect = ytDlpConfig.legacyServerConnect,
                     noCheckCertificate = ytDlpConfig.noCheckCertificate,
+                    preferredFormats = ytDlpConfig.preferredFormats,
+                    formatSort = ytDlpConfig.formatSort,
+                    checkFormats = ytDlpConfig.checkFormats,
+                    mergeOutputFormat = ytDlpConfig.mergeOutputFormat,
+                    rateLimit = ytDlpConfig.rateLimit,
+                    sleepInterval = ytDlpConfig.sleepInterval,
+                    maxSleepInterval = ytDlpConfig.maxSleepInterval,
+                    writeSubs = ytDlpConfig.writeSubs,
+                    writeAutoSubs = ytDlpConfig.writeAutoSubs,
+                    subLangs = ytDlpConfig.subLangs,
+                    embedSubs = ytDlpConfig.embedSubs,
+                    concurrentFragments = ytDlpConfig.concurrentFragments,
+                    socketTimeout = ytDlpConfig.socketTimeout,
+                    youtubePlayerClient = ytDlpConfig.youtubePlayerClient,
+                    extractorArgs = ytDlpConfig.extractorArgs,
+                    sponsorBlockRemove = ytDlpConfig.sponsorBlockRemove,
+                    userAgent = ytDlpConfig.userAgent,
                     extractorOverrides = ytDlpConfig.extractorOverrides.mapValues { (_, v) ->
                         YtDlpExtractorOverrideDto(
                             legacyServerConnect = v.legacyServerConnect,
@@ -79,6 +97,7 @@ fun Route.systemRoutes() {
                 concurrentFragments = request.ytDlp.concurrentFragments,
                 socketTimeout = request.ytDlp.socketTimeout,
                 extractorArgs = request.ytDlp.extractorArgs,
+                youtubePlayerClient = request.ytDlp.youtubePlayerClient,
                 sponsorBlockRemove = request.ytDlp.sponsorBlockRemove,
                 userAgent = request.ytDlp.userAgent,
                 extractorOverrides = request.ytDlp.extractorOverrides.mapValues { (_, v) ->

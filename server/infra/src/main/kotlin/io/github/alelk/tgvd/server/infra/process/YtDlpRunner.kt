@@ -17,6 +17,7 @@ import io.github.alelk.tgvd.server.infra.service.SystemSettingsHolder
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -256,36 +257,64 @@ class YtDlpRunner(
         if (config.embedSubs && (config.writeSubs || config.writeAutoSubs)) add("--embed-subs")
     }
 
+    /**
+     * Builds the effective `--extractor-args` value by merging [youtubePlayerClient] and [extractorArgs].
+     *
+     * Rules:
+     * - If [extractorArgs] already contains "player_client" → use it as-is (explicit user override).
+     * - If [youtubePlayerClient] is set → prepend `youtube:player_client=<value>` to [extractorArgs].
+     * - Otherwise → use [extractorArgs] alone (may be null).
+     */
+    private fun effectiveExtractorArgs(): String? {
+        val userArgs = config.extractorArgs?.takeIf { it.isNotBlank() }
+        val client = config.youtubePlayerClient.takeIf { it.isNotBlank() }
+        return when {
+            userArgs != null && userArgs.contains("player_client") -> userArgs   // user set it explicitly
+            client != null && userArgs != null -> "youtube:player_client=$client;$userArgs"
+            client != null -> "youtube:player_client=$client"
+            else -> userArgs
+        }
+    }
+
     /** Append site-specific arguments (extractor-args, sponsorblock). */
     private fun MutableList<String>.addSiteArgs() {
-        config.extractorArgs?.takeIf { it.isNotBlank() }?.let { add("--extractor-args"); add(it) }
+        effectiveExtractorArgs()?.let { add("--extractor-args"); add(it) }
         config.sponsorBlockRemove?.takeIf { it.isNotBlank() }?.let { add("--sponsorblock-remove"); add(it) }
+    }
+
+    /**
+     * Run yt-dlp `--dump-json` for [url] with the provided args and return (exitCode, stdout, stderr).
+     */
+    private suspend fun runExtractProcess(args: List<String>): Triple<Int, String, String> = coroutineScope {
+        val process = ProcessBuilder(args)
+            .redirectErrorStream(false)
+            .enrichPath()
+            .start()
+        val stdoutDeferred = async { process.inputStream.bufferedReader().use { it.readText() } }
+        val stderrDeferred = async { process.errorStream.bufferedReader().use { it.readText() } }
+        val stdout = stdoutDeferred.await()
+        val stderr = stderrDeferred.await()
+        Triple(process.waitFor(), stdout, stderr)
+    }
+
+    private fun buildExtractArgs(url: String): List<String> = buildList {
+        add(config.path)
+        add("--dump-json")
+        add("--no-download")
+        add("--no-playlist")
+        addCookiesArgs()
+        addSslArgs(url)
+        addSiteArgs()
+        effectiveProxyUrl(url)?.let { add("--proxy"); add(it) }
+        add(url)
     }
 
     override suspend fun extract(url: String): Either<DomainError, VideoInfo> = withContext(Dispatchers.IO) {
         try {
-            val args = buildList {
-                add(config.path)
-                add("--dump-json")
-                add("--no-download")
-                add("--no-playlist")
-                addCookiesArgs()
-                addSslArgs(url)
-                effectiveProxyUrl(url)?.let { add("--proxy"); add(it) }
-                add(url)
-            }
+            val args = buildExtractArgs(url)
+            logger.info { "Extracting video info: yt-dlp --dump-json $url (youtube player_client=${config.youtubePlayerClient.ifBlank { "yt-dlp default" }})" }
 
-            logger.info { "Extracting video info: yt-dlp --dump-json $url" }
-            val process = ProcessBuilder(args)
-                .redirectErrorStream(false)
-                .enrichPath()
-                .start()
-
-            val stdoutDeferred = async { process.inputStream.bufferedReader().use { it.readText() } }
-            val stderrDeferred = async { process.errorStream.bufferedReader().use { it.readText() } }
-            val stdout = stdoutDeferred.await()
-            val stderr = stderrDeferred.await()
-            val exitCode = process.waitFor()
+            val (exitCode, stdout, stderr) = runExtractProcess(args)
 
             if (exitCode != 0) {
                 logger.error { "yt-dlp extract failed (exit=$exitCode): $stderr" }

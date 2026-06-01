@@ -64,7 +64,15 @@ data class YtDlpConfig(
     val socketTimeout: Int = 30,
 
     // ── Site-specific ─────────────────────────────────────────────────────────
-    /** Raw --extractor-args value, e.g. "youtube:player_client=web". */
+    /**
+     * YouTube player client for --extractor-args "youtube:player_client=VALUE".
+     * "ios" and "android" do NOT require a JavaScript runtime (deno/node).
+     * "web" gives the most formats but requires deno to be installed.
+     * Empty string = yt-dlp default (currently "web", requires deno).
+     * Ignored if [extractorArgs] already contains "player_client".
+     */
+    val youtubePlayerClient: String = "ios",
+    /** Raw --extractor-args value. If it contains "player_client", takes priority over [youtubePlayerClient]. */
     val extractorArgs: String? = null,
     /** Comma-separated SponsorBlock categories, e.g. "sponsor,selfpromo". */
     val sponsorBlockRemove: String? = null,

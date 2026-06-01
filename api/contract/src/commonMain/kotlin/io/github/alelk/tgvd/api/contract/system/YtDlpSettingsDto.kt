@@ -54,7 +54,16 @@ data class YtDlpSettingsDto(
 
     // ── Site-specific ─────────────────────────────────────────────────────────
     /**
-     * Raw --extractor-args value, e.g. "youtube:player_client=web".
+     * YouTube player client for --extractor-args "youtube:player_client=VALUE".
+     * "ios" and "android" do NOT require a JavaScript runtime (deno/node).
+     * "web" gives the most formats but requires deno.
+     * Empty string = yt-dlp default (currently "web", requires deno).
+     * Ignored if [extractorArgs] already contains "player_client".
+     */
+    val youtubePlayerClient: String = "ios",
+    /**
+     * Raw --extractor-args value, e.g. "vk:nocheckcertificate=1".
+     * If this contains "player_client", it takes priority over [youtubePlayerClient].
      * Multiple extractors: "youtube:player_client=web;vk:nocheckcertificate=1".
      */
     val extractorArgs: String? = null,

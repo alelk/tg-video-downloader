@@ -228,16 +228,28 @@ yt-dlp --proxy socks5://user:pass@127.0.0.1:1080 <url>
 
 ## Common Troubleshooting
 
-| Problem                                                 | Solution                                                                                                               |
-|---------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
-| Only 360p downloaded                                    | Check `yt-dlp -F <url>` — are higher formats available? If yes, try `-f bestvideo+bestaudio` without `--check-formats` |
-| Age-restricted content                                  | Set `--cookies` or `--cookies-from-browser`                                                                            |
-| SSL errors on RuTube                                    | Add `--legacy-server-connect`                                                                                          |
-| Download stuck on format check                          | Disable with `--no-check-formats`                                                                                      |
-| Rate limited / 429                                      | Add `--sleep-interval 2 --max-sleep-interval 8 --rate-limit 2M`                                                        |
-| YouTube "Sign in to confirm age"                        | Export cookies from browser, use `--cookies`                                                                           |
-| "This video is only available to Music Premium members" | Need YouTube Music cookies                                                                                             |
-| VK video not downloading                                | Try `--extractor-args "vk:nocheckcertificate=1"`                                                                       |
+| Problem                                                           | Solution                                                                                                                                                               |
+|-------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **"No supported JavaScript runtime"**                             | Set **YouTube Player Client** = `ios` or `android` (Settings → Advanced). No deno needed. Or install deno: `curl -fsSL https://deno.land/install.sh \| sh`            |
+| **"SABR-only streaming experiment"** (android_vr formats missing) | Use `ios` or `web` player client (Settings → Advanced → YouTube Player Client).                                                                                       |
+| Only 360p downloaded                                              | Check `yt-dlp -F <url>` — are higher formats available? If yes, try `-f bestvideo+bestaudio` without `--check-formats`                                                |
+| Age-restricted content                                            | Set `--cookies` or `--cookies-from-browser`                                                                                                                           |
+| SSL errors on RuTube                                              | Add `--legacy-server-connect`                                                                                                                                         |
+| Download stuck on format check                                    | Disable with `--no-check-formats` (uncheck "Check formats" in Settings)                                                                                               |
+| Rate limited / 429                                                | Add `--sleep-interval 2 --max-sleep-interval 8 --rate-limit 2M`                                                                                                       |
+| YouTube "Sign in to confirm age"                                  | Export cookies from browser, use `--cookies`                                                                                                                          |
+| "This video is only available to Music Premium members"           | Need YouTube Music cookies                                                                                                                                            |
+| VK video not downloading                                          | Try `--extractor-args "vk:nocheckcertificate=1"` (Settings → Advanced → Extractor args)                                                                               |
+
+### YouTube player_client reference
+
+| Client        | JS runtime needed? | Notes                                                               |
+|---------------|--------------------|---------------------------------------------------------------------|
+| `ios`         | ❌ No               | Best for most cases. High quality, no JS needed. **Auto-fallback.** |
+| `web`         | ✅ Yes              | Default. Some formats only available here.                          |
+| `android`     | ❌ No               | Alternative to ios.                                                 |
+| `mweb`        | ❌ No               | Mobile web, lower quality.                                          |
+| `tv_embedded` | ❌ No               | For embedded players.                                               |
 
 ---
 
@@ -267,4 +279,5 @@ yt-dlp --proxy socks5://user:pass@127.0.0.1:1080 <url>
 | `sponsorBlockRemove`      | `--sponsorblock-remove <value>`              |
 | `userAgent`               | `--user-agent <value>`                       |
 | `extractorOverrides[key]` | Per-URL overrides for SSL/proxy              |
+
 
