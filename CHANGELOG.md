@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.34.0](https://github.com/alelk/tg-video-downloader/compare/v1.33.0...v1.34.0) (2026-06-01)
+
+
+### Features
+
+* enhance video extraction logging and add network arguments ([7b414fc](https://github.com/alelk/tg-video-downloader/commit/7b414fc852a9b1d22c8fbd80604ea92daba5137d))
+
 # [1.33.0](https://github.com/alelk/tg-video-downloader/compare/v1.32.0...v1.33.0) (2026-06-01)
 
 
