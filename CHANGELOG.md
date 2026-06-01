@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.32.0](https://github.com/alelk/tg-video-downloader/compare/v1.31.0...v1.32.0) (2026-06-01)
+
+
+### Features
+
+* add bgutil PO-token provider service and update Dockerfile for yt-dlp plugin support ([c2e115c](https://github.com/alelk/tg-video-downloader/commit/c2e115cd28b706dfc3b0d515b61c6216c2ce7427))
+
 # [1.31.0](https://github.com/alelk/tg-video-downloader/compare/v1.30.0...v1.31.0) (2026-06-01)
 
 
