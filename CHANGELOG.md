@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.30.0](https://github.com/alelk/tg-video-downloader/compare/v1.29.0...v1.30.0) (2026-06-01)
+
+
+### Features
+
+* enhance yt-dlp settings with additional cookie, SSL, format, and subtitle options ([ac1f88f](https://github.com/alelk/tg-video-downloader/commit/ac1f88fb1155c7083fc967dccf799f4fad4c7ba2))
+
 # [1.29.0](https://github.com/alelk/tg-video-downloader/compare/v1.28.0...v1.29.0) (2026-06-01)
 
 
