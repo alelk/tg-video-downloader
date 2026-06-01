@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.35.0](https://github.com/alelk/tg-video-downloader/compare/v1.34.0...v1.35.0) (2026-06-01)
+
+
+### Features
+
+* add video quality check before download and probe video height ([ef3473c](https://github.com/alelk/tg-video-downloader/commit/ef3473c860b498c928f27c5167d339fcae49dc5c))
+
 # [1.34.0](https://github.com/alelk/tg-video-downloader/compare/v1.33.0...v1.34.0) (2026-06-01)
 
 
