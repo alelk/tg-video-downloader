@@ -7,6 +7,7 @@ import io.github.alelk.tgvd.domain.common.WorkspaceId
 import io.github.alelk.tgvd.domain.metadata.MetadataSource
 import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.storage.StoragePlan
+import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.github.alelk.tgvd.domain.video.VideoSource
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
@@ -15,6 +16,7 @@ import kotlin.uuid.Uuid
 data class CreateJobRequest(
     val workspaceId: WorkspaceId,
     val source: VideoSource,
+    val videoInfo: VideoInfo? = null,
     val ruleId: RuleId? = null,
     val metadata: ResolvedMetadata,
     val metadataSource: MetadataSource,
@@ -30,6 +32,7 @@ fun CreateJobRequest.toJob(createdAt: Instant, updatedAt: Instant = createdAt): 
         workspaceId = workspaceId,
         createdBy = createdBy,
         source = source,
+        videoInfo = videoInfo,
         metadata = metadata,
         metadataSource = metadataSource,
         storagePlan = storagePlan,

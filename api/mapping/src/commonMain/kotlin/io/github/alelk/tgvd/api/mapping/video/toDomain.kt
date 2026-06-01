@@ -26,5 +26,20 @@ fun VideoInfoDto.toDomain(): VideoInfo =
         webpageUrl = Url(webpageUrl),
         thumbnails = thumbnails.map { VideoInfo.Thumbnail(Url(it.url), it.width, it.height) },
         description = description,
+        availableFormats = availableFormats.map { fmt ->
+            VideoInfo.Format(
+                formatId = fmt.formatId,
+                extension = fmt.extension,
+                width = fmt.width,
+                height = fmt.height,
+                fps = fmt.fps,
+                tbr = fmt.tbr,
+                vcodec = fmt.vcodec,
+                acodec = fmt.acodec,
+                formatNote = fmt.formatNote,
+                filesize = fmt.filesize,
+                filesizeApprox = fmt.filesizeApprox,
+            )
+        },
     )
 

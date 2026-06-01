@@ -62,6 +62,7 @@ fun Route.jobRoutes() {
                     CreateJobRequest(
                         workspaceId = ws.id,
                         source = request.source.toDomain(),
+                        videoInfo = request.videoInfo.toDomain(),
                         ruleId = request.ruleId?.let { RuleId(Uuid.parse(it)) },
                         metadata = metadata,
                         metadataSource = request.metadataSource.toDomain(),

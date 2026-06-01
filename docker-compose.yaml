@@ -158,16 +158,53 @@ configs:
         updateChannel: "stable"
         autoDownload: true
         cookiesFile: "$${YTDLP_COOKIES_FILE:-}"
+
+        # ── Anti-bot / stealth ────────────────────────────────────────────────────
+
         # "web" client is required for PO-token support (bgutil plugin).
         # "ios" (default) does not request PO tokens and can be limited to 360p on some videos.
         youtubePlayerClient: "web"
+
+        # Random pause before each download: 5..15 sec.
+        # Mimics a human thinking before clicking "download".
+        # --sleep-interval / --max-sleep-interval
+        sleepInterval: 5
+        maxSleepInterval: 15
+
+        # Real Chrome browser User-Agent.
+        # yt-dlp's default UA is trivially fingerprinted by anti-bot systems.
+        # For YouTube with "web" client the extractor ignores this for API calls,
+        # but it applies to CDN/redirect requests and all non-YouTube extractors.
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
+
+        # Parallel fragment downloads. Default 5 — looks like a scraper.
+        # 2 is a reasonable human-like value; 1 is the most cautious.
+        concurrentFragments: 2
+
+        # Disable pre-download format availability checks (extra HEAD requests to CDN).
+        # With web client + PO tokens, formats are reliable — no need to probe them.
+        checkFormats: false
+
+        # ── Per-site overrides ────────────────────────────────────────────────────
+        extractorOverrides:
+          rutube:
+            legacyServerConnect: true
+            proxyEnabled: false
+          vk:
+            legacyServerConnect: true
+            proxyEnabled: false
+          vkvideo:
+            legacyServerConnect: true
+            proxyEnabled: false
 
       ffmpeg:
         path: "ffmpeg"
         timeout: "60m"
 
       jobs:
-        maxConcurrentDownloads: 2
+        # One download at a time — two simultaneous YouTube downloads are much
+        # easier to detect as non-human than one.
+        maxConcurrentDownloads: 1
         maxAttempts: 3
         pollIntervalMs: 5000
         retryDelayMs: 30000
