@@ -39,6 +39,14 @@
     <string name="preview_storage_quality_480p">480p SD</string>
     <string name="preview_storage_from_rule">из правила</string>
     <string name="preview_storage_no_rule">Правило не найдено — настройте вручную</string>
+    <string name="preview_refetch">Обновить</string>
+    <string name="preview_refetch_desc">Принудительно загрузить из источника, игнорируя кэш</string>
+    <string name="preview_max_available_quality">Макс. качество</string>
+    <string name="preview_download_history">История загрузок</string>
+    <string name="preview_downloaded">Скачано</string>
+    <string name="preview_download_failed">Ошибка</string>
+    <string name="preview_download_cancelled">Отменено</string>
+    <string name="preview_download_quality_best">Наилучшее</string>
 
     <!-- Info Labels -->
     <string name="label_title">Название</string>

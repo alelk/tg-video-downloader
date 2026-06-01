@@ -88,7 +88,8 @@ class PreviewResponseDtoTest : FunSpec({
                         "additional": []
                     },
                     "warnings": ["Low quality source"],
-                    "appliedOverrides": null
+                    "appliedOverrides": null,
+                    "previousDownloads": []
                 }
             """
         }

@@ -20,5 +20,7 @@ data class PreviewResponseDto(
     val storagePlan: StoragePlanDto,
     val appliedOverrides: UserOverridesDto? = null,
     val warnings: List<String> = emptyList(),
+    /** Terminal jobs previously created for this video URL in the current workspace (newest first). */
+    val previousDownloads: List<DownloadHistoryEntryDto> = emptyList(),
 )
 

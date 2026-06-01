@@ -16,6 +16,7 @@ import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.api.contract.job.CreateJobRequestDto
 import io.github.alelk.tgvd.api.contract.metadata.ResolvedMetadataDto
+import io.github.alelk.tgvd.api.contract.preview.DownloadHistoryEntryDto
 import io.github.alelk.tgvd.api.contract.preview.PreviewRequestDto
 import io.github.alelk.tgvd.api.contract.preview.PreviewResponseDto
 import io.github.alelk.tgvd.api.contract.preview.UserOverridesDto
@@ -220,6 +221,26 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
             }
         }
 
+        /** Force-refetch: bypass cache, clear user edits, apply fresh data */
+        fun triggerForceRefetch() {
+            rePreviewJob?.cancel()
+            isRefreshing = true
+            errorMessage = null
+            rePreviewJob = scope.launch {
+                try {
+                    val response = client.preview(
+                        PreviewRequestDto(url = preview.source.url, force = true)
+                    )
+                    userEdits.clear()
+                    applyServerResponse(response)
+                } catch (e: Exception) {
+                    errorMessage = "Refetch failed: ${e.message}"
+                } finally {
+                    isRefreshing = false
+                }
+            }
+        }
+
         fun buildMetadata(): ResolvedMetadataDto {
             val tagList = tags.split(",").map { it.trim() }.filter { it.isNotBlank() }
             return when (metadataType) {
@@ -243,6 +264,24 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
             }
         }
 
+        // Compute max available quality label from availableFormats
+        val maxAvailableQualityLabel: String? = remember(preview.videoInfo.availableFormats) {
+            preview.videoInfo.availableFormats
+                .mapNotNull { it.height }
+                .maxOrNull()
+                ?.let { h ->
+                    when {
+                        h >= 2160 -> "4K"
+                        h >= 1440 -> "1440p"
+                        h >= 1080 -> "1080p"
+                        h >= 720 -> "720p"
+                        h >= 480 -> "480p"
+                        h >= 360 -> "360p"
+                        else -> "${h}p"
+                    }
+                }
+        }
+
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -261,6 +300,17 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
                             Icon(TgvdIcons.ArrowBack, contentDescription = stringResource(Res.string.action_back))
+                        }
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = { triggerForceRefetch() },
+                            enabled = !isRefreshing && !isCreating,
+                        ) {
+                            Icon(
+                                TgvdIcons.Refresh,
+                                contentDescription = stringResource(Res.string.preview_refetch),
+                            )
                         }
                     },
                 )
@@ -311,7 +361,34 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                             }
                         }
                     }
-                    InfoRow(stringResource(Res.string.label_duration), formatDuration(preview.videoInfo.durationSeconds))
+                    // Duration row with max quality badge
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            InfoRow(stringResource(Res.string.label_duration), formatDuration(preview.videoInfo.durationSeconds))
+                        }
+                        maxAvailableQualityLabel?.let { q ->
+                            SuggestionChip(
+                                onClick = {},
+                                label = {
+                                    Text(
+                                        q,
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                },
+                                icon = {
+                                    Icon(
+                                        TgvdIcons.Movie,
+                                        contentDescription = stringResource(Res.string.preview_max_available_quality),
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                },
+                                modifier = Modifier.height(28.dp),
+                            )
+                        }
+                    }
                     InfoRow(stringResource(Res.string.label_platform), preview.videoInfo.extractor)
                     preview.videoInfo.uploadDate?.let { InfoRow(stringResource(Res.string.label_upload_date), it) }
 
@@ -336,6 +413,12 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                             Text(stringResource(Res.string.channels_add_to_directory), style = MaterialTheme.typography.labelMedium)
                         }
                     }
+                }
+
+                // Download History (shown only when there are previous downloads)
+                if (preview.previousDownloads.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    DownloadHistoryCard(entries = preview.previousDownloads)
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -516,7 +599,7 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                     stringResource(Res.string.preview_storage_plan),
                                     style = MaterialTheme.typography.titleSmall,
                                 )
-                if (!storagePlanExpanded) {
+                    if (!storagePlanExpanded) {
                                     // Compact summary when collapsed
                                     val qualitySuffix = originalMaxQuality?.let { " · ${qualityLabel(it)}" } ?: ""
                                     Text(
@@ -755,6 +838,155 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Download History Card
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun DownloadHistoryCard(entries: List<DownloadHistoryEntryDto>) {
+    // Auto-expand when there is at least one completed download
+    var expanded by remember {
+        mutableStateOf(entries.any { it.status == "COMPLETED" })
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        ),
+    ) {
+        // Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    TgvdIcons.Download,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        stringResource(Res.string.preview_download_history),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    if (!expanded) {
+                        val completedCount = entries.count { it.status == "COMPLETED" }
+                        val latest = entries.firstOrNull { it.status == "COMPLETED" }
+                        val summary = if (latest != null) {
+                            val date = latest.finishedAt?.substringBefore("T") ?: "?"
+                            val q = latest.maxQuality?.let { historyQualityLabel(it) }
+                                ?: stringResource(Res.string.preview_download_quality_best)
+                            val fmt = latest.formatSummary.uppercase()
+                            if (completedCount > 1) "$date · $q · $fmt (+${completedCount - 1})"
+                            else "$date · $q · $fmt"
+                        } else {
+                            "${entries.size} attempt(s)"
+                        }
+                        Text(
+                            summary,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            Icon(
+                if (expanded) TgvdIcons.ExpandLess else TgvdIcons.ExpandMore,
+                contentDescription = if (expanded)
+                    stringResource(Res.string.rule_collapse)
+                else
+                    stringResource(Res.string.rule_expand),
+                modifier = Modifier.size(20.dp),
+            )
+        }
+
+        // Expanded content
+        if (expanded) {
+            HorizontalDivider()
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                entries.forEach { entry ->
+                    DownloadHistoryRow(entry = entry)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DownloadHistoryRow(entry: DownloadHistoryEntryDto) {
+    val (icon, label, tint) = when (entry.status) {
+        "COMPLETED" -> Triple(
+            TgvdIcons.CheckCircle,
+            stringResource(Res.string.preview_downloaded),
+            MaterialTheme.colorScheme.primary,
+        )
+        "FAILED" -> Triple(
+            TgvdIcons.ErrorIcon,
+            stringResource(Res.string.preview_download_failed),
+            MaterialTheme.colorScheme.error,
+        )
+        else -> Triple(
+            TgvdIcons.ErrorIcon,
+            stringResource(Res.string.preview_download_cancelled),
+            MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(18.dp),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            val date = entry.finishedAt?.substringBefore("T") ?: "—"
+            Text(
+                "$label: $date",
+                style = MaterialTheme.typography.bodySmall,
+                color = tint,
+            )
+            if (entry.status == "COMPLETED") {
+                val q = entry.maxQuality?.let { historyQualityLabel(it) }
+                    ?: stringResource(Res.string.preview_download_quality_best)
+                val fmt = entry.formatSummary.uppercase()
+                Text(
+                    "$q · $fmt",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/** Short label for VideoQualityDto used in download history */
+@Composable
+private fun historyQualityLabel(quality: VideoQualityDto): String = when (quality) {
+    VideoQualityDto.BEST -> stringResource(Res.string.preview_download_quality_best)
+    VideoQualityDto.HD_1080 -> "1080p"
+    VideoQualityDto.HD_720 -> "720p"
+    VideoQualityDto.SD_480 -> "480p"
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 @Composable
 private fun mutableStateSetOf(vararg elements: String): MutableSet<String> {

@@ -49,7 +49,19 @@ class VideoInfoCacheImpl(
     }
 
     override suspend fun put(url: String, videoInfo: VideoInfo): Unit = dbQuery(database) {
-        logger.debug { "Caching VideoInfo for: $url" }
+        logger.debug { "Caching VideoInfo for: $url, formats count=${videoInfo.availableFormats.size}" }
+
+        val videoOnlyCount = videoInfo.availableFormats.count {
+            (it.vcodec != null && it.vcodec != "none") && (it.acodec == null || it.acodec == "none")
+        }
+        val audioOnlyCount = videoInfo.availableFormats.count {
+            (it.acodec != null && it.acodec != "none") && (it.vcodec == null || it.vcodec == "none")
+        }
+        val combinedCount = videoInfo.availableFormats.count {
+            (it.vcodec != null && it.vcodec != "none") && (it.acodec != null && it.acodec != "none")
+        }
+        logger.debug { "put: videoOnly=$videoOnlyCount, audioOnly=$audioOnlyCount, combined=$combinedCount" }
+
         val expiresAt = now() + ttl
         VideoInfoCacheTable.upsert {
             it[VideoInfoCacheTable.url] = url

@@ -33,17 +33,21 @@ class PreviewUseCase(
      * The read-only transaction wraps the DB access (cache + rule matching) only.
      * The LLM call is intentionally performed *outside* the transaction because it is
      * a long-running network request that must not hold a DB connection open.
+     *
+     * @param force when `true` — bypass the video-info cache and always call yt-dlp;
+     *              the fresh result is then written back to the cache.
      */
     suspend operator fun invoke(
         url: String,
         workspaceId: WorkspaceId,
         overrides: UserOverrides? = null,
+        force: Boolean = false,
     ): Either<DomainError, PreviewResult> = either {
         // 1 & 2: VideoInfo + rule matching — within a single read-only transaction
         val (videoInfo, matchResult, cacheMiss) =
             txRunner.inRoTransaction {
                 either {
-                    val cached = videoInfoCache.get(url)
+                    val cached = if (force) null else videoInfoCache.get(url)
                     val info = cached ?: videoInfoExtractor.extract(url).bind()
                     val match = ruleMatchingService.findMatchingRule(info, workspaceId, overrides)
                     Triple(info, match, cached == null)

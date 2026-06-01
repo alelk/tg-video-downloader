@@ -14,6 +14,7 @@ import io.github.alelk.tgvd.server.infra.db.table.JobsTable
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -39,6 +40,13 @@ class JobRepositoryImpl(
     override suspend fun findByWorkspace(workspaceId: WorkspaceId): List<Job> = dbQuery(database) {
         JobsTable.selectAll()
             .where { JobsTable.workspaceId eq workspaceId.value }
+            .orderBy(JobsTable.createdAt, SortOrder.DESC)
+            .map { it.toJob() }
+    }
+
+    override suspend fun findByVideoId(videoId: String, workspaceId: WorkspaceId): List<Job> = dbQuery(database) {
+        JobsTable.selectAll()
+            .where { (JobsTable.videoId eq videoId) and (JobsTable.workspaceId eq workspaceId.value) }
             .orderBy(JobsTable.createdAt, SortOrder.DESC)
             .map { it.toJob() }
     }
