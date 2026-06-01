@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.33.0](https://github.com/alelk/tg-video-downloader/compare/v1.32.0...v1.33.0) (2026-06-01)
+
+
+### Features
+
+* enhance video download capabilities with bgutil plugin and update job request structure ([5c53bb1](https://github.com/alelk/tg-video-downloader/commit/5c53bb19ea2e217c5e36f51d2be071e158ffe249))
+
 # [1.32.0](https://github.com/alelk/tg-video-downloader/compare/v1.31.0...v1.32.0) (2026-06-01)
 
 
