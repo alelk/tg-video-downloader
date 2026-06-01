@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.31.0](https://github.com/alelk/tg-video-downloader/compare/v1.30.0...v1.31.0) (2026-06-01)
+
+
+### Features
+
+* enhance YouTube player client options and extractor args handling ([c62f7bf](https://github.com/alelk/tg-video-downloader/commit/c62f7bf4452a2f0a6f7e766f23cd57b626ec00bd))
+
 # [1.30.0](https://github.com/alelk/tg-video-downloader/compare/v1.29.0...v1.30.0) (2026-06-01)
 
 
