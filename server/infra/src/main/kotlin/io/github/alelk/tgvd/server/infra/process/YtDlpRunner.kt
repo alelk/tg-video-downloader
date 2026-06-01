@@ -52,9 +52,28 @@ class YtDlpRunner(
         }
     }
 
-    /** Append cookies arguments from config (--cookies-from-browser or --cookies). */
+    /**
+     * Managed cookies file: when [YtDlpConfig.cookiesContent] is set, the text is written here
+     * so yt-dlp can pick it up via --cookies.
+     */
+    private val managedCookiesFile: java.io.File
+        get() = java.io.File(System.getProperty("java.io.tmpdir"), "tgvd-managed-cookies.txt")
+
+    /** Append cookies arguments from config (--cookies-from-browser or --cookies). Priority: browser > content > file. */
     private fun MutableList<String>.addCookiesArgs() {
-        config.cookiesFromBrowser?.takeIf { it.isNotBlank() }?.let { add("--cookies-from-browser"); add(it) }
+        config.cookiesFromBrowser?.takeIf { it.isNotBlank() }?.let {
+            add("--cookies-from-browser"); add(it)
+            return
+        }
+        config.cookiesContent?.takeIf { it.isNotBlank() }?.let { content ->
+            try {
+                managedCookiesFile.writeText(content)
+                add("--cookies"); add(managedCookiesFile.absolutePath)
+            } catch (e: Exception) {
+                logger.error(e) { "Failed to write managed cookies file" }
+            }
+            return
+        }
         config.cookiesFile?.takeIf { it.isNotBlank() }?.let { add("--cookies"); add(it) }
     }
 
@@ -95,48 +114,48 @@ class YtDlpRunner(
      * Format selector for a given quality.
      *
      * Strategy:
-     * 1. If [videoInfo] is provided, try to pre-select best video and audio format IDs
+     * 1. If [YtDlpConfig.preferredFormats] is set — use it directly as `-f` (global override, skips auto-selection).
+     * 2. If [videoInfo] is provided, try to pre-select best video and audio format IDs
      *    manually from [VideoInfo.availableFormats] to ensure the highest quality is used.
-     * 2. Otherwise, use `bestvideo*+bestaudio/bestvideo*` as format selector.
-     * 3. IMPORTANT: We use `-S` (--format-sort) to ensure resolution is prioritized.
+     * 3. Otherwise, use `bestvideo*+bestaudio/bestvideo*` as format selector.
+     * 4. `-S` (--format-sort): use [YtDlpConfig.formatSort] if set, otherwise derive from quality.
      */
     private fun MutableList<String>.addFormatArgs(
         quality: DownloadPolicy.VideoQuality,
         videoInfo: VideoInfo? = null,
     ) {
+        // Global override from settings takes highest priority
+        val preferredFormats = config.preferredFormats
+        if (!preferredFormats.isNullOrBlank()) {
+            add("-f"); add(preferredFormats)
+            val sortStr = config.formatSort?.takeIf { it.isNotBlank() } ?: qualitySortString(quality)
+            add("-S"); add(sortStr)
+            return
+        }
+
         val formats = videoInfo?.availableFormats
         if (formats != null && formats.isNotEmpty()) {
             val bestFormatId = resolveBestFormatId(formats, quality)
             if (bestFormatId != null) {
                 add("-f"); add(bestFormatId)
-                // We still add -S for safety, but with specific format ID it's less critical
-                add("-S"); add(when (quality) {
-                    DownloadPolicy.VideoQuality.BEST -> "res,tbr,fps"
-                    DownloadPolicy.VideoQuality.HD_1080 -> "res:1080,tbr,fps"
-                    DownloadPolicy.VideoQuality.HD_720 -> "res:720,tbr,fps"
-                    DownloadPolicy.VideoQuality.SD_480 -> "res:480,tbr,fps"
-                })
+                val sortStr = config.formatSort?.takeIf { it.isNotBlank() } ?: qualitySortString(quality)
+                add("-S"); add(sortStr)
                 return
             }
         }
 
         // Fallback to general strategy
         add("-f"); add("bestvideo*+bestaudio/bestvideo*")
-        add("--check-formats")
-        when (quality) {
-            DownloadPolicy.VideoQuality.BEST -> {
-                add("-S"); add("res,tbr,fps")
-            }
-            DownloadPolicy.VideoQuality.HD_1080 -> {
-                add("-S"); add("res:1080,tbr,fps")
-            }
-            DownloadPolicy.VideoQuality.HD_720 -> {
-                add("-S"); add("res:720,tbr,fps")
-            }
-            DownloadPolicy.VideoQuality.SD_480 -> {
-                add("-S"); add("res:480,tbr,fps")
-            }
-        }
+        if (config.checkFormats) add("--check-formats")
+        val sortStr = config.formatSort?.takeIf { it.isNotBlank() } ?: qualitySortString(quality)
+        add("-S"); add(sortStr)
+    }
+
+    private fun qualitySortString(quality: DownloadPolicy.VideoQuality): String = when (quality) {
+        DownloadPolicy.VideoQuality.BEST    -> "res,tbr,fps"
+        DownloadPolicy.VideoQuality.HD_1080 -> "res:1080,tbr,fps"
+        DownloadPolicy.VideoQuality.HD_720  -> "res:720,tbr,fps"
+        DownloadPolicy.VideoQuality.SD_480  -> "res:480,tbr,fps"
     }
 
     internal fun resolveBestFormatId(
@@ -213,10 +232,34 @@ class YtDlpRunner(
         add("--retry-sleep"); add("fragment:exp=1:5:30")
         // Sleep between file-level retries
         add("--retry-sleep"); add("http:exp=1:2:30")
-        // Socket timeout — longer than default (20s) to tolerate slow connections
-        add("--socket-timeout"); add("30")
+        // Socket timeout — use config value (default 30s)
+        add("--socket-timeout"); add(config.socketTimeout.toString())
         // Concurrent fragment downloads — speeds up DASH/HLS downloads significantly
-        add("--concurrent-fragments"); add("5")
+        add("--concurrent-fragments"); add(config.concurrentFragments.toString())
+    }
+
+    /** Append network/anti-ban arguments from config (rate limit, sleep, user-agent). */
+    private fun MutableList<String>.addNetworkArgs() {
+        config.rateLimit?.takeIf { it.isNotBlank() }?.let { add("--rate-limit"); add(it) }
+        config.sleepInterval?.let { sleep ->
+            add("--sleep-interval"); add(sleep.toString())
+            config.maxSleepInterval?.let { max -> add("--max-sleep-interval"); add(max.toString()) }
+        }
+        config.userAgent?.takeIf { it.isNotBlank() }?.let { add("--user-agent"); add(it) }
+    }
+
+    /** Append subtitle arguments from config. */
+    private fun MutableList<String>.addSubtitleArgs() {
+        if (config.writeSubs) add("--write-subs")
+        if (config.writeAutoSubs) add("--write-auto-subs")
+        config.subLangs?.takeIf { it.isNotBlank() }?.let { add("--sub-langs"); add(it) }
+        if (config.embedSubs && (config.writeSubs || config.writeAutoSubs)) add("--embed-subs")
+    }
+
+    /** Append site-specific arguments (extractor-args, sponsorblock). */
+    private fun MutableList<String>.addSiteArgs() {
+        config.extractorArgs?.takeIf { it.isNotBlank() }?.let { add("--extractor-args"); add(it) }
+        config.sponsorBlockRemove?.takeIf { it.isNotBlank() }?.let { add("--sponsorblock-remove"); add(it) }
     }
 
     override suspend fun extract(url: String): Either<DomainError, VideoInfo> = withContext(Dispatchers.IO) {
@@ -319,7 +362,12 @@ class YtDlpRunner(
                 addSslArgs(url.value)
                 addFormatArgs(policy.maxQuality, videoInfo)
                 addResilienceArgs()
-                policy.preferredContainer?.let { add("--merge-output-format"); add(it.extension) }
+                addNetworkArgs()
+                addSubtitleArgs()
+                addSiteArgs()
+                // Per-job container takes priority over global setting
+                val container = policy.preferredContainer?.extension ?: config.mergeOutputFormat
+                container?.takeIf { it.isNotBlank() }?.let { add("--merge-output-format"); add(it) }
                 effectiveProxyUrl(url.value)?.let { add("--proxy"); add(it) }
 
                 add(url.value)
@@ -374,7 +422,12 @@ class YtDlpRunner(
             addSslArgs(url.value)
             addFormatArgs(policy.maxQuality, videoInfo)
             addResilienceArgs()
-            policy.preferredContainer?.let { add("--merge-output-format"); add(it.extension) }
+            addNetworkArgs()
+            addSubtitleArgs()
+            addSiteArgs()
+            // Per-job container takes priority over global setting
+            val container = policy.preferredContainer?.extension ?: config.mergeOutputFormat
+            container?.takeIf { it.isNotBlank() }?.let { add("--merge-output-format"); add(it) }
 
             if (policy.writeThumbnail) {
                 add("--write-thumbnail")

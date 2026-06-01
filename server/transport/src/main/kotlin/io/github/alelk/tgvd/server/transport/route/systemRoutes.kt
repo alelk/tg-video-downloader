@@ -60,9 +60,27 @@ fun Route.systemRoutes() {
         settingsHolder.updateYtDlpConfig { current ->
             current.copy(
                 cookiesFromBrowser = request.ytDlp.cookiesFromBrowser,
+                // cookiesContent: null in request means "keep existing"; non-null means "update"
+                cookiesContent = request.ytDlp.cookiesContent ?: current.cookiesContent,
                 cookiesFile = request.ytDlp.cookiesFile,
                 legacyServerConnect = request.ytDlp.legacyServerConnect,
                 noCheckCertificate = request.ytDlp.noCheckCertificate,
+                preferredFormats = request.ytDlp.preferredFormats,
+                formatSort = request.ytDlp.formatSort,
+                checkFormats = request.ytDlp.checkFormats,
+                mergeOutputFormat = request.ytDlp.mergeOutputFormat,
+                rateLimit = request.ytDlp.rateLimit,
+                sleepInterval = request.ytDlp.sleepInterval,
+                maxSleepInterval = request.ytDlp.maxSleepInterval,
+                writeSubs = request.ytDlp.writeSubs,
+                writeAutoSubs = request.ytDlp.writeAutoSubs,
+                subLangs = request.ytDlp.subLangs,
+                embedSubs = request.ytDlp.embedSubs,
+                concurrentFragments = request.ytDlp.concurrentFragments,
+                socketTimeout = request.ytDlp.socketTimeout,
+                extractorArgs = request.ytDlp.extractorArgs,
+                sponsorBlockRemove = request.ytDlp.sponsorBlockRemove,
+                userAgent = request.ytDlp.userAgent,
                 extractorOverrides = request.ytDlp.extractorOverrides.mapValues { (_, v) ->
                     YtDlpExtractorOverride(
                         legacyServerConnect = v.legacyServerConnect,

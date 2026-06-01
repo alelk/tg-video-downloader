@@ -11,14 +11,19 @@ data class YtDlpConfig(
     val allowUpdate: Boolean = true,
     val updateChannel: String = "stable",
     val autoDownload: Boolean = true,
-    /** Browser name for --cookies-from-browser (e.g. "chrome", "firefox", "safari", "brave") */
+
+    // ── Cookies ──────────────────────────────────────────────────────────────
+    /** Browser name for --cookies-from-browser (e.g. "chrome", "firefox", "safari", "brave"). */
     val cookiesFromBrowser: String? = null,
-    /** Path to Netscape-format cookies file for --cookies */
+    /** Text content of Netscape cookies file — written to a managed temp file on startup/update. */
+    val cookiesContent: String? = null,
+    /** Path to Netscape-format cookies file for --cookies. */
     val cookiesFile: String? = null,
+
+    // ── SSL ───────────────────────────────────────────────────────────────────
     /**
      * Pass --legacy-server-connect to yt-dlp.
      * Workaround for SSL: UNEXPECTED_EOF_WHILE_READING errors on some sites (e.g. RuTube).
-     * Allows connecting to servers that don't support RFC 5746 secure renegotiation.
      */
     val legacyServerConnect: Boolean = false,
     /**
@@ -26,6 +31,47 @@ data class YtDlpConfig(
      * Disables TLS certificate validation entirely — use only when you trust the network.
      */
     val noCheckCertificate: Boolean = false,
+
+    // ── Format / quality ─────────────────────────────────────────────────────
+    /** Raw yt-dlp format selector (-f). When set, overrides auto-selection based on DownloadPolicy. */
+    val preferredFormats: String? = null,
+    /** Raw yt-dlp format sort string (-S). Used only when preferredFormats is null. */
+    val formatSort: String? = null,
+    /** Pass --check-formats before downloading. May drop formats on slow connections. */
+    val checkFormats: Boolean = true,
+    /** Container for muxing (--merge-output-format), e.g. "mkv", "mp4". Null = yt-dlp default. */
+    val mergeOutputFormat: String? = null,
+
+    // ── Rate limiting / anti-ban ──────────────────────────────────────────────
+    /** --rate-limit, e.g. "5M", "500K". Null = unlimited. */
+    val rateLimit: String? = null,
+    /** --sleep-interval between requests in seconds. */
+    val sleepInterval: Int? = null,
+    /** --max-sleep-interval in seconds (used with sleepInterval). */
+    val maxSleepInterval: Int? = null,
+
+    // ── Subtitles ─────────────────────────────────────────────────────────────
+    val writeSubs: Boolean = false,
+    val writeAutoSubs: Boolean = false,
+    /** Comma-separated language codes, e.g. "ru,en". */
+    val subLangs: String? = null,
+    val embedSubs: Boolean = false,
+
+    // ── Performance ───────────────────────────────────────────────────────────
+    /** --concurrent-fragments: parallel fragment downloads. */
+    val concurrentFragments: Int = 5,
+    /** --socket-timeout in seconds. */
+    val socketTimeout: Int = 30,
+
+    // ── Site-specific ─────────────────────────────────────────────────────────
+    /** Raw --extractor-args value, e.g. "youtube:player_client=web". */
+    val extractorArgs: String? = null,
+    /** Comma-separated SponsorBlock categories, e.g. "sponsor,selfpromo". */
+    val sponsorBlockRemove: String? = null,
+    /** Custom --user-agent string. */
+    val userAgent: String? = null,
+
+    // ── Per-extractor overrides ───────────────────────────────────────────────
     /**
      * Per-extractor setting overrides. Key = yt-dlp extractor name in lowercase (e.g. "rutube", "youtube").
      * Settings defined here take precedence over the global values above for matching URLs.
