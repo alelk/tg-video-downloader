@@ -17,18 +17,20 @@ managed through a Telegram Mini App. Supports LLM (Gemini/OpenAI) for metadata e
 
 ## 📚 Where to Find Information
 
-| What you need                   | Where to look                                        |
-|---------------------------------|------------------------------------------------------|
-| Project overview                | [`README.md`](./README.md)                           |
-| Architecture, KMP, modules      | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)     |
-| Domain models (sealed classes)  | [`docs/DOMAIN.md`](./docs/DOMAIN.md)                 |
-| HTTP API and DTOs               | [`docs/API_CONTRACT.md`](./docs/API_CONTRACT.md)     |
-| Database                        | [`docs/DATABASE.md`](./docs/DATABASE.md)             |
-| Configuration                   | [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md)   |
-| Security and authorization      | [`docs/SECURITY.md`](./docs/SECURITY.md)             |
-| Testing                         | [`docs/TESTING.md`](./docs/TESTING.md)               |
-| Deployment                      | [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)         |
-| Architecture decisions          | [`docs/ADR/`](./docs/ADR/)                           |
+| What you need                  | Where to look                                                    |
+|--------------------------------|------------------------------------------------------------------|
+| Project overview               | [`README.md`](./README.md)                                       |
+| Claude Code quick reference    | [`CLAUDE.md`](./CLAUDE.md)                                       |
+| Architecture, KMP, modules     | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)                 |
+| Domain models (sealed classes) | [`docs/DOMAIN.md`](./docs/DOMAIN.md)                             |
+| HTTP API and DTOs              | [`docs/API_CONTRACT.md`](./docs/API_CONTRACT.md)                 |
+| Database                       | [`docs/DATABASE.md`](./docs/DATABASE.md)                         |
+| Configuration                  | [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md)               |
+| Security and authorization     | [`docs/SECURITY.md`](./docs/SECURITY.md)                         |
+| Testing                        | [`docs/TESTING.md`](./docs/TESTING.md)                           |
+| Deployment                     | [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)                     |
+| Architecture decisions         | [`docs/ADR/`](./docs/ADR/)                                       |
+| yt-dlp args reference          | [`docs/ai/yt-dlp-cheatsheet.md`](./docs/ai/yt-dlp-cheatsheet.md) |
 
 ---
 
@@ -52,7 +54,8 @@ tg-video-downloader/
 └── docs/                # Documentation
 ```
 
-**KMP rule**: `domain`, `api:*`, `features` — Kotlin Multiplatform (jvm + js). `server:*` — JVM only. `tgminiapp` — JS only.
+**KMP rule**: `domain`, `api:*`, `features` — Kotlin Multiplatform (jvm + js). `server:*` — JVM only. `tgminiapp` — JS
+only.
 
 ---
 
@@ -68,8 +71,10 @@ tg-video-downloader/
 
 ### 2. Kotlin Idioms
 
-- **Sealed classes** for polymorphic types (`RuleMatch`, `ResolvedMetadata`, `MetadataTemplate`, `UserOverrides`, `OutputFormat`, `DomainError`)
-- **Value classes** for typesafe IDs and value objects (`VideoId`, `RuleId`, `JobId`, `ChannelDirectoryEntryId`, `Tag`, `Url`, `FilePath`, `LocalDate`, `Extractor`)
+- **Sealed classes** for polymorphic types (`RuleMatch`, `ResolvedMetadata`, `MetadataTemplate`, `UserOverrides`,
+  `OutputFormat`, `DomainError`)
+- **Value classes** for typesafe IDs and value objects (`VideoId`, `RuleId`, `JobId`, `ChannelDirectoryEntryId`, `Tag`,
+  `Url`, `FilePath`, `LocalDate`, `Extractor`)
 - **Data classes** for DTOs and value objects
 - **Either<Error, T>** for error handling (Arrow)
 - **Coroutines** for async operations
@@ -118,8 +123,8 @@ UI Shell (tgminiapp) → features (Compose)
 1. Define DTO in `api:contract`
 2. Add route in `server:transport`
 3. Implement use-case in `domain` (if business logic is needed)
-   - Inject `TransactionRunner`; use `inRwTransaction` for writes, `inRoTransaction` for reads
-   - Expose a single `suspend operator fun invoke(...)` method
+    - Inject `TransactionRunner`; use `inRwTransaction` for writes, `inRoTransaction` for reads
+    - Expose a single `suspend operator fun invoke(...)` method
 4. Add tests
 5. Update [API_CONTRACT.md](./docs/API_CONTRACT.md)
 
@@ -134,7 +139,8 @@ UI Shell (tgminiapp) → features (Compose)
 
 - One class = one use case
 - Single public method: `suspend operator fun invoke(...)`  — call sites use `useCase(args)` syntax
-- Always inject `TransactionRunner txRunner`; wrap business logic in `txRunner.inRwTransaction { }` or `txRunner.inRoTransaction { }`
+- Always inject `TransactionRunner txRunner`; wrap business logic in `txRunner.inRwTransaction { }` or
+  `txRunner.inRoTransaction { }`
 - In tests: use `NoopTransactionRunner()` from `domain/tx`
 
 ---
@@ -156,6 +162,7 @@ Injected as nullable (`getOrNull()`). If LLM is not configured — `null`, fallb
 ### Proxy
 
 `ProxyConfig` is used in:
+
 - `yt-dlp` → `--proxy` argument
 - LLM HTTP client → `Ktor Client` engine proxy config
 
@@ -167,6 +174,7 @@ to automatically create a rule for this channel from the current metadata.
 ### features → tgminiapp
 
 `features` contains all Compose UI components. `tgminiapp` is a thin shell that:
+
 - Initializes DI (Koin)
 - Connects `features` screens
 - Provides Telegram WebApp JS interop
@@ -199,15 +207,15 @@ to automatically create a rule for this channel from the current metadata.
 ## 📎 Quick Reference
 
 - **Gradle commands**:
-  - `./gradlew build` — full build of all modules
-  - `./gradlew check` — all tests (commonTest + jvmTest + jsTest)
-  - `./gradlew :server:app:run` — run the server
-  - `./gradlew :tgminiapp:jsBrowserDevelopmentRun` — run the UI
+    - `./gradlew build` — full build of all modules
+    - `./gradlew check` — all tests (commonTest + jvmTest + jsTest)
+    - `./gradlew :server:app:run` — run the server
+    - `./gradlew :tgminiapp:jsBrowserDevelopmentRun` — run the UI
 
 - **Docker**:
-  - `docker compose up -d postgres` — database only
-  - `docker compose up -d` — everything
+    - `docker compose up -d postgres` — database only
+    - `docker compose up -d` — everything
 
 - **Useful files**:
-  - `docs/ADR/` — architecture decision records
-  - `gradle/libs.versions.toml` — dependency versions
+    - `docs/ADR/` — architecture decision records
+    - `gradle/libs.versions.toml` — dependency versions
