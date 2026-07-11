@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+## [1.35.1](https://github.com/alelk/tg-video-downloader/compare/v1.35.0...v1.35.1) (2026-07-11)
+
+
+### Bug Fixes
+
+* Load persisted config on app startup ([b0ef7b0](https://github.com/alelk/tg-video-downloader/commit/b0ef7b04adf9f130ef30e7f95dfe971d40b65338))
+
 # [1.35.0](https://github.com/alelk/tg-video-downloader/compare/v1.34.0...v1.35.0) (2026-06-01)
 
 
