@@ -1,5 +1,8 @@
 package io.github.alelk.tgvd.server.infra.config
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class ProxyConfig(
     val enabled: Boolean = false,
     val type: ProxyType = ProxyType.HTTP,
@@ -8,6 +11,7 @@ data class ProxyConfig(
     val username: String? = null,
     val password: String? = null,
 ) {
+    @Serializable
     enum class ProxyType { HTTP, SOCKS5 }
 
     fun toUrl(): String? {

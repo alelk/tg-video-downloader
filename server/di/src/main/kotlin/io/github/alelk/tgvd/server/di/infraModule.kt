@@ -38,8 +38,8 @@ internal fun infraModule() = module {
     single { get<DatabaseFactory>().create() }
     single<TransactionRunner> { ExposedTransactionRunner(db = get<Database>()) }
 
-    // Mutable settings holder (initial values from config, overridable via API)
-    single { SystemSettingsHolder(get<YtDlpConfig>(), get<ProxyConfig>()) }
+    // Mutable settings holder (initial values from config or DB, overridable via API; persisted across restarts)
+    single { SystemSettingsHolder(get<YtDlpConfig>(), get<ProxyConfig>(), get<Database>()) }
 
     // Repositories (domain port → infra adapter)
     single<WorkspaceRepository> { WorkspaceRepositoryImpl(get<Database>()) }

@@ -1,8 +1,10 @@
 package io.github.alelk.tgvd.server.infra.config
 
+import kotlinx.serialization.Serializable
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
+@Serializable
 data class YtDlpConfig(
     val path: String = "yt-dlp",
     val timeout: Duration = 30.minutes,
@@ -103,6 +105,7 @@ data class YtDlpConfig(
  * Per-extractor overrides for yt-dlp settings.
  * Each field is nullable — `null` means "inherit from global config".
  */
+@Serializable
 data class YtDlpExtractorOverride(
     /** Override --legacy-server-connect. null = inherit global. */
     val legacyServerConnect: Boolean? = null,
