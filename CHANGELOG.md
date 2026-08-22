@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+## [1.35.2](https://github.com/alelk/tg-video-downloader/compare/v1.35.1...v1.35.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* check ytdlp version ([414e3ee](https://github.com/alelk/tg-video-downloader/commit/414e3eea4a54ab9bfe03e732f0c91070bd0491ec))
+
 ## [1.35.1](https://github.com/alelk/tg-video-downloader/compare/v1.35.0...v1.35.1) (2026-07-11)
 
 
