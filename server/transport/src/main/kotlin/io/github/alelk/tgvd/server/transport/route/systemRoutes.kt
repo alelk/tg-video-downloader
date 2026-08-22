@@ -3,6 +3,7 @@ package io.github.alelk.tgvd.server.transport.route
 import io.github.alelk.tgvd.api.contract.resource.ApiV1
 import io.github.alelk.tgvd.api.contract.system.*
 import io.github.alelk.tgvd.domain.system.YtDlpService
+import io.github.alelk.tgvd.domain.system.isNewerThan
 import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.YtDlpExtractorOverride
 import io.github.alelk.tgvd.server.infra.service.SystemSettingsHolder
@@ -17,6 +18,7 @@ import io.ktor.server.resources.put
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.koin.ktor.ext.inject
+import java.time.Instant
 
 fun Route.systemRoutes() {
     val ytDlpService by inject<YtDlpService>()
@@ -131,11 +133,15 @@ fun Route.systemRoutes() {
     // --- yt-dlp ---
 
     get<ApiV1.System.YtDlp.Status> {
-        call.respondEither(ytDlpService.version()) { version ->
+        call.respondEither(ytDlpService.version()) { current ->
+            // A GitHub outage/rate-limit shouldn't break the whole status endpoint —
+            // fall back to an unknown latest version rather than failing the request.
+            val latest = ytDlpService.latestVersion().getOrNull()
             YtDlpStatusDto(
-                currentVersion = version.version,
-                latestVersion = null,
-                isUpdateAvailable = false,
+                currentVersion = current.version,
+                latestVersion = latest?.version,
+                isUpdateAvailable = latest?.isNewerThan(current) ?: false,
+                lastCheckedAt = if (latest != null) Instant.now().toString() else null,
             )
         }
     }

@@ -27,9 +27,16 @@ dependencies {
     // Logging
     api(libs.kotlin.logging)
 
+    // Outbound HTTP (e.g. GitHub releases API for yt-dlp update check)
+    api(libs.ktor.client.core)
+    api(libs.ktor.client.cio)
+    api(libs.ktor.client.content.negotiation)
+    api(libs.ktor.serialization.kotlinx.json)
+
     // Testing
     testImplementation(libs.bundles.testing)
     testImplementation(libs.bundles.testcontainers)
+    testImplementation(libs.ktor.client.mock)
 }
 
 tasks.test {
