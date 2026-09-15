@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.37.0](https://github.com/alelk/tg-video-downloader/compare/v1.36.0...v1.37.0) (2026-09-15)
+
+
+### Features
+
+* implement subtitle selection mechanism and enhance subtitle configuration options ([770d0e5](https://github.com/alelk/tg-video-downloader/commit/770d0e5e51339e559d937729488446159d9c5f94))
+
 # [1.36.0](https://github.com/alelk/tg-video-downloader/compare/v1.35.2...v1.36.0) (2026-09-15)
 
 
