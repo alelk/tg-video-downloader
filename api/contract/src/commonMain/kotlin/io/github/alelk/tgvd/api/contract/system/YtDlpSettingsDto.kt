@@ -27,6 +27,9 @@ data class YtDlpSettingsDto(
     val checkFormats: Boolean = true,
     /** Container for muxing, e.g. "mkv", "mp4", "webm". Null = let yt-dlp decide. */
     val mergeOutputFormat: String? = null,
+    /** Optional audio languages; the source-original track is always included separately. */
+    val preferredAudioLanguages: List<String> = listOf("ru", "en"),
+    val maxAdditionalAudioTracks: Int = 2,
 
     // ── Rate limiting / anti-ban ──────────────────────────────────────────────
     /** --rate-limit, e.g. "5M", "500K". Null = unlimited. */

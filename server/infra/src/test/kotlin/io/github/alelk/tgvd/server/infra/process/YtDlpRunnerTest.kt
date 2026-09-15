@@ -20,7 +20,7 @@ class YtDlpRunnerTest : FunSpec({
             VideoInfo.Format("2", "mp4", height = 2160, vcodec = "vp9", acodec = "none"), // 4k video
             VideoInfo.Format("3", "mp4", height = 1080, vcodec = "avc1", acodec = "none"), // 1080p video
             VideoInfo.Format("4", "m4a", vcodec = "none", acodec = "mp4a", tbr = 128.0), // 128k audio
-            VideoInfo.Format("5", "m4a", vcodec = "none", acodec = "mp4a", tbr = 256.0), // 256k audio
+            VideoInfo.Format("5", "m4a", vcodec = "none", acodec = "mp4a", tbr = 256.0, isOriginalAudio = true), // 256k original audio
         )
 
         val result = runner.resolveBestFormatId(formats, DownloadPolicy.VideoQuality.BEST)

@@ -266,6 +266,8 @@ yt-dlp --proxy socks5://user:pass@127.0.0.1:1080 <url>
 | `formatSort`              | `-S <value>`                                 |
 | `checkFormats`            | `--check-formats` (when `true`)              |
 | `mergeOutputFormat`       | `--merge-output-format <value>`              |
+| `preferredAudioLanguages` | Resolves optional language formats to IDs and adds them to `-f` |
+| `maxAdditionalAudioTracks`| Limits optional audio streams; original audio is not counted |
 | `rateLimit`               | `--rate-limit <value>`                       |
 | `sleepInterval`           | `--sleep-interval <value>`                   |
 | `maxSleepInterval`        | `--max-sleep-interval <value>`               |
@@ -280,4 +282,9 @@ yt-dlp --proxy socks5://user:pass@127.0.0.1:1080 <url>
 | `userAgent`               | `--user-agent <value>`                       |
 | `extractorOverrides[key]` | Per-URL overrides for SSL/proxy              |
 
-
+Automatic selection places the source-original/default audio ID first. When
+optional language tracks are available, the command enables
+`--audio-multistreams`. New default output rules use Matroska; existing rules
+keep their explicit container and should be changed to `.mkv` when source-codec
+compatibility is required. A raw `preferredFormats` value remains an expert
+override and bypasses this language-aware selection.

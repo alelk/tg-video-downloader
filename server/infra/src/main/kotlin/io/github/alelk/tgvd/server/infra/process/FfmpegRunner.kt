@@ -204,6 +204,9 @@ class FfmpegRunner(
             }
 
             add("-i"); add(input.value)
+            add("-map"); add("0:v:0?")
+            add("-map"); add("0:a?")
+            add("-map_metadata"); add("0")
 
             if (needsTranscode) {
                 // Video scaling — fit within maxWidth x maxHeight box, preserving aspect ratio.
@@ -223,6 +226,8 @@ class FfmpegRunner(
                 add("-c:v"); add("copy")
                 add("-c:a"); add("copy")
             }
+            add("-disposition:a"); add("0")
+            add("-disposition:a:0"); add("default")
             add("-y"); add(output.value)
         }
 
@@ -247,6 +252,9 @@ class FfmpegRunner(
             logger.warn { "Hardware encoder (${settings.hwAccel}) failed, retrying with software encoder (${fallbackSettings.resolveEncoder()})" }
             val fallbackArgs = buildList {
                 add("-i"); add(input.value)
+                add("-map"); add("0:v:0?")
+                add("-map"); add("0:a?")
+                add("-map_metadata"); add("0")
                 if (needsTranscode) {
                     val scaleFilter = buildScaleFilter(maxWidth, maxHeight)
                     add("-vf"); add(scaleFilter)
@@ -259,6 +267,8 @@ class FfmpegRunner(
                     add("-c:v"); add("copy")
                     add("-c:a"); add("copy")
                 }
+                add("-disposition:a"); add("0")
+                add("-disposition:a:0"); add("default")
                 add("-y"); add(output.value)
             }
             val fallbackDesc = if (needsTranscode) {
@@ -508,7 +518,8 @@ class FfmpegRunner(
     ): Either<DomainError, FilePath> {
         val metadataArgs = metadata.flatMap { (key, value) -> listOf("-metadata", "$key=$value") }
         return runFfmpeg(
-            args = listOf("-i", input.value) + metadataArgs + listOf("-c", "copy", "-y", output.value),
+            args = listOf("-i", input.value, "-map", "0") + metadataArgs +
+                listOf("-c", "copy", "-y", output.value),
             description = "embed metadata",
         ).map { output }
     }
@@ -599,4 +610,3 @@ class FfmpegRunner(
         AudioFormat.WAV -> "pcm_s16le"
     }
 }
-

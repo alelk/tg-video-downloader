@@ -136,9 +136,21 @@ class YtDlpRunner(
 
         val formats = videoInfo?.availableFormats
         if (formats != null && formats.isNotEmpty()) {
-            val bestFormatId = resolveBestFormatId(formats, quality)
+            val selection = selectFormats(formats, quality)
+            val bestFormatId = selection.formatSelector
             if (bestFormatId != null) {
+                logger.info {
+                    "Selected formats: video=${selection.video?.formatId ?: selection.combined?.formatId}, " +
+                        "originalAudio=${selection.originalAudio?.formatId}:${selection.originalAudio?.language ?: "unknown"}, " +
+                        "additionalAudio=${selection.additionalAudio.joinToString { "${it.formatId}:${it.language ?: "unknown"}" }}"
+                }
                 add("-f"); add(bestFormatId)
+                if (selection.audioTracks.size > 1) {
+                    add("--audio-multistreams")
+                    // The original audio is deliberately the first selected audio stream.
+                    add("--postprocessor-args")
+                    add("Merger+ffmpeg_o:-disposition:a 0 -disposition:a:0 default")
+                }
                 val sortStr = config.formatSort?.takeIf { it.isNotBlank() } ?: qualitySortString(quality)
                 add("-S"); add(sortStr)
                 return
@@ -162,67 +174,22 @@ class YtDlpRunner(
     internal fun resolveBestFormatId(
         formats: List<VideoInfo.Format>,
         quality: DownloadPolicy.VideoQuality,
-    ): String? {
-        val maxRes = when (quality) {
-            DownloadPolicy.VideoQuality.BEST -> Int.MAX_VALUE
-            DownloadPolicy.VideoQuality.HD_1080 -> 1080
-            DownloadPolicy.VideoQuality.HD_720 -> 720
-            DownloadPolicy.VideoQuality.SD_480 -> 480
-        }
-        // Classify formats into video-only, audio-only and combined (have both codecs)
-        val videoOnly = formats.filter {
-            (it.vcodec != null && it.vcodec != "none") && (it.acodec == null || it.acodec == "none")
-        }
-        val audioOnly = formats.filter {
-            (it.acodec != null && it.acodec != "none") && (it.vcodec == null || it.vcodec == "none")
-        }
-        val combined = formats.filter {
-            (it.vcodec != null && it.vcodec != "none") && (it.acodec != null && it.acodec != "none")
-        }
+    ): String? = AudioTrackSelector.select(formats, quality, emptyList(), 0).formatSelector
 
-        val sortVideoComparator = compareByDescending<VideoInfo.Format> { it.height ?: 0 }
-            .thenByDescending { it.width ?: 0 }
-            .thenByDescending { it.tbr ?: 0.0 }
-            .thenByDescending { it.fps ?: 0.0 }
+    private fun selectFormats(formats: List<VideoInfo.Format>, quality: DownloadPolicy.VideoQuality) =
+        AudioTrackSelector.select(
+            formats = formats,
+            quality = quality,
+            preferredLanguages = config.preferredAudioLanguages,
+            maxAdditionalTracks = config.maxAdditionalAudioTracks,
+        )
 
-        val bestVideoOnly = videoOnly
-            .filter { (it.height ?: 0) <= maxRes }
-            .sortedWith(sortVideoComparator)
-            .firstOrNull() ?: videoOnly.minByOrNull { it.height ?: 0 }
-
-        val bestAudioOnly = audioOnly
-            .sortedWith(compareByDescending<VideoInfo.Format> { it.tbr ?: 0.0 })
-            .firstOrNull()
-
-        // Prefer combining best video-only + best audio-only if both available
-        if (bestVideoOnly != null && bestAudioOnly != null) {
-            logger.debug { "resolveBestFormatId: selected video-only=${bestVideoOnly.formatId}(${bestVideoOnly.width}x${bestVideoOnly.height}) + audio-only=${bestAudioOnly.formatId} (tbr=${bestAudioOnly.tbr})" }
-            return "${bestVideoOnly.formatId}+${bestAudioOnly.formatId}"
-        }
-
-        // Fallback to best combined format
-        val bestCombined = combined
-            .filter { (it.height ?: 0) <= maxRes }
-            .sortedWith(sortVideoComparator)
-            .firstOrNull() ?: combined.minByOrNull { it.height ?: 0 }
-
-        if (bestCombined != null) {
-            logger.debug { "resolveBestFormatId: selected combined=${bestCombined.formatId}(${bestCombined.width}x${bestCombined.height})" }
-            return bestCombined.formatId
-        }
-
-        // As last resort, return video-only or audio-only single format
-        if (bestVideoOnly != null) {
-            logger.debug { "resolveBestFormatId: selected video-only=${bestVideoOnly.formatId}(${bestVideoOnly.width}x${bestVideoOnly.height})" }
-            return bestVideoOnly.formatId
-        }
-        if (bestAudioOnly != null) {
-            logger.debug { "resolveBestFormatId: selected audio-only=${bestAudioOnly.formatId} (tbr=${bestAudioOnly.tbr})" }
-            return bestAudioOnly.formatId
-        }
-
-        logger.debug { "resolveBestFormatId: no suitable formats found" }
-        return null
+    private fun effectiveContainer(policy: DownloadPolicy, outputPath: FilePath): String? {
+        policy.preferredContainer?.extension?.let { return it }
+        config.mergeOutputFormat?.takeIf { it.isNotBlank() }?.let { return it }
+        // A literal output template has a literal extension. Honour it to avoid
+        // producing Matroska bytes in a file named .mp4/.webm. New default rules use MKV.
+        return outputPath.extension.takeIf { it.isNotBlank() }
     }
 
     /** Append retry/resilience arguments for robust downloads on slow/unstable networks. */
@@ -374,6 +341,15 @@ class YtDlpRunner(
                         formatNote = fmtObj.getStringOrNull("format_note"),
                         filesize = fmtObj.getLongOrNull("filesize"),
                         filesizeApprox = fmtObj.getLongOrNull("filesize_approx"),
+                        language = fmtObj.getStringOrNull("language"),
+                        languagePreference = fmtObj.getIntOrNull("language_preference"),
+                        audioChannels = fmtObj.getIntOrNull("audio_channels"),
+                        audioTrackName = fmtObj.getStringOrNull("format_note"),
+                        isOriginalAudio = fmtObj.getBooleanOrNull("is_original") == true ||
+                            fmtObj.getStringOrNull("format_note")?.let {
+                                it.contains("original", ignoreCase = true) ||
+                                    it.contains("default", ignoreCase = true)
+                            } == true || (fmtObj.getIntOrNull("language_preference") ?: 0) > 0,
                     )
                 } ?: emptyList(),
             ).right()
@@ -405,7 +381,7 @@ class YtDlpRunner(
                 addSubtitleArgs()
                 addSiteArgs()
                 // Per-job container takes priority over global setting
-                val container = policy.preferredContainer?.extension ?: config.mergeOutputFormat
+                val container = effectiveContainer(policy, outputPath)
                 container?.takeIf { it.isNotBlank() }?.let { add("--merge-output-format"); add(it) }
                 effectiveProxyUrl(url.value)?.let { add("--proxy"); add(it) }
 
@@ -447,7 +423,7 @@ class YtDlpRunner(
     ): Flow<DownloadEvent> = flow {
         val formats = videoInfo?.availableFormats
         val selectedFormatId = if (formats != null && formats.isNotEmpty()) {
-            resolveBestFormatId(formats, policy.maxQuality)
+            selectFormats(formats, policy.maxQuality).formatSelector
         } else null
 
         val args = buildList {
@@ -465,7 +441,7 @@ class YtDlpRunner(
             addSubtitleArgs()
             addSiteArgs()
             // Per-job container takes priority over global setting
-            val container = policy.preferredContainer?.extension ?: config.mergeOutputFormat
+            val container = effectiveContainer(policy, outputPath)
             container?.takeIf { it.isNotBlank() }?.let { add("--merge-output-format"); add(it) }
 
             if (policy.writeThumbnail) {
@@ -584,3 +560,5 @@ private fun JsonObject.getIntOrNull(key: String): Int? =
 private fun JsonObject.getLongOrNull(key: String): Long? =
     this[key]?.jsonPrimitive?.longOrNull
 
+private fun JsonObject.getBooleanOrNull(key: String): Boolean? =
+    this[key]?.jsonPrimitive?.booleanOrNull

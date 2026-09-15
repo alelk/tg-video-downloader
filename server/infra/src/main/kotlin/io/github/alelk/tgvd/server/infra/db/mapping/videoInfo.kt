@@ -37,6 +37,11 @@ internal fun VideoInfo.toPm(): VideoInfoPm = VideoInfoPm(
             formatNote = it.formatNote,
             filesize = it.filesize,
             filesizeApprox = it.filesizeApprox,
+            language = it.language,
+            languagePreference = it.languagePreference,
+            audioChannels = it.audioChannels,
+            audioTrackName = it.audioTrackName,
+            isOriginalAudio = it.isOriginalAudio,
         )
     },
     actualFormat = actualFormat?.let {
@@ -52,6 +57,11 @@ internal fun VideoInfo.toPm(): VideoInfoPm = VideoInfoPm(
             formatNote = it.formatNote,
             filesize = it.filesize,
             filesizeApprox = it.filesizeApprox,
+            language = it.language,
+            languagePreference = it.languagePreference,
+            audioChannels = it.audioChannels,
+            audioTrackName = it.audioTrackName,
+            isOriginalAudio = it.isOriginalAudio,
         )
     }
 )
@@ -80,6 +90,11 @@ internal fun VideoInfoPm.toDomain(): VideoInfo = VideoInfo(
             formatNote = it.formatNote,
             filesize = it.filesize,
             filesizeApprox = it.filesizeApprox,
+            language = it.language,
+            languagePreference = it.languagePreference,
+            audioChannels = it.audioChannels,
+            audioTrackName = it.audioTrackName,
+            isOriginalAudio = it.isOriginalAudio,
         )
     },
     actualFormat = actualFormat?.let {
@@ -95,6 +110,11 @@ internal fun VideoInfoPm.toDomain(): VideoInfo = VideoInfo(
             formatNote = it.formatNote,
             filesize = it.filesize,
             filesizeApprox = it.filesizeApprox,
+            language = it.language,
+            languagePreference = it.languagePreference,
+            audioChannels = it.audioChannels,
+            audioTrackName = it.audioTrackName,
+            isOriginalAudio = it.isOriginalAudio,
         )
     }
 )

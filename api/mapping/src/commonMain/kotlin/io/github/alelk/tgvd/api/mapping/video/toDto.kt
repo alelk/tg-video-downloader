@@ -35,6 +35,11 @@ fun VideoInfo.toDto(): VideoInfoDto =
                 formatNote = it.formatNote,
                 filesize = it.filesize,
                 filesizeApprox = it.filesizeApprox,
+                language = it.language,
+                languagePreference = it.languagePreference,
+                audioChannels = it.audioChannels,
+                audioTrackName = it.audioTrackName,
+                isOriginalAudio = it.isOriginalAudio,
             )
         },
         actualFormat = actualFormat?.let {
@@ -50,7 +55,11 @@ fun VideoInfo.toDto(): VideoInfoDto =
                 formatNote = it.formatNote,
                 filesize = it.filesize,
                 filesizeApprox = it.filesizeApprox,
+                language = it.language,
+                languagePreference = it.languagePreference,
+                audioChannels = it.audioChannels,
+                audioTrackName = it.audioTrackName,
+                isOriginalAudio = it.isOriginalAudio,
             )
         }
     )
-

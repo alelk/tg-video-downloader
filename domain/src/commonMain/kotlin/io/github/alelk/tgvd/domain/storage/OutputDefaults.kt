@@ -12,7 +12,7 @@ object OutputDefaults {
         listOf(
             OutputRule(
                 pathTemplate = "~/Downloads/Media/Music Videos/original/{artist}/{title} [{videoId}].{ext}",
-                format = OutputFormat.OriginalVideo(MediaContainer.WEBM),
+                format = OutputFormat.OriginalVideo(MediaContainer.MKV),
             ),
             OutputRule(
                 pathTemplate = "~/Downloads/Media/Music Videos/converted/{artist}/{title}.mp4",
@@ -26,7 +26,7 @@ object OutputDefaults {
         listOf(
             OutputRule(
                 pathTemplate = "~/Downloads/Media/TV Series/{seriesName}/Season {season}/{episode} - {title}.{ext}",
-                format = OutputFormat.OriginalVideo(MediaContainer.WEBM),
+                format = OutputFormat.OriginalVideo(MediaContainer.MKV),
                 embedThumbnail = true,
                 embedMetadata = true,
                 embedSubtitles = true,
@@ -37,7 +37,7 @@ object OutputDefaults {
         listOf(
             OutputRule(
                 pathTemplate = "~/Downloads/Media/Yt Series/{channelName}/{year}/{date} {title}.{ext}",
-                format = OutputFormat.OriginalVideo(MediaContainer.WEBM),
+                format = OutputFormat.OriginalVideo(MediaContainer.MKV),
                 embedThumbnail = true,
                 embedMetadata = true,
             ),
@@ -47,7 +47,7 @@ object OutputDefaults {
         listOf(
             OutputRule(
                 pathTemplate = "~/Downloads/Media/Videos/{channelName}/{title} [{videoId}].{ext}",
-                format = OutputFormat.OriginalVideo(MediaContainer.WEBM),
+                format = OutputFormat.OriginalVideo(MediaContainer.MKV),
             ),
         )
 

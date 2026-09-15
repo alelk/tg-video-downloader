@@ -41,6 +41,8 @@ fun Route.systemRoutes() {
                     formatSort = ytDlpConfig.formatSort,
                     checkFormats = ytDlpConfig.checkFormats,
                     mergeOutputFormat = ytDlpConfig.mergeOutputFormat,
+                    preferredAudioLanguages = ytDlpConfig.preferredAudioLanguages,
+                    maxAdditionalAudioTracks = ytDlpConfig.maxAdditionalAudioTracks,
                     rateLimit = ytDlpConfig.rateLimit,
                     sleepInterval = ytDlpConfig.sleepInterval,
                     maxSleepInterval = ytDlpConfig.maxSleepInterval,
@@ -89,6 +91,11 @@ fun Route.systemRoutes() {
                 formatSort = request.ytDlp.formatSort,
                 checkFormats = request.ytDlp.checkFormats,
                 mergeOutputFormat = request.ytDlp.mergeOutputFormat,
+                preferredAudioLanguages = request.ytDlp.preferredAudioLanguages
+                    .map { it.trim().replace('_', '-').lowercase() }
+                    .filter { it.isNotBlank() }
+                    .distinct(),
+                maxAdditionalAudioTracks = request.ytDlp.maxAdditionalAudioTracks.coerceIn(0, 8),
                 rateLimit = request.ytDlp.rateLimit,
                 sleepInterval = request.ytDlp.sleepInterval,
                 maxSleepInterval = request.ytDlp.maxSleepInterval,
@@ -161,4 +168,3 @@ fun Route.systemRoutes() {
         }
     }
 }
-

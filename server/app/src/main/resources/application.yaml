@@ -41,6 +41,8 @@ ytDlp:
   allowUpdate: true
   updateChannel: "stable"
   autoDownload: true
+  preferredAudioLanguages: ["ru", "en"]
+  maxAdditionalAudioTracks: 2
   cookiesFromBrowser: "${YTDLP_COOKIES_FROM_BROWSER:-}"
   cookiesFile: "${YTDLP_COOKIES_FILE:-}"
 

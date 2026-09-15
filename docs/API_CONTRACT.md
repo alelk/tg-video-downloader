@@ -1486,3 +1486,22 @@ When `ytDlp.allowUpdate: false`.
   }
 }
 ```
+
+### 11.3 GET/PUT /api/v1/system/settings
+
+Reads or replaces runtime system settings. The `ytDlp` object includes the
+multi-audio policy:
+
+```json
+{
+  "ytDlp": {
+    "preferredAudioLanguages": ["ru", "en"],
+    "maxAdditionalAudioTracks": 2
+  }
+}
+```
+
+The original/source-default audio is always selected separately and is not
+counted by `maxAdditionalAudioTracks`. Missing preferred languages are ignored.
+Language codes are normalised on update. A non-empty raw `preferredFormats`
+selector bypasses automatic language-aware selection.

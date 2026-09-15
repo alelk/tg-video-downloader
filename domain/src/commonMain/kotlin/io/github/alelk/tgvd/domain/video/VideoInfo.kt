@@ -36,5 +36,10 @@ data class VideoInfo(
         val formatNote: String? = null,
         val filesize: Long? = null,
         val filesizeApprox: Long? = null,
+        val language: String? = null,
+        val languagePreference: Int? = null,
+        val audioChannels: Int? = null,
+        val audioTrackName: String? = null,
+        val isOriginalAudio: Boolean = false,
     )
 }

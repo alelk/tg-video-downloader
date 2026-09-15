@@ -71,6 +71,8 @@ fun SettingsScreen() {
     var formatSort by remember { mutableStateOf("") }
     var checkFormats by remember { mutableStateOf(true) }
     var mergeOutputFormat by remember { mutableStateOf("") }
+    var preferredAudioLanguages by remember { mutableStateOf("ru, en") }
+    var maxAdditionalAudioTracks by remember { mutableStateOf("2") }
 
     // ── Rate limiting state ───────────────────────────────────────────────────
     var rateLimit by remember { mutableStateOf("") }
@@ -125,6 +127,8 @@ fun SettingsScreen() {
                 formatSort = ytDlp.formatSort ?: ""
                 checkFormats = ytDlp.checkFormats
                 mergeOutputFormat = ytDlp.mergeOutputFormat ?: ""
+                preferredAudioLanguages = ytDlp.preferredAudioLanguages.joinToString(", ")
+                maxAdditionalAudioTracks = ytDlp.maxAdditionalAudioTracks.toString()
 
                 // Rate limiting
                 rateLimit = ytDlp.rateLimit ?: ""
@@ -199,6 +203,9 @@ fun SettingsScreen() {
                         formatSort        = formatSort.takeIf { it.isNotBlank() },
                         checkFormats      = checkFormats,
                         mergeOutputFormat = mergeOutputFormat.takeIf { it.isNotBlank() },
+                        preferredAudioLanguages = preferredAudioLanguages.split(',')
+                            .map { it.trim() }.filter { it.isNotBlank() }.distinct(),
+                        maxAdditionalAudioTracks = (maxAdditionalAudioTracks.toIntOrNull() ?: 2).coerceIn(0, 8),
                         // Rate limiting
                         rateLimit        = rateLimit.takeIf { it.isNotBlank() },
                         sleepInterval    = sleepInterval.toIntOrNull(),
@@ -467,6 +474,41 @@ fun SettingsScreen() {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text("Audio tracks", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "The source-original audio is always included and set as default. Optional languages are added when available; MKV is recommended for multiple tracks.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = preferredAudioLanguages,
+                onValueChange = { preferredAudioLanguages = it },
+                label = { Text("Additional audio languages") },
+                placeholder = { Text("ru, en") },
+                supportingText = { Text("Comma-separated BCP 47 language codes, in priority order.") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = maxAdditionalAudioTracks,
+                onValueChange = { maxAdditionalAudioTracks = it.filter(Char::isDigit) },
+                label = { Text("Maximum additional tracks") },
+                supportingText = { Text("0–8; the original track is not counted.") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+            if (preferredFormats.isNotBlank()) {
+                Text(
+                    "The custom format selector overrides automatic audio-language selection.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(

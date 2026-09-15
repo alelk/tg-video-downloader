@@ -1637,3 +1637,14 @@ On violation — `IllegalArgumentException`.
 ### 11.3 Business Rule Validation
 
 Business validation (e.g. "a job for this videoId already exists") — via `Either<DomainError, T>` in use cases.
+## Language-aware audio selection
+
+`VideoInfo.Format` carries extractor-provided audio language, language
+preference, channel count, track name, and original/default information.
+Automatic download selection always chooses the source-original/default audio
+first, then at most one best format for each configured optional language.
+Bitrate ranks formats only within the same language and cannot replace the
+original audio with a translated track.
+
+The selected original format ID is placed first in the yt-dlp multi-stream
+selector and becomes the default audio stream in the final container.

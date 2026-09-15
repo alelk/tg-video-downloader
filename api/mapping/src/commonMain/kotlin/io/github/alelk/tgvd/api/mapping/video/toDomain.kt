@@ -39,7 +39,11 @@ fun VideoInfoDto.toDomain(): VideoInfo =
                 formatNote = fmt.formatNote,
                 filesize = fmt.filesize,
                 filesizeApprox = fmt.filesizeApprox,
+                language = fmt.language,
+                languagePreference = fmt.languagePreference,
+                audioChannels = fmt.audioChannels,
+                audioTrackName = fmt.audioTrackName,
+                isOriginalAudio = fmt.isOriginalAudio,
             )
         },
     )
-

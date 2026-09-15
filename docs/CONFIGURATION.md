@@ -67,6 +67,9 @@ ytDlp:
   autoDownload: true                   # automatically download yt-dlp on startup if binary not found
   legacyServerConnect: false           # --legacy-server-connect: workaround for SSL EOF errors (e.g. RuTube)
   noCheckCertificate: false            # --no-check-certificate: disable TLS validation (use with caution!)
+  preferredAudioLanguages: ["ru", "en"] # optional tracks; source-original audio is always selected
+  maxAdditionalAudioTracks: 2          # does not include the original track
+  mergeOutputFormat: null              # output-rule extension is used; new multi-audio defaults use mkv
 
 # ffmpeg
 ffmpeg:
