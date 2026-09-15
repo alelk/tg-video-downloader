@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.36.0](https://github.com/alelk/tg-video-downloader/compare/v1.35.2...v1.36.0) (2026-09-15)
+
+
+### Features
+
+* add multi-audio support with language-aware selection and preservation ([888eee2](https://github.com/alelk/tg-video-downloader/commit/888eee2bd919035d6483fcd1549bee503f2d0466))
+
 ## [1.35.2](https://github.com/alelk/tg-video-downloader/compare/v1.35.1...v1.35.2) (2026-08-22)
 
 
