@@ -57,9 +57,11 @@ data class YtDlpConfig(
     val maxSleepInterval: Int? = null,
 
     // ── Subtitles ─────────────────────────────────────────────────────────────
-    val writeSubs: Boolean = false,
-    val writeAutoSubs: Boolean = false,
-    /** Comma-separated language codes, e.g. "ru,en". */
+    val writeSubs: Boolean = true,
+    val writeAutoSubs: Boolean = true,
+    /** Subtitle languages to download when available, including generated captions. */
+    val preferredSubtitleLanguages: List<String> = listOf("ru", "en"),
+    /** Legacy comma-separated setting. Kept for persisted configuration compatibility. */
     val subLangs: String? = null,
     val embedSubs: Boolean = false,
 

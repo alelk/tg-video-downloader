@@ -138,7 +138,7 @@ fun SettingsScreen() {
                 // Subtitles
                 writeSubs = ytDlp.writeSubs
                 writeAutoSubs = ytDlp.writeAutoSubs
-                subLangs = ytDlp.subLangs ?: ""
+                subLangs = ytDlp.preferredSubtitleLanguages.joinToString(", ")
                 embedSubs = ytDlp.embedSubs
 
                 // Advanced
@@ -213,7 +213,11 @@ fun SettingsScreen() {
                         // Subtitles
                         writeSubs     = writeSubs,
                         writeAutoSubs = writeAutoSubs,
-                        subLangs      = subLangs.takeIf { it.isNotBlank() },
+                        preferredSubtitleLanguages = subLangs.split(',')
+                            .map { it.trim().replace('_', '-').lowercase() }
+                            .filter { it.isNotBlank() }
+                            .distinct(),
+                        subLangs      = null,
                         embedSubs     = embedSubs,
                         // Advanced
                         concurrentFragments = concurrentFragments.toIntOrNull() ?: 5,

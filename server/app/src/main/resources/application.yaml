@@ -43,6 +43,9 @@ ytDlp:
   autoDownload: true
   preferredAudioLanguages: ["ru", "en"]
   maxAdditionalAudioTracks: 2
+  writeSubs: true
+  writeAutoSubs: true
+  preferredSubtitleLanguages: ["ru", "en"]
   cookiesFromBrowser: "${YTDLP_COOKIES_FROM_BROWSER:-}"
   cookiesFile: "${YTDLP_COOKIES_FILE:-}"
 

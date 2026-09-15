@@ -41,10 +41,12 @@ data class YtDlpSettingsDto(
 
     // ── Subtitles ─────────────────────────────────────────────────────────────
     /** Download subtitle files alongside the video. */
-    val writeSubs: Boolean = false,
+    val writeSubs: Boolean = true,
     /** Download auto-generated subtitles (e.g. YouTube auto-captions). */
-    val writeAutoSubs: Boolean = false,
-    /** Comma-separated subtitle language codes, e.g. "ru,en". */
+    val writeAutoSubs: Boolean = true,
+    /** Exact subtitle language codes to download, e.g. `["ru", "en"]`. */
+    val preferredSubtitleLanguages: List<String> = listOf("ru", "en"),
+    /** Legacy comma-separated subtitle languages. */
     val subLangs: String? = null,
     /** Embed subtitles into the video file (requires ffmpeg). */
     val embedSubs: Boolean = false,

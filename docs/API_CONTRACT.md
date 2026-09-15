@@ -1496,7 +1496,10 @@ multi-audio policy:
 {
   "ytDlp": {
     "preferredAudioLanguages": ["ru", "en"],
-    "maxAdditionalAudioTracks": 2
+    "maxAdditionalAudioTracks": 2,
+    "writeSubs": true,
+    "writeAutoSubs": true,
+    "preferredSubtitleLanguages": ["ru", "en"]
   }
 }
 ```
@@ -1505,3 +1508,7 @@ The original/source-default audio is always selected separately and is not
 counted by `maxAdditionalAudioTracks`. Missing preferred languages are ignored.
 Language codes are normalised on update. A non-empty raw `preferredFormats`
 selector bypasses automatic language-aware selection.
+
+Regular and auto-generated subtitles are downloaded when available, restricted
+to `preferredSubtitleLanguages`. A rule with `downloadSubtitles = true` can
+override the language list through its `subtitleLanguages` field.

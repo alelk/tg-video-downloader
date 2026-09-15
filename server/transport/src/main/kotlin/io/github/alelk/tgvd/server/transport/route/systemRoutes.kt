@@ -48,6 +48,7 @@ fun Route.systemRoutes() {
                     maxSleepInterval = ytDlpConfig.maxSleepInterval,
                     writeSubs = ytDlpConfig.writeSubs,
                     writeAutoSubs = ytDlpConfig.writeAutoSubs,
+                    preferredSubtitleLanguages = ytDlpConfig.preferredSubtitleLanguages,
                     subLangs = ytDlpConfig.subLangs,
                     embedSubs = ytDlpConfig.embedSubs,
                     concurrentFragments = ytDlpConfig.concurrentFragments,
@@ -101,7 +102,12 @@ fun Route.systemRoutes() {
                 maxSleepInterval = request.ytDlp.maxSleepInterval,
                 writeSubs = request.ytDlp.writeSubs,
                 writeAutoSubs = request.ytDlp.writeAutoSubs,
-                subLangs = request.ytDlp.subLangs,
+                preferredSubtitleLanguages = (request.ytDlp.subLangs?.split(',')
+                    ?: request.ytDlp.preferredSubtitleLanguages)
+                    .map { it.trim().replace('_', '-').lowercase() }
+                    .filter { it.isNotBlank() }
+                    .distinct(),
+                subLangs = null,
                 embedSubs = request.ytDlp.embedSubs,
                 concurrentFragments = request.ytDlp.concurrentFragments,
                 socketTimeout = request.ytDlp.socketTimeout,

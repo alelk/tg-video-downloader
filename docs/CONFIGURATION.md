@@ -69,6 +69,9 @@ ytDlp:
   noCheckCertificate: false            # --no-check-certificate: disable TLS validation (use with caution!)
   preferredAudioLanguages: ["ru", "en"] # optional tracks; source-original audio is always selected
   maxAdditionalAudioTracks: 2          # does not include the original track
+  writeSubs: true                      # download publisher-provided subtitles
+  writeAutoSubs: true                  # also download generated captions
+  preferredSubtitleLanguages: ["ru", "en"] # download only these languages
   mergeOutputFormat: null              # output-rule extension is used; new multi-audio defaults use mkv
 
 # ffmpeg

@@ -273,7 +273,7 @@ yt-dlp --proxy socks5://user:pass@127.0.0.1:1080 <url>
 | `maxSleepInterval`        | `--max-sleep-interval <value>`               |
 | `writeSubs`               | `--write-subs`                               |
 | `writeAutoSubs`           | `--write-auto-subs`                          |
-| `subLangs`                | `--sub-langs <value>`                        |
+| `preferredSubtitleLanguages` | `--sub-langs <comma-separated values>`    |
 | `embedSubs`               | `--embed-subs`                               |
 | `concurrentFragments`     | `--concurrent-fragments <value>`             |
 | `socketTimeout`           | `--socket-timeout <value>`                   |

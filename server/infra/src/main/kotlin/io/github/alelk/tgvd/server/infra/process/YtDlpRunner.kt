@@ -216,12 +216,9 @@ class YtDlpRunner(
         config.userAgent?.takeIf { it.isNotBlank() }?.let { add("--user-agent"); add(it) }
     }
 
-    /** Append subtitle arguments from config. */
-    private fun MutableList<String>.addSubtitleArgs() {
-        if (config.writeSubs) add("--write-subs")
-        if (config.writeAutoSubs) add("--write-auto-subs")
-        config.subLangs?.takeIf { it.isNotBlank() }?.let { add("--sub-langs"); add(it) }
-        if (config.embedSubs && (config.writeSubs || config.writeAutoSubs)) add("--embed-subs")
+    /** Append the effective global/per-rule subtitle arguments. */
+    private fun MutableList<String>.addSubtitleArgs(policy: DownloadPolicy) {
+        addAll(SubtitleSelector.select(config, policy).arguments())
     }
 
     /**
@@ -378,7 +375,7 @@ class YtDlpRunner(
                 addFormatArgs(policy.maxQuality, videoInfo)
                 addResilienceArgs()
                 addNetworkArgs()
-                addSubtitleArgs()
+                addSubtitleArgs(policy)
                 addSiteArgs()
                 // Per-job container takes priority over global setting
                 val container = effectiveContainer(policy, outputPath)
@@ -438,7 +435,7 @@ class YtDlpRunner(
             addFormatArgs(policy.maxQuality, videoInfo)
             addResilienceArgs()
             addNetworkArgs()
-            addSubtitleArgs()
+            addSubtitleArgs(policy)
             addSiteArgs()
             // Per-job container takes priority over global setting
             val container = effectiveContainer(policy, outputPath)
