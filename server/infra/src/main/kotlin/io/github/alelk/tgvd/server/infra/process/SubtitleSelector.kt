@@ -4,7 +4,7 @@ import io.github.alelk.tgvd.domain.storage.DownloadPolicy
 import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
 
 /** Resolves the effective subtitle policy for one download. */
-internal object SubtitleSelector {
+object SubtitleSelector {
     data class Selection(
         val writeRegular: Boolean,
         val writeAutomatic: Boolean,
@@ -32,10 +32,10 @@ internal object SubtitleSelector {
         }
     }
 
-    fun select(config: YtDlpConfig, policy: DownloadPolicy): Selection {
+    fun select(config: YtDlpConfig, policy: DownloadPolicy, selectedLanguages: List<String>? = null): Selection {
         val requestedByRule = policy.downloadSubtitles
         val languages = normalizeLanguages(
-            policy.subtitleLanguages.takeIf { it.isNotEmpty() }
+            selectedLanguages ?: policy.subtitleLanguages.takeIf { it.isNotEmpty() }
                 ?: config.subLangs
                     ?.split(',')
                     ?.takeIf { it.isNotEmpty() }
@@ -43,10 +43,10 @@ internal object SubtitleSelector {
         )
 
         return Selection(
-            writeRegular = config.writeSubs || requestedByRule,
+            writeRegular = config.writeSubs || requestedByRule || !selectedLanguages.isNullOrEmpty(),
             // A rule asking for subtitles includes generated captions too: for many
             // videos they are the only subtitles available.
-            writeAutomatic = config.writeAutoSubs || requestedByRule,
+            writeAutomatic = config.writeAutoSubs || requestedByRule || !selectedLanguages.isNullOrEmpty(),
             languages = languages,
             embed = config.embedSubs,
             sleepSubtitles = config.sleepSubtitles,

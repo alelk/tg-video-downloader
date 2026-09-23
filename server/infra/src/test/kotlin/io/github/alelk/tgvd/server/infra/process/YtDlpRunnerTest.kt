@@ -2,6 +2,8 @@ package io.github.alelk.tgvd.server.infra.process
 
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
 import io.github.alelk.tgvd.domain.video.VideoInfo
+import io.github.alelk.tgvd.domain.video.MediaSelection
+import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
 import io.github.alelk.tgvd.server.infra.service.SystemSettingsHolder
 import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.server.infra.db.mapping.toDomain
@@ -9,6 +11,7 @@ import io.github.alelk.tgvd.server.infra.db.mapping.toVideoInfoPm
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
+import io.mockk.every
 
 class YtDlpRunnerTest : FunSpec({
 
@@ -25,6 +28,19 @@ class YtDlpRunnerTest : FunSpec({
 
         val result = runner.resolveBestFormatId(formats, DownloadPolicy.VideoQuality.BEST)
         result shouldBe "2+5"
+    }
+
+    test("explicit audio selection includes exactly the checked formats") {
+        val settings = mockk<SystemSettingsHolder>()
+        every { settings.ytDlpConfig } returns YtDlpConfig()
+        val selectedRunner = YtDlpRunner(settings)
+        val formats = listOf(
+            VideoInfo.Format("video", "webm", height = 1080, vcodec = "vp9", acodec = "none"),
+            VideoInfo.Format("ru", "webm", language = "ru", vcodec = "none", acodec = "opus"),
+            VideoInfo.Format("en", "m4a", language = "en", vcodec = "none", acodec = "mp4a"),
+        )
+        selectedRunner.selectFormats(formats, DownloadPolicy.VideoQuality.BEST,
+            MediaSelection(audioFormatIds = listOf("en"))).formatSelector shouldBe "video+en"
     }
 
     test("resolveBestFormatId respects resolution cap") {
@@ -67,24 +83,28 @@ class YtDlpRunnerTest : FunSpec({
         domain.channelId.value shouldBe "unknown"
     }
 
-    test("isSubtitleOnlyFailure is true when every ERROR line is about subtitles") {
-        val lines = listOf(
-            "[info] Writing video subtitles to: video.en.vtt",
-            "ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests",
-        )
-        runner.isSubtitleOnlyFailure(lines) shouldBe true
+    test("progress ignores subtitles and counts each selected media stream once") {
+        val progress = MediaProgressTracker(3)
+        progress.onLine("[download] Destination: video.en.vtt") shouldBe null
+        progress.onLine("[download] 100.0% of 100KiB") shouldBe null
+        progress.onLine("[download] Destination: video.webp") shouldBe null
+        progress.onLine("[download] 100.0% of 100KiB") shouldBe null
+        progress.onLine("[download] Destination: video.f270.webm") shouldBe null
+        progress.onLine("[download] 50.0% of 100MiB")?.percent shouldBe 15
+        progress.onLine("[download] 100.0% of 100MiB")?.percent shouldBe 31
+        progress.onLine("[download] Destination: video.f251.webm") shouldBe null
+        progress.onLine("[download] 100.0% of 10MiB")?.percent shouldBe 63
+        progress.onLine("[download] Destination: video.f140.m4a") shouldBe null
+        progress.onLine("[download] 100.0% of 10MiB")?.percent shouldBe 95
+        progress.onLine("[Merger] Merging formats into video.mkv") shouldBe null
     }
 
-    test("isSubtitleOnlyFailure is false when a non-subtitle ERROR line is present") {
-        val lines = listOf(
-            "ERROR: unable to download video data: HTTP Error 403: Forbidden",
-            "ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests",
-        )
-        runner.isSubtitleOnlyFailure(lines) shouldBe false
-    }
-
-    test("isSubtitleOnlyFailure is false when there are no ERROR lines") {
-        runner.isSubtitleOnlyFailure(listOf("[download] 100% of 10.00MiB")) shouldBe false
+    test("progress does not parse unrelated percentages") {
+        val progress = MediaProgressTracker(2)
+        progress.onLine("[info] 100% of subtitles fetched") shouldBe null
+        progress.onLine("[download] Destination: video.f270.webm") shouldBe null
+        progress.onLine("[download] 50.0% of 100MiB")?.percent shouldBe 23
+        progress.onLine("[download] 40.0% of 100MiB")?.percent shouldBe 23
     }
 
     test("toDomain handles blank channelId from database") {

@@ -20,6 +20,14 @@
     <!-- Preview Screen -->
     <string name="preview_title">Предпросмотр</string>
     <string name="preview_video_info">Информация о видео</string>
+    <string name="preview_media_tracks">Дорожки</string>
+    <string name="preview_audio_tracks">Аудиодорожки</string>
+    <string name="preview_subtitle_tracks">Субтитры</string>
+    <string name="preview_auto_subtitles">автоматические</string>
+    <string name="preview_select_audio">Выберите хотя бы одну аудиодорожку</string>
+    <string name="jobs_phase_download">Скачивание</string>
+    <string name="jobs_phase_convert">Конвертация</string>
+    <string name="jobs_phase_processing">Обработка</string>
     <string name="preview_metadata">Метаданные</string>
     <string name="preview_storage_plan">План сохранения</string>
     <string name="preview_matched_rule">Совпавшее правило</string>
@@ -197,4 +205,3 @@
     <string name="validation_forbidden_chars">Содержит запрещённые символы: / \\ : * ? &quot; &lt; &gt; |</string>
     <string name="validation_field_has_errors">В полях есть ошибки — исправьте их перед скачиванием</string>
 </resources>
-

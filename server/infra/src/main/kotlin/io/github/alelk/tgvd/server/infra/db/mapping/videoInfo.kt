@@ -11,6 +11,7 @@ import io.github.alelk.tgvd.domain.video.VideoSource
 import io.github.alelk.tgvd.server.infra.db.model.ThumbnailPm
 import io.github.alelk.tgvd.server.infra.db.model.VideoFormatPm
 import io.github.alelk.tgvd.server.infra.db.model.VideoInfoPm
+import io.github.alelk.tgvd.server.infra.db.model.SubtitleTrackPm
 import kotlin.time.Duration.Companion.seconds
 
 internal fun VideoInfo.toPm(): VideoInfoPm = VideoInfoPm(
@@ -24,6 +25,7 @@ internal fun VideoInfo.toPm(): VideoInfoPm = VideoInfoPm(
     webpageUrl = webpageUrl.value,
     thumbnails = thumbnails.map { ThumbnailPm(it.url.value, it.width, it.height) },
     description = description,
+    subtitleTracks = subtitleTracks.map { SubtitleTrackPm(it.language, it.automatic, it.name) },
     availableFormats = availableFormats.map {
         VideoFormatPm(
             formatId = it.formatId,
@@ -77,6 +79,7 @@ internal fun VideoInfoPm.toDomain(): VideoInfo = VideoInfo(
     webpageUrl = Url(webpageUrl),
     thumbnails = thumbnails.map { VideoInfo.Thumbnail(Url(it.url), it.width, it.height) },
     description = description,
+    subtitleTracks = subtitleTracks.map { VideoInfo.SubtitleTrack(it.language, it.automatic, it.name) },
     availableFormats = availableFormats.map {
         VideoInfo.Format(
             formatId = it.formatId,

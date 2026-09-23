@@ -20,6 +20,14 @@
     <!-- Preview Screen -->
     <string name="preview_title">Preview</string>
     <string name="preview_video_info">Video Info</string>
+    <string name="preview_media_tracks">Media tracks</string>
+    <string name="preview_audio_tracks">Audio tracks</string>
+    <string name="preview_subtitle_tracks">Subtitles</string>
+    <string name="preview_auto_subtitles">automatic</string>
+    <string name="preview_select_audio">Select at least one audio track</string>
+    <string name="jobs_phase_download">Downloading</string>
+    <string name="jobs_phase_convert">Converting</string>
+    <string name="jobs_phase_processing">Processing</string>
     <string name="preview_metadata">Metadata</string>
     <string name="preview_storage_plan">Storage Plan</string>
     <string name="preview_matched_rule">Matched Rule</string>
@@ -197,4 +205,3 @@
     <string name="validation_forbidden_chars">Contains forbidden characters: / \\ : * ? &quot; &lt; &gt; |</string>
     <string name="validation_field_has_errors">Some fields have errors — fix them before downloading</string>
 </resources>
-

@@ -4,6 +4,7 @@ import io.github.alelk.tgvd.api.contract.video.ThumbnailDto
 import io.github.alelk.tgvd.api.contract.video.VideoFormatDto
 import io.github.alelk.tgvd.api.contract.video.VideoInfoDto
 import io.github.alelk.tgvd.api.contract.video.VideoSourceDto
+import io.github.alelk.tgvd.api.contract.video.SubtitleTrackDto
 import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.github.alelk.tgvd.domain.video.VideoSource
 
@@ -22,6 +23,7 @@ fun VideoInfo.toDto(): VideoInfoDto =
         webpageUrl = webpageUrl.value,
         thumbnails = thumbnails.map { ThumbnailDto(it.url.value, it.width, it.height) },
         description = description,
+        subtitleTracks = subtitleTracks.map { SubtitleTrackDto(it.language, it.automatic, it.name) },
         availableFormats = availableFormats.map {
             VideoFormatDto(
                 formatId = it.formatId,

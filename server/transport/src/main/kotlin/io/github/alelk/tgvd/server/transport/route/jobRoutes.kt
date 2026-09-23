@@ -1,6 +1,7 @@
 package io.github.alelk.tgvd.server.transport.route
 
 import arrow.core.raise.either
+import arrow.core.raise.ensure
 import io.github.alelk.tgvd.api.contract.job.CreateJobRequestDto
 import io.github.alelk.tgvd.api.contract.job.JobDto
 import io.github.alelk.tgvd.api.contract.job.JobListResponseDto
@@ -14,6 +15,7 @@ import io.github.alelk.tgvd.domain.common.DomainError
 import io.github.alelk.tgvd.domain.common.JobId
 import io.github.alelk.tgvd.domain.common.RuleId
 import io.github.alelk.tgvd.domain.job.*
+import io.github.alelk.tgvd.domain.video.MediaSelection
 import io.github.alelk.tgvd.domain.rule.CreateRuleRequest
 import io.github.alelk.tgvd.domain.rule.CreateRuleUseCase
 import io.github.alelk.tgvd.domain.rule.RuleMatch
@@ -50,6 +52,34 @@ fun Route.jobRoutes() {
             val slug = parseWorkspaceSlug(res.parent.workspaceSlug).bind()
             val ws = workspaceRepository.requireWorkspaceMember(slug, user).bind()
             val metadata = request.metadata.toDomain().bind()
+            ensure(request.source.videoId.isNotBlank()) {
+                DomainError.ValidationError("source.videoId", "Cannot be blank")
+            }
+            ensure(request.videoInfo.videoId.isNotBlank()) {
+                DomainError.ValidationError("videoInfo.videoId", "Cannot be blank")
+            }
+            ensure(request.source.videoId == request.videoInfo.videoId) {
+                DomainError.ValidationError("videoInfo.videoId", "Must match source.videoId")
+            }
+            val mediaSelection = request.mediaSelection?.let { selection ->
+                selection.audioFormatIds?.let { ids ->
+                    ensure(ids.isNotEmpty() && ids.distinct().size == ids.size &&
+                        ids.all { id -> request.videoInfo.availableFormats.any { format ->
+                            format.formatId == id && format.acodec?.let { it != "none" } == true &&
+                                (format.vcodec == null || format.vcodec == "none")
+                        } }) {
+                        DomainError.ValidationError("mediaSelection.audioFormatIds", "Select available audio tracks")
+                    }
+                }
+                selection.subtitleLanguages?.let { languages ->
+                    ensure(languages.distinct().size == languages.size && languages.all { language ->
+                        request.videoInfo.subtitleTracks.any { it.language == language }
+                    }) {
+                        DomainError.ValidationError("mediaSelection.subtitleLanguages", "Select available subtitle languages")
+                    }
+                }
+                MediaSelection(selection.audioFormatIds, selection.subtitleLanguages)
+            }
             val additionalPaths =
                 request.storagePlan.additional.mapIndexed { i, it ->
                     "storagePlan.additional[$i]" to it.path
@@ -68,6 +98,7 @@ fun Route.jobRoutes() {
                         metadataSource = request.metadataSource.toDomain(),
                         storagePlan = request.storagePlan.toDomain(),
                         createdBy = user.id,
+                        mediaSelection = mediaSelection,
                     )
                 ).bind()
 
@@ -164,5 +195,3 @@ fun Route.jobRoutes() {
         call.respondEither<JobDto, _>(result) { it.toDto() }
     }
 }
-
-

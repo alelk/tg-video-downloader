@@ -116,6 +116,7 @@ CREATE TABLE jobs (
     raw_info                   JSONB NOT NULL,
     metadata                   JSONB NOT NULL,
     storage_plan               JSONB NOT NULL,
+    media_selection            JSONB,
     progress                   JSONB,
     error                      JSONB,
     attempt                    INTEGER NOT NULL DEFAULT 0,
@@ -392,13 +393,18 @@ Exposed table definitions are located in `server/infra/src/main/kotlin/.../db/ta
 
 ```
 server/infra/src/main/resources/db/migration/
-└── V1__initial_schema.sql
+├── V1__initial_schema.sql
+├── ...
+└── V6__job_media_selection.sql
 ```
 
 ### 5.2 V1__initial_schema.sql
 
-> Current version: `server/infra/src/main/resources/db/migration/V1__initial_schema.sql`.
+> Initial schema: `server/infra/src/main/resources/db/migration/V1__initial_schema.sql`.
 > Creates tables: `workspaces`, `workspace_members`, `rules`, `jobs`, `job_outputs`, `video_info_cache` with indexes.
+
+`V6__job_media_selection.sql` adds a nullable per-job media selection and clears
+cached video info so previews include available subtitles.
 
 ### 5.3 Flyway Configuration
 

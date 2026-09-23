@@ -13,6 +13,7 @@ interface VideoDownloader {
         outputPath: FilePath,
         policy: DownloadPolicy,
         videoInfo: VideoInfo? = null,
+        mediaSelection: MediaSelection? = null,
     ): Either<DomainError, FilePath>
 
     fun downloadWithProgress(
@@ -20,6 +21,7 @@ interface VideoDownloader {
         outputPath: FilePath,
         policy: DownloadPolicy,
         videoInfo: VideoInfo? = null,
+        mediaSelection: MediaSelection? = null,
     ): Flow<DownloadEvent>
 }
 

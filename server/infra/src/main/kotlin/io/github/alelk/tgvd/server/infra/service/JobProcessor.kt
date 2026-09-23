@@ -105,7 +105,11 @@ class JobProcessor(
             File(outputPath.parent).mkdirs()
 
             // 4. Try to get VideoInfo from cache for better format selection
-            val videoInfo = videoInfoCache.get(job.source.url.value)
+            val videoInfo = if (job.mediaSelection?.audioFormatIds != null) {
+                job.videoInfo ?: videoInfoCache.get(job.source.url.value)
+            } else {
+                videoInfoCache.get(job.source.url.value) ?: job.videoInfo
+            }
             if (videoInfo == null) {
                 logger.warn { "VideoInfo not found in cache for ${job.source.url.value}. Download might use generic format selection." }
             }
@@ -135,9 +139,12 @@ class JobProcessor(
                 }
             }
 
-            // 5. Download with progress tracking (only if file does not already exist at sufficient quality)
-            if (!File(outputPath.value).exists()) {
-                videoDownloader.downloadWithProgress(job.source.url, outputPath, downloadPolicy, videoInfo)
+            // Existing media may have different audio or be missing the chosen subtitles.
+            // A retry also needs to recheck any sidecars from the failed attempt.
+            if (!File(outputPath.value).exists() || job.attempt > 0 ||
+                job.mediaSelection?.audioFormatIds != null ||
+                !job.mediaSelection?.subtitleLanguages.isNullOrEmpty()) {
+                videoDownloader.downloadWithProgress(job.source.url, outputPath, downloadPolicy, videoInfo, job.mediaSelection)
                     .collect { event ->
                         when (event) {
                             is DownloadEvent.Progress -> {
@@ -493,4 +500,3 @@ private data class ConversionKey(
         )
     }
 }
-

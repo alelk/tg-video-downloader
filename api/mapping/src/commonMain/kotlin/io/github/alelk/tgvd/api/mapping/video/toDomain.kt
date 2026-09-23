@@ -26,6 +26,7 @@ fun VideoInfoDto.toDomain(): VideoInfo =
         webpageUrl = Url(webpageUrl),
         thumbnails = thumbnails.map { VideoInfo.Thumbnail(Url(it.url), it.width, it.height) },
         description = description,
+        subtitleTracks = subtitleTracks.map { VideoInfo.SubtitleTrack(it.language, it.automatic, it.name) },
         availableFormats = availableFormats.map { fmt ->
             VideoInfo.Format(
                 formatId = fmt.formatId,

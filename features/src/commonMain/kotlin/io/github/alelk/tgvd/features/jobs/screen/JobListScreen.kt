@@ -14,9 +14,12 @@ import io.github.alelk.tgvd.api.contract.job.JobDto
 import io.github.alelk.tgvd.features.common.component.*
 import io.github.alelk.tgvd.features.common.theme.*
 import io.github.alelk.tgvd.features.common.util.categoryLabel
+import io.github.alelk.tgvd.features.generated.resources.Res
+import io.github.alelk.tgvd.features.generated.resources.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun JobListScreen() {
@@ -125,6 +128,13 @@ private fun JobCard(job: JobDto, client: TgVideoDownloaderClient, onRefresh: () 
             // Progress
             job.progress?.let { progress ->
                 Spacer(modifier = Modifier.height(6.dp))
+                val phaseLabel = when (progress.phase.lowercase()) {
+                    "download" -> stringResource(Res.string.jobs_phase_download)
+                    "convert" -> stringResource(Res.string.jobs_phase_convert)
+                    else -> stringResource(Res.string.jobs_phase_processing)
+                }
+                Text("$phaseLabel: ${progress.percent}%", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                 LinearProgressIndicator(
                     progress = { progress.percent / 100f },
                     modifier = Modifier.fillMaxWidth(),
@@ -176,4 +186,3 @@ private fun JobCard(job: JobDto, client: TgVideoDownloaderClient, onRefresh: () 
         }
     }
 }
-

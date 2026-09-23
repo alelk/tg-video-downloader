@@ -6,6 +6,7 @@ import io.github.alelk.tgvd.api.contract.preview.PreviewRequestDto
 import io.github.alelk.tgvd.api.contract.preview.PreviewResponseDto
 import io.github.alelk.tgvd.api.contract.resource.ApiV1
 import io.github.alelk.tgvd.api.contract.rule.RuleSummaryDto
+import io.github.alelk.tgvd.api.contract.video.MediaSelectionDto
 import io.github.alelk.tgvd.api.mapping.common.toDto as categoryToDto
 import io.github.alelk.tgvd.api.mapping.metadata.metadataSourceToDto
 import io.github.alelk.tgvd.api.mapping.metadata.toDto
@@ -25,6 +26,10 @@ import io.github.alelk.tgvd.server.transport.auth.parseWorkspaceSlug
 import io.github.alelk.tgvd.server.transport.auth.telegramUser
 import io.github.alelk.tgvd.server.transport.util.requireWorkspaceMember
 import io.github.alelk.tgvd.server.transport.util.respondEither
+import io.github.alelk.tgvd.server.infra.process.AudioTrackSelector
+import io.github.alelk.tgvd.server.infra.process.SubtitleSelector
+import io.github.alelk.tgvd.server.infra.service.SystemSettingsHolder
+import io.github.alelk.tgvd.domain.storage.DownloadPolicy
 import io.ktor.server.request.*
 import io.ktor.server.resources.post
 import io.ktor.server.routing.*
@@ -37,6 +42,7 @@ fun Route.previewRoutes() {
     val pathTemplateEngine by inject<PathTemplateEngine>()
     val workspaceRepository by inject<WorkspaceRepository>()
     val jobRepository by inject<JobRepository>()
+    val settingsHolder by inject<SystemSettingsHolder>()
 
     post<ApiV1.Workspaces.ById.Preview> { res ->
         val request = call.receive<PreviewRequestDto>()
@@ -49,6 +55,21 @@ fun Route.previewRoutes() {
             val preview = previewUseCase(request.url, ws.id, overrides, force = request.force).bind()
             val context = pathTemplateEngine.buildContext(preview.videoInfo, preview.metadata)
             val storagePlan = pathTemplateEngine.buildStoragePlan(preview.outputs, context, preview.videoInfo)
+            val policy = preview.matchedRule?.downloadPolicy ?: DownloadPolicy()
+            val settings = settingsHolder.ytDlpConfig
+            val audioDefaults = AudioTrackSelector.select(
+                preview.videoInfo.availableFormats, policy.maxQuality,
+                settings.preferredAudioLanguages, settings.maxAdditionalAudioTracks,
+                settings.originalAudioLanguage,
+            ).audioTracks.map { it.formatId }
+            val subtitleDefaults = SubtitleSelector.select(settings, policy).let { selection ->
+                if (selection.enabled) preview.videoInfo.subtitleTracks.map { it.language }.distinct()
+                    .filter { available -> selection.languages.any { wanted ->
+                        available.equals(wanted, ignoreCase = true) ||
+                            available.startsWith("$wanted-", ignoreCase = true)
+                    } }
+                else emptyList()
+            }
 
             // Lookup terminal jobs for this video in the current workspace (history)
             val previousDownloads = jobRepository
@@ -80,6 +101,10 @@ fun Route.previewRoutes() {
                 storagePlan = storagePlan.toDto(),
                 appliedOverrides = overrides?.toDto(),
                 previousDownloads = previousDownloads,
+                defaultMediaSelection = MediaSelectionDto(
+                    audioFormatIds = audioDefaults.takeIf { it.isNotEmpty() },
+                    subtitleLanguages = subtitleDefaults,
+                ),
             )
         }
 

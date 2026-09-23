@@ -7,6 +7,7 @@ import io.github.alelk.tgvd.api.contract.rule.RuleSummaryDto
 import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
 import io.github.alelk.tgvd.api.contract.video.VideoInfoDto
 import io.github.alelk.tgvd.api.contract.video.VideoSourceDto
+import io.github.alelk.tgvd.api.contract.video.MediaSelectionDto
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -22,5 +23,5 @@ data class PreviewResponseDto(
     val warnings: List<String> = emptyList(),
     /** Terminal jobs previously created for this video URL in the current workspace (newest first). */
     val previousDownloads: List<DownloadHistoryEntryDto> = emptyList(),
+    val defaultMediaSelection: MediaSelectionDto? = null,
 )
-

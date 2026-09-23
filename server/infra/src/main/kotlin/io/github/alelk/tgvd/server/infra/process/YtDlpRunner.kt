@@ -9,6 +9,7 @@ import io.github.alelk.tgvd.domain.video.DownloadProgress
 import io.github.alelk.tgvd.domain.video.VideoDownloader
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
 import io.github.alelk.tgvd.domain.video.VideoInfo
+import io.github.alelk.tgvd.domain.video.MediaSelection
 import io.github.alelk.tgvd.domain.video.VideoInfoExtractor
 import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
@@ -34,6 +35,10 @@ class YtDlpRunner(
 
     private val config: YtDlpConfig get() = settingsHolder.ytDlpConfig
     private val proxyConfig: ProxyConfig get() = settingsHolder.proxyConfig
+
+    private fun List<String>.safeCommand(): String = mapIndexed { index, argument ->
+        if (index > 0 && this[index - 1] == "--proxy") "<redacted>" else argument
+    }.joinToString(" ")
 
     /**
      * Enrich ProcessBuilder PATH with common binary locations
@@ -124,10 +129,11 @@ class YtDlpRunner(
     private fun MutableList<String>.addFormatArgs(
         quality: DownloadPolicy.VideoQuality,
         videoInfo: VideoInfo? = null,
+        mediaSelection: MediaSelection? = null,
     ) {
         // Global override from settings takes highest priority
         val preferredFormats = config.preferredFormats
-        if (!preferredFormats.isNullOrBlank()) {
+        if (!preferredFormats.isNullOrBlank() && mediaSelection?.audioFormatIds == null) {
             add("-f"); add(preferredFormats)
             val sortStr = config.formatSort?.takeIf { it.isNotBlank() } ?: qualitySortString(quality)
             add("-S"); add(sortStr)
@@ -136,7 +142,7 @@ class YtDlpRunner(
 
         val formats = videoInfo?.availableFormats
         if (formats != null && formats.isNotEmpty()) {
-            val selection = selectFormats(formats, quality)
+            val selection = selectFormats(formats, quality, mediaSelection)
             val bestFormatId = selection.formatSelector
             if (bestFormatId != null) {
                 logger.info {
@@ -176,14 +182,21 @@ class YtDlpRunner(
         quality: DownloadPolicy.VideoQuality,
     ): String? = AudioTrackSelector.select(formats, quality, emptyList(), 0).formatSelector
 
-    private fun selectFormats(formats: List<VideoInfo.Format>, quality: DownloadPolicy.VideoQuality) =
-        AudioTrackSelector.select(
+    internal fun selectFormats(
+        formats: List<VideoInfo.Format>, quality: DownloadPolicy.VideoQuality,
+        mediaSelection: MediaSelection? = null,
+    ): AudioTrackSelector.Selection {
+        val automatic = AudioTrackSelector.select(
             formats = formats,
             quality = quality,
             preferredLanguages = config.preferredAudioLanguages,
             maxAdditionalTracks = config.maxAdditionalAudioTracks,
             assumedOriginalLanguage = config.originalAudioLanguage,
         )
+        val selectedIds = mediaSelection?.audioFormatIds ?: return automatic
+        val tracks = selectedIds.mapNotNull { id -> formats.find { it.formatId == id } }
+        return automatic.copy(originalAudio = tracks.firstOrNull(), additionalAudio = tracks.drop(1))
+    }
 
     private fun effectiveContainer(policy: DownloadPolicy, outputPath: FilePath): String? {
         policy.preferredContainer?.extension?.let { return it }
@@ -218,8 +231,8 @@ class YtDlpRunner(
     }
 
     /** Append the effective global/per-rule subtitle arguments. */
-    private fun MutableList<String>.addSubtitleArgs(policy: DownloadPolicy) {
-        addAll(SubtitleSelector.select(config, policy).arguments())
+    private fun MutableList<String>.addSubtitleArgs(policy: DownloadPolicy, mediaSelection: MediaSelection? = null) {
+        addAll(SubtitleSelector.select(config, policy, mediaSelection?.subtitleLanguages).arguments())
     }
 
     /**
@@ -284,15 +297,15 @@ class YtDlpRunner(
                 "Extracting video info: yt-dlp --dump-json $url " +
                     "(player_client=${config.youtubePlayerClient.ifBlank { "yt-dlp default" }}, " +
                     "extractor-args=${effectiveArgs ?: "none"}, " +
-                    "proxy=${effectiveProxyUrl(url) ?: "none"})"
+                    "proxy=${if (effectiveProxyUrl(url) == null) "none" else "configured"})"
             }
-            logger.debug { "yt-dlp extract full command: ${args.joinToString(" ")}" }
+            logger.debug { "yt-dlp extract full command: ${args.safeCommand()}" }
 
             val (exitCode, stdout, stderr) = runExtractProcess(args)
 
             if (exitCode != 0) {
                 logger.error { "yt-dlp extract failed (exit=$exitCode):\nSTDERR: $stderr\nSTDOUT (last 500): ${stdout.takeLast(500)}" }
-                logger.debug { "yt-dlp extract command was: ${args.joinToString(" ")}" }
+                logger.debug { "yt-dlp extract command was: ${args.safeCommand()}" }
                 return@withContext DomainError.VideoExtractionFailed(Url(url), stderr.takeLast(2000)).left()
             }
 
@@ -324,6 +337,18 @@ class YtDlpRunner(
                     )
                 } ?: emptyList(),
                 description = obj.getStringOrNull("description"),
+                subtitleTracks = listOf("subtitles" to false, "automatic_captions" to true)
+                    .flatMap { (key, automatic) ->
+                        obj[key]?.jsonObject?.flatMap { (language, tracks) ->
+                            tracks.jsonArray.map { track ->
+                                VideoInfo.SubtitleTrack(
+                                    language = language,
+                                    automatic = automatic,
+                                    name = track.jsonObject.getStringOrNull("name"),
+                                )
+                            }.distinctBy { it.language to it.automatic }
+                        } ?: emptyList()
+                    },
                 viewCount = obj.getLongOrNull("view_count"),
                 availableFormats = obj["formats"]?.jsonArray?.map { fmt ->
                     val fmtObj = fmt.jsonObject
@@ -363,20 +388,22 @@ class YtDlpRunner(
         outputPath: FilePath,
         policy: DownloadPolicy,
         videoInfo: VideoInfo?,
+        mediaSelection: MediaSelection?,
     ): Either<DomainError, FilePath> = withContext(Dispatchers.IO) {
         try {
             val args = buildList {
                 add(config.path)
                 add("-o"); add(outputPath.value)
+                if (mediaSelection?.audioFormatIds != null) add("--force-overwrites")
                 add("--retries"); add(config.retries.toString())
                 add("--fragment-retries"); add(config.fragmentRetries.toString())
                 add("--no-playlist")
                 addCookiesArgs()
                 addSslArgs(url.value)
-                addFormatArgs(policy.maxQuality, videoInfo)
+                addFormatArgs(policy.maxQuality, videoInfo, mediaSelection)
                 addResilienceArgs()
                 addNetworkArgs()
-                addSubtitleArgs(policy)
+                addSubtitleArgs(policy, mediaSelection)
                 addSiteArgs()
                 // Per-job container takes priority over global setting
                 val container = effectiveContainer(policy, outputPath)
@@ -386,7 +413,7 @@ class YtDlpRunner(
                 add(url.value)
             }
 
-            logger.info { "yt-dlp command: ${args.joinToString(" ")}" }
+            logger.info { "yt-dlp command: ${args.safeCommand()}" }
             val process = ProcessBuilder(args)
                 .redirectErrorStream(true)
                 .enrichPath()
@@ -418,25 +445,27 @@ class YtDlpRunner(
         outputPath: FilePath,
         policy: DownloadPolicy,
         videoInfo: VideoInfo?,
+        mediaSelection: MediaSelection?,
     ): Flow<DownloadEvent> = flow {
         val formats = videoInfo?.availableFormats
         val selectedFormatId = if (formats != null && formats.isNotEmpty()) {
-            selectFormats(formats, policy.maxQuality).formatSelector
+            selectFormats(formats, policy.maxQuality, mediaSelection).formatSelector
         } else null
 
         val args = buildList {
             add(config.path)
             add("-o"); add(outputPath.value)
+            if (mediaSelection?.audioFormatIds != null) add("--force-overwrites")
             add("--newline")
             add("--retries"); add(config.retries.toString())
             add("--fragment-retries"); add(config.fragmentRetries.toString())
             add("--no-playlist")
             addCookiesArgs()
             addSslArgs(url.value)
-            addFormatArgs(policy.maxQuality, videoInfo)
+            addFormatArgs(policy.maxQuality, videoInfo, mediaSelection)
             addResilienceArgs()
             addNetworkArgs()
-            addSubtitleArgs(policy)
+            addSubtitleArgs(policy, mediaSelection)
             addSiteArgs()
             // Per-job container takes priority over global setting
             val container = effectiveContainer(policy, outputPath)
@@ -449,16 +478,11 @@ class YtDlpRunner(
             add(url.value)
         }
 
-        logger.info { "yt-dlp command: ${args.joinToString(" ")}" }
-
-        val process = ProcessBuilder(args)
-            .redirectErrorStream(true)
-            .enrichPath()
-            .start()
-
-        val outputLines = mutableListOf<String>()
         var downloadedFormatId: String? = null
-
+        logger.info { "yt-dlp command: ${args.safeCommand()}" }
+        val process = ProcessBuilder(args).redirectErrorStream(true).enrichPath().start()
+        val outputLines = mutableListOf<String>()
+        val progressTracker = MediaProgressTracker(selectedFormatId?.split('+')?.size ?: 1)
         process.inputStream.bufferedReader().useLines { lines ->
             for (line in lines) {
                 outputLines += line
@@ -477,45 +501,22 @@ class YtDlpRunner(
                     downloadedFormatId = line.substringAfter("Downloading format").trim().split(" ").firstOrNull()
                 }
 
-                parseProgressLine(line)?.let { emit(DownloadEvent.Progress(it)) }
+                progressTracker.onLine(line)?.let { emit(DownloadEvent.Progress(it)) }
             }
         }
-
         val exitCode = process.waitFor()
-        if (exitCode != 0 && !isSubtitleOnlyFailure(outputLines)) {
+        if (exitCode != 0) {
             val output = outputLines.takeLast(50).joinToString("\n")
             logger.error { "yt-dlp download failed (exit=$exitCode):\n$output" }
             throw RuntimeException("yt-dlp download failed (exit=$exitCode): ${output.takeLast(500)}")
         }
-        if (exitCode != 0) {
-            // Subtitles are fetched as one of the last steps, after the video itself is fully
-            // downloaded and merged — a failure confined to them (e.g. YouTube 429-ing the
-            // caption endpoint) shouldn't fail the whole job. JobProcessor still verifies the
-            // video file actually landed on disk right after this.
-            logger.warn {
-                "yt-dlp exited with subtitle-only errors (exit=$exitCode); continuing without subtitles: " +
-                    outputLines.filter { it.contains("ERROR:") }.joinToString(" | ")
-            }
-        } else {
-            logger.info { "yt-dlp download completed successfully: ${outputPath.value}" }
-        }
+        logger.info { "yt-dlp download completed successfully: ${outputPath.value}" }
         val actualFormatId = downloadedFormatId ?: selectedFormatId
         val actualFormat = if (actualFormatId != null && formats != null) {
             resolveActualFormat(actualFormatId, formats)
         } else null
         emit(DownloadEvent.Completed(actualFormat))
     }.flowOn(Dispatchers.IO)
-
-    /**
-     * True when every "ERROR:" line yt-dlp printed is about subtitles — meaning the video (and
-     * any requested additional outputs) most likely downloaded fine and only the optional
-     * subtitle step failed, typically because YouTube rate-limited the caption endpoint (429).
-     */
-    internal fun isSubtitleOnlyFailure(lines: List<String>): Boolean {
-        val errorLines = lines.filter { it.contains("ERROR:") }
-        if (errorLines.isEmpty()) return false
-        return errorLines.all { it.contains("subtitle", ignoreCase = true) }
-    }
 
     private fun resolveActualFormat(formatId: String, availableFormats: List<VideoInfo.Format>): VideoInfo.Format? {
         if (!formatId.contains("+")) {
@@ -534,19 +535,6 @@ class YtDlpRunner(
         } else videoFormat
     }
 
-    private fun parseProgressLine(line: String): DownloadProgress? {
-        if (!line.contains("%")) return null
-        val percentMatch = "([\\d.]+)%".toRegex().find(line) ?: return null
-        val percent = percentMatch.groupValues[1].toDoubleOrNull()?.toInt() ?: return null
-        return DownloadProgress(
-            percent = percent.coerceIn(0, 100),
-            downloadedBytes = 0,
-            totalBytes = null,
-            speed = null,
-            eta = null,
-        )
-    }
-
     private fun parseUploadDate(raw: String): LocalDate? =
         if (raw.length == 8) {
             try {
@@ -557,6 +545,34 @@ class YtDlpRunner(
         } else if (raw.length == 10 && raw[4] == '-') {
             try { LocalDate(raw) } catch (_: Exception) { null }
         } else null
+}
+
+/** yt-dlp reports 0..100 separately for each selected media stream. */
+internal class MediaProgressTracker(private val streamCount: Int) {
+    private var completedStreams = 0
+    private var currentPercent = 0
+    private var sidecar = false
+    private var reportedPercent = 0
+
+    fun onLine(line: String): DownloadProgress? {
+        if (line.startsWith("[download] Destination:")) {
+            val destination = line.substringAfter("Destination:").trim()
+            sidecar = destination.substringAfterLast('.').lowercase() in setOf(
+                "vtt", "srt", "ass", "lrc", "ttml", "json3", "webp", "jpg", "jpeg", "png",
+            )
+            currentPercent = 0
+            return null
+        }
+        if (!line.startsWith("[download] ") || sidecar) return null
+        val percent = Regex("^\\[download]\\s+([\\d.]+)%").find(line)
+            ?.groupValues?.get(1)?.toDoubleOrNull()?.toInt()?.coerceIn(0, 100) ?: return null
+        if (percent == 100 && currentPercent < 100) completedStreams++
+        currentPercent = percent
+        val overall = (((completedStreams - if (percent == 100) 1 else 0) + percent / 100.0) /
+            streamCount.coerceAtLeast(1) * 95).toInt().coerceIn(reportedPercent, 95)
+        reportedPercent = overall
+        return DownloadProgress(overall, 0, null, null, null)
+    }
 }
 
 // --- JSON helpers ---

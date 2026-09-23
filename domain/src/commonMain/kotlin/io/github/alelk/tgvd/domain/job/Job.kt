@@ -9,6 +9,7 @@ import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.storage.StoragePlan
 import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.github.alelk.tgvd.domain.video.VideoSource
+import io.github.alelk.tgvd.domain.video.MediaSelection
 import kotlin.time.Instant
 
 data class Job(
@@ -21,6 +22,7 @@ data class Job(
     val metadataSource: MetadataSource,
     val storagePlan: StoragePlan,
     val ruleId: RuleId? = null,
+    val mediaSelection: MediaSelection? = null,
     val status: JobStatus = JobStatus.PENDING,
     val phase: JobPhase? = null,
     val progress: Int? = null,

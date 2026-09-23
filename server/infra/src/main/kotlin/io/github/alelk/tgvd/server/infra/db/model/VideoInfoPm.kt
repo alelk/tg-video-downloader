@@ -16,7 +16,11 @@ data class VideoInfoPm(
     val description: String? = null,
     val availableFormats: List<VideoFormatPm> = emptyList(),
     val actualFormat: VideoFormatPm? = null,
+    val subtitleTracks: List<SubtitleTrackPm> = emptyList(),
 )
+
+@Serializable
+data class SubtitleTrackPm(val language: String, val automatic: Boolean, val name: String? = null)
 
 @Serializable
 data class VideoFormatPm(

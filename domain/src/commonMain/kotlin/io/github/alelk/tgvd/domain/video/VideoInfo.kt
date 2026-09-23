@@ -21,8 +21,11 @@ data class VideoInfo(
     val viewCount: Long? = null,
     val availableFormats: List<Format> = emptyList(),
     val actualFormat: Format? = null,
+    val subtitleTracks: List<SubtitleTrack> = emptyList(),
 ) {
     data class Thumbnail(val url: Url, val width: Int?, val height: Int?)
+
+    data class SubtitleTrack(val language: String, val automatic: Boolean, val name: String? = null)
 
     data class Format(
         val formatId: String,

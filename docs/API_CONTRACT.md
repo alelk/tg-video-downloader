@@ -530,7 +530,16 @@ data class JobDto(
 #### Errors
 
 - `400 VALIDATION_ERROR` — invalid input data
+- `source.videoId` and `videoInfo.videoId` must be non-blank and match
 - `409 CONFLICT` — an active job for this videoId already exists
+
+Download progress covers the selected media streams and stays below 100% until
+the job finishes. A subtitle download error fails the job. The preview response
+contains available audio formats, subtitle languages, and `defaultMediaSelection`
+from server settings and the matched rule. The create-job request accepts
+`mediaSelection.audioFormatIds` and `mediaSelection.subtitleLanguages`; an empty
+subtitle list disables subtitles for that job. A failed job retains its selection
+when retried; create a new job from the preview to change the selection.
 
 ---
 

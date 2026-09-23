@@ -61,7 +61,8 @@ class CreateJobRequestDtoTest : FunSpec({
                         "thumbnails": [],
                         "description": null,
                         "availableFormats": [],
-                        "actualFormat": null
+                        "actualFormat": null,
+                        "subtitleTracks": []
                     },
                     "metadata": {
                         "type": "other",
@@ -84,7 +85,8 @@ class CreateJobRequestDtoTest : FunSpec({
                         },
                         "additional": []
                     },
-                    "saveAsRule": null
+                    "saveAsRule": null,
+                    "mediaSelection": null
                 }
             """
         }

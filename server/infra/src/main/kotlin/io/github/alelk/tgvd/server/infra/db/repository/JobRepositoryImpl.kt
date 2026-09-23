@@ -6,10 +6,12 @@ import arrow.core.right
 import io.github.alelk.tgvd.domain.common.*
 import io.github.alelk.tgvd.domain.job.*
 import io.github.alelk.tgvd.domain.video.VideoSource
+import io.github.alelk.tgvd.domain.video.MediaSelection
 import io.github.alelk.tgvd.server.infra.db.dbQuery
 import io.github.alelk.tgvd.server.infra.db.mapping.*
 import io.github.alelk.tgvd.server.infra.db.model.JobErrorPm
 import io.github.alelk.tgvd.server.infra.db.model.JobProgressPm
+import io.github.alelk.tgvd.server.infra.db.model.MediaSelectionPm
 import io.github.alelk.tgvd.server.infra.db.table.JobsTable
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -75,6 +77,9 @@ class JobRepositoryImpl(
                 it[rawInfo] = job.videoInfo?.toPm() ?: job.source.toVideoInfoPm(job.metadata)
                 it[metadata] = job.metadata.toPm()
                 it[storagePlan] = job.storagePlan.toPm()
+                it[mediaSelection] = job.mediaSelection?.let { selection ->
+                    MediaSelectionPm(selection.audioFormatIds, selection.subtitleLanguages)
+                }
                 it[metadataSource] = job.metadataSource.toDbString()
                 it[progress] = job.phase?.let { phase ->
                     JobProgressPm(phase = phase.toDbString(), percent = job.progress ?: 0)
@@ -101,6 +106,9 @@ class JobRepositoryImpl(
                 it[rawInfo] = job.videoInfo?.toPm() ?: job.source.toVideoInfoPm(job.metadata)
                 it[metadata] = job.metadata.toPm()
                 it[storagePlan] = job.storagePlan.toPm()
+                it[mediaSelection] = job.mediaSelection?.let { selection ->
+                    MediaSelectionPm(selection.audioFormatIds, selection.subtitleLanguages)
+                }
                 it[metadataSource] = job.metadataSource.toDbString()
                 it[progress] = null
                 it[JobsTable.error] = null
@@ -169,6 +177,9 @@ class JobRepositoryImpl(
         videoInfo = this[JobsTable.rawInfo].toDomain(),
         metadataSource = this[JobsTable.metadataSource].toMetadataSource(),
         storagePlan = this[JobsTable.storagePlan].toDomain(),
+        mediaSelection = this[JobsTable.mediaSelection]?.let {
+            MediaSelection(it.audioFormatIds, it.subtitleLanguages)
+        },
         ruleId = this[JobsTable.ruleId]?.value?.let { RuleId(it) },
         status = this[JobsTable.status].toJobStatus(),
         phase = this[JobsTable.progress]?.phase?.toJobPhase(),

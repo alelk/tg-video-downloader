@@ -4,7 +4,7 @@ import io.github.alelk.tgvd.domain.storage.DownloadPolicy
 import io.github.alelk.tgvd.domain.video.VideoInfo
 
 /** Pure format selection policy. Language decides identity; bitrate only ranks variants of that language. */
-internal object AudioTrackSelector {
+object AudioTrackSelector {
     data class Selection(
         val video: VideoInfo.Format?,
         val originalAudio: VideoInfo.Format?,

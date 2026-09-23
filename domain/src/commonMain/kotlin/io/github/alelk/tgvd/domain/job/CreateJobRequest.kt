@@ -9,6 +9,7 @@ import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.storage.StoragePlan
 import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.github.alelk.tgvd.domain.video.VideoSource
+import io.github.alelk.tgvd.domain.video.MediaSelection
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -22,6 +23,7 @@ data class CreateJobRequest(
     val metadataSource: MetadataSource,
     val storagePlan: StoragePlan,
     val createdBy: TelegramUserId,
+    val mediaSelection: MediaSelection? = null,
 )
 
 /** Creates a new [Job] from this request, assigning a random id and the given timestamps. */
@@ -37,6 +39,7 @@ fun CreateJobRequest.toJob(createdAt: Instant, updatedAt: Instant = createdAt): 
         metadataSource = metadataSource,
         storagePlan = storagePlan,
         ruleId = ruleId,
+        mediaSelection = mediaSelection,
         status = JobStatus.PENDING,
         phase = null,
         progress = null,
@@ -44,4 +47,3 @@ fun CreateJobRequest.toJob(createdAt: Instant, updatedAt: Instant = createdAt): 
         createdAt = createdAt,
         updatedAt = updatedAt,
     )
-

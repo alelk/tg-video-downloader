@@ -26,6 +26,7 @@ import io.github.alelk.tgvd.api.contract.storage.OutputTargetDto
 import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
 import io.github.alelk.tgvd.api.contract.storage.VideoQualityDto
 import io.github.alelk.tgvd.api.contract.channel.ChannelDto
+import io.github.alelk.tgvd.api.contract.video.MediaSelectionDto
 import io.github.alelk.tgvd.features.channels.screen.ChannelEditorScreen
 import io.github.alelk.tgvd.features.common.component.ErrorCard
 import io.github.alelk.tgvd.features.common.component.InfoRow
@@ -59,6 +60,13 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
 
         // Current server response
         var preview by remember { mutableStateOf(initialPreview) }
+        val selectedAudioIds = remember { mutableStateListOf<String>().apply {
+            addAll(initialPreview.defaultMediaSelection?.audioFormatIds.orEmpty())
+        } }
+        val selectedSubtitleLanguages = remember { mutableStateListOf<String>().apply {
+            addAll(initialPreview.defaultMediaSelection?.subtitleLanguages.orEmpty())
+        } }
+        var mediaSelectionEdited by remember { mutableStateOf(false) }
 
         // Channel directory: check if this channel is already registered
         var existingChannel by remember { mutableStateOf<ChannelDto?>(null) }
@@ -171,6 +179,12 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
         /** Apply server response: update fields NOT in userEdits */
         fun applyServerResponse(response: PreviewResponseDto) {
             preview = response
+            if (!mediaSelectionEdited) {
+                selectedAudioIds.clear()
+                selectedAudioIds.addAll(response.defaultMediaSelection?.audioFormatIds.orEmpty())
+                selectedSubtitleLanguages.clear()
+                selectedSubtitleLanguages.addAll(response.defaultMediaSelection?.subtitleLanguages.orEmpty())
+            }
 
             // Update category only if user didn't manually change it
             if ("category" !in userEdits) {
@@ -232,6 +246,7 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                         PreviewRequestDto(url = preview.source.url, force = true)
                     )
                     userEdits.clear()
+                    mediaSelectionEdited = false
                     applyServerResponse(response)
                 } catch (e: Exception) {
                     errorMessage = "Refetch failed: ${e.message}"
@@ -280,6 +295,18 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                         else -> "${h}p"
                     }
                 }
+        }
+        val audioOptions = remember(preview.videoInfo.availableFormats, preview.defaultMediaSelection) {
+            preview.videoInfo.availableFormats
+                .filter { it.acodec != null && it.acodec != "none" && (it.vcodec == null || it.vcodec == "none") }
+                .groupBy { it.language ?: it.formatId }
+                .values.map { formats ->
+                    formats.firstOrNull { it.formatId in preview.defaultMediaSelection?.audioFormatIds.orEmpty() }
+                        ?: formats.maxByOrNull { it.tbr ?: 0.0 }!!
+                }
+        }
+        val subtitleOptions = remember(preview.videoInfo.subtitleTracks) {
+            preview.videoInfo.subtitleTracks.groupBy { it.language }
         }
 
         Scaffold(
@@ -411,6 +438,63 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                             Icon(TgvdIcons.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(stringResource(Res.string.channels_add_to_directory), style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+
+                if (audioOptions.isNotEmpty() || subtitleOptions.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SectionCard(title = stringResource(Res.string.preview_media_tracks)) {
+                        if (audioOptions.isNotEmpty()) {
+                            Text(stringResource(Res.string.preview_audio_tracks), style = MaterialTheme.typography.titleSmall)
+                            audioOptions.forEach { track ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().clickable {
+                                        mediaSelectionEdited = true
+                                        if (track.formatId in selectedAudioIds) selectedAudioIds.remove(track.formatId)
+                                        else selectedAudioIds.add(track.formatId)
+                                    },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Checkbox(
+                                        checked = track.formatId in selectedAudioIds,
+                                        onCheckedChange = { checked ->
+                                            mediaSelectionEdited = true
+                                            if (checked) selectedAudioIds.add(track.formatId)
+                                            else selectedAudioIds.remove(track.formatId)
+                                        },
+                                    )
+                                    Text(listOfNotNull(track.language, track.audioTrackName, track.tbr?.let { "${it.toInt()} kb/s" })
+                                        .distinct().joinToString(" · ").ifBlank { track.formatId })
+                                }
+                            }
+                            if (selectedAudioIds.isEmpty()) {
+                                Text(stringResource(Res.string.preview_select_audio), color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                        if (subtitleOptions.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(stringResource(Res.string.preview_subtitle_tracks), style = MaterialTheme.typography.titleSmall)
+                            subtitleOptions.forEach { (language, tracks) ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().clickable {
+                                        mediaSelectionEdited = true
+                                        if (language in selectedSubtitleLanguages) selectedSubtitleLanguages.remove(language)
+                                        else selectedSubtitleLanguages.add(language)
+                                    },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Checkbox(
+                                        checked = language in selectedSubtitleLanguages,
+                                        onCheckedChange = { checked ->
+                                            mediaSelectionEdited = true
+                                            if (checked) selectedSubtitleLanguages.add(language)
+                                            else selectedSubtitleLanguages.remove(language)
+                                        },
+                                    )
+                                    Text(language + if (tracks.all { it.automatic }) " (${stringResource(Res.string.preview_auto_subtitles)})" else "")
+                                }
+                            }
                         }
                     }
                 }
@@ -813,6 +897,10 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                         videoInfo = preview.videoInfo,
                                         metadata = metadata,
                                         storagePlan = storagePlan,
+                                        mediaSelection = MediaSelectionDto(
+                                            audioFormatIds = selectedAudioIds.toList().takeIf { audioOptions.isNotEmpty() },
+                                            subtitleLanguages = selectedSubtitleLanguages.toList(),
+                                        ),
                                     )
                                 )
                                 navigator.pop()
@@ -823,7 +911,8 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                             }
                         }
                     },
-                    enabled = !isCreating && !isRefreshing && fieldErrors.isEmpty(),
+                    enabled = !isCreating && !isRefreshing && fieldErrors.isEmpty() &&
+                        (audioOptions.isEmpty() || selectedAudioIds.isNotEmpty()),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     if (isCreating) {

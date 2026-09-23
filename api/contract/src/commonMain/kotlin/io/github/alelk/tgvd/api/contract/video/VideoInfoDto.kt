@@ -16,6 +16,7 @@ data class VideoInfoDto(
     val description: String? = null,
     val availableFormats: List<VideoFormatDto> = emptyList(),
     val actualFormat: VideoFormatDto? = null,
+    val subtitleTracks: List<SubtitleTrackDto> = emptyList(),
 )
 
 @Serializable

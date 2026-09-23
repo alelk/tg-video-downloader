@@ -59,7 +59,8 @@ class PreviewResponseDtoTest : FunSpec({
                         "thumbnails": [],
                         "description": null,
                         "availableFormats": [],
-                        "actualFormat": null
+                        "actualFormat": null,
+                        "subtitleTracks": []
                     },
                     "matchedRule": {
                         "id": "rule-1",
@@ -89,7 +90,8 @@ class PreviewResponseDtoTest : FunSpec({
                     },
                     "warnings": ["Low quality source"],
                     "appliedOverrides": null,
-                    "previousDownloads": []
+                    "previousDownloads": [],
+                    "defaultMediaSelection": null
                 }
             """
         }

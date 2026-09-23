@@ -6,6 +6,28 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 class SubtitleSelectorTest : FunSpec({
+    test("explicit empty subtitle selection disables subtitles") {
+        SubtitleSelector.select(YtDlpConfig(), DownloadPolicy(), emptyList()).arguments() shouldBe emptyList()
+    }
+
+    test("explicit subtitle selection overrides rule and server languages") {
+        SubtitleSelector.select(
+            YtDlpConfig(preferredSubtitleLanguages = listOf("ru", "en")),
+            DownloadPolicy(downloadSubtitles = true, subtitleLanguages = listOf("ru")),
+            listOf("en"),
+        ).languages shouldBe listOf("en")
+    }
+
+    test("checked subtitle language enables download even when settings disable subtitles") {
+        val selection = SubtitleSelector.select(
+            YtDlpConfig(writeSubs = false, writeAutoSubs = false),
+            DownloadPolicy(),
+            listOf("en"),
+        )
+        selection.arguments().contains("--sub-langs") shouldBe true
+        selection.languages shouldBe listOf("en")
+    }
+
     test("downloads regular and generated subtitles for configured languages by default") {
         val selection = SubtitleSelector.select(
             YtDlpConfig(preferredSubtitleLanguages = listOf("RU", "en_US", "ru")),

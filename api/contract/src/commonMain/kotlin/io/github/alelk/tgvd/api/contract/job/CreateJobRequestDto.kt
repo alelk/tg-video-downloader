@@ -6,6 +6,7 @@ import io.github.alelk.tgvd.api.contract.metadata.ResolvedMetadataDto
 import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
 import io.github.alelk.tgvd.api.contract.video.VideoInfoDto
 import io.github.alelk.tgvd.api.contract.video.VideoSourceDto
+import io.github.alelk.tgvd.api.contract.video.MediaSelectionDto
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -18,5 +19,5 @@ data class CreateJobRequestDto(
     val metadataSource: MetadataSourceDto = MetadataSourceDto.RULE,
     val storagePlan: StoragePlanDto,
     val saveAsRule: SaveAsRuleDto? = null,
+    val mediaSelection: MediaSelectionDto? = null,
 )
-

@@ -6,6 +6,7 @@ import io.github.alelk.tgvd.server.infra.db.model.JobProgressPm
 import io.github.alelk.tgvd.server.infra.db.model.ResolvedMetadataPm
 import io.github.alelk.tgvd.server.infra.db.model.StoragePlanPm
 import io.github.alelk.tgvd.server.infra.db.model.VideoInfoPm
+import io.github.alelk.tgvd.server.infra.db.model.MediaSelectionPm
 import org.jetbrains.exposed.v1.core.dao.id.UuidTable
 import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.datetime.timestamp
@@ -24,6 +25,7 @@ object JobsTable : UuidTable("jobs") {
     val rawInfo = jsonb<VideoInfoPm>("raw_info", jsonb)
     val metadata = jsonb<ResolvedMetadataPm>("metadata", jsonb)
     val storagePlan = jsonb<StoragePlanPm>("storage_plan", jsonb)
+    val mediaSelection = jsonb<MediaSelectionPm>("media_selection", jsonb).nullable()
     val progress = jsonb<JobProgressPm>("progress", jsonb).nullable()
     val error = jsonb<JobErrorPm>("error", jsonb).nullable()
     val metadataSource = varchar("metadata_source", 20).default("rule")
