@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.40.0](https://github.com/alelk/tg-video-downloader/compare/v1.39.0...v1.40.0) (2026-09-23)
+
+
+### Features
+
+* support subtitles ([4aef7c5](https://github.com/alelk/tg-video-downloader/commit/4aef7c5a98648fbafef2c997a69f7964c73c5acd))
+
 # [1.39.0](https://github.com/alelk/tg-video-downloader/compare/v1.38.0...v1.39.0) (2026-09-23)
 
 
