@@ -7,7 +7,13 @@ import io.kotest.matchers.shouldBe
 
 class SubtitleSelectorTest : FunSpec({
     test("explicit empty subtitle selection disables subtitles") {
-        SubtitleSelector.select(YtDlpConfig(), DownloadPolicy(), emptyList()).arguments() shouldBe emptyList()
+        val selection = SubtitleSelector.select(
+            YtDlpConfig(writeSubs = true, writeAutoSubs = true, embedSubs = true),
+            DownloadPolicy(downloadSubtitles = true, subtitleLanguages = listOf("ru")),
+            emptyList(),
+        )
+        selection.enabled shouldBe false
+        selection.arguments() shouldBe listOf("--no-write-subs", "--no-write-auto-subs", "--no-embed-subs")
     }
 
     test("explicit subtitle selection overrides rule and server languages") {
@@ -40,6 +46,7 @@ class SubtitleSelectorTest : FunSpec({
         selection.arguments() shouldBe listOf(
             "--write-subs",
             "--write-auto-subs",
+            "--no-embed-subs",
             "--sub-langs",
             "ru,en-us",
             "--sleep-subtitles",
@@ -56,6 +63,7 @@ class SubtitleSelectorTest : FunSpec({
         selection.arguments() shouldBe listOf(
             "--write-subs",
             "--write-auto-subs",
+            "--no-embed-subs",
             "--sub-langs",
             "en",
             "--sleep-subtitles",
@@ -71,6 +79,8 @@ class SubtitleSelectorTest : FunSpec({
 
         selection.arguments() shouldBe listOf(
             "--write-subs",
+            "--no-write-auto-subs",
+            "--no-embed-subs",
             "--sub-langs",
             "ru,en",
         )
@@ -102,7 +112,14 @@ class SubtitleSelectorTest : FunSpec({
         )
 
         selection.enabled shouldBe false
-        selection.arguments() shouldBe emptyList()
+        selection.arguments() shouldBe listOf("--no-write-subs", "--no-write-auto-subs", "--no-embed-subs")
+    }
+
+    test("no configured languages disables subtitle downloads explicitly") {
+        SubtitleSelector.select(
+            YtDlpConfig(preferredSubtitleLanguages = emptyList(), embedSubs = true),
+            DownloadPolicy(),
+        ).arguments() shouldBe listOf("--no-write-subs", "--no-write-auto-subs", "--no-embed-subs")
     }
 
     test("legacy comma-separated languages remain supported") {

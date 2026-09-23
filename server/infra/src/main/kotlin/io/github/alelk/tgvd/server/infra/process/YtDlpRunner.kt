@@ -232,7 +232,13 @@ class YtDlpRunner(
 
     /** Append the effective global/per-rule subtitle arguments. */
     private fun MutableList<String>.addSubtitleArgs(policy: DownloadPolicy, mediaSelection: MediaSelection? = null) {
-        addAll(SubtitleSelector.select(config, policy, mediaSelection?.subtitleLanguages).arguments())
+        val subtitles = SubtitleSelector.select(config, policy, mediaSelection?.subtitleLanguages)
+        logger.info {
+            "yt-dlp subtitles: global=${config.writeSubs}/${config.writeAutoSubs}, " +
+                "rule=${policy.downloadSubtitles}, selected=${mediaSelection?.subtitleLanguages}, " +
+                "effective=${subtitles.enabled}, languages=${subtitles.languages}"
+        }
+        addAll(subtitles.arguments())
     }
 
     /**

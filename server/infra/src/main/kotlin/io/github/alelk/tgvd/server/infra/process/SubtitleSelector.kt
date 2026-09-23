@@ -12,20 +12,22 @@ object SubtitleSelector {
         val embed: Boolean,
         val sleepSubtitles: Int? = null,
     ) {
-        val enabled: Boolean get() = writeRegular || writeAutomatic
+        val enabled: Boolean get() = languages.isNotEmpty() && (writeRegular || writeAutomatic)
 
         fun arguments(): List<String> {
-            if (!enabled || languages.isEmpty()) return emptyList()
             return buildList {
-                if (writeRegular) add("--write-subs")
-                if (writeAutomatic) add("--write-auto-subs")
+                val regular = writeRegular && languages.isNotEmpty()
+                val automatic = writeAutomatic && languages.isNotEmpty()
+                add(if (regular) "--write-subs" else "--no-write-subs")
+                add(if (automatic) "--write-auto-subs" else "--no-write-auto-subs")
+                add(if (embed && (regular || automatic)) "--embed-subs" else "--no-embed-subs")
+                if (!regular && !automatic) return@buildList
                 add("--sub-langs")
                 add(languages.joinToString(","))
-                if (embed) add("--embed-subs")
                 // Regular + automatic captions for the same language are fetched as two
                 // separate requests to YouTube's caption endpoint; space them out to avoid
                 // tripping its rate limiter (HTTP 429).
-                if (writeRegular && writeAutomatic) {
+                if (regular && automatic) {
                     sleepSubtitles?.let { add("--sleep-subtitles"); add(it.toString()) }
                 }
             }
@@ -34,6 +36,7 @@ object SubtitleSelector {
 
     fun select(config: YtDlpConfig, policy: DownloadPolicy, selectedLanguages: List<String>? = null): Selection {
         val requestedByRule = policy.downloadSubtitles
+        val explicitlyDisabled = selectedLanguages != null && selectedLanguages.isEmpty()
         val languages = normalizeLanguages(
             selectedLanguages ?: policy.subtitleLanguages.takeIf { it.isNotEmpty() }
                 ?: config.subLangs
@@ -43,10 +46,10 @@ object SubtitleSelector {
         )
 
         return Selection(
-            writeRegular = config.writeSubs || requestedByRule || !selectedLanguages.isNullOrEmpty(),
+            writeRegular = !explicitlyDisabled && (config.writeSubs || requestedByRule || !selectedLanguages.isNullOrEmpty()),
             // A rule asking for subtitles includes generated captions too: for many
             // videos they are the only subtitles available.
-            writeAutomatic = config.writeAutoSubs || requestedByRule || !selectedLanguages.isNullOrEmpty(),
+            writeAutomatic = !explicitlyDisabled && (config.writeAutoSubs || requestedByRule || !selectedLanguages.isNullOrEmpty()),
             languages = languages,
             embed = config.embedSubs,
             sleepSubtitles = config.sleepSubtitles,

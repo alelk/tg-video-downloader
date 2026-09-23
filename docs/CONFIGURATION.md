@@ -76,6 +76,10 @@ ytDlp:
   sleepSubtitles: 3                    # --sleep-subtitles: pause before each subtitle download when both writeSubs and writeAutoSubs are on (avoids YouTube 429)
   mergeOutputFormat: null              # output-rule extension is used; new multi-audio defaults use mkv
 
+# A preview's explicit subtitle selection takes priority over these defaults and its rule.
+# An empty selection disables subtitle downloads for that job. Rule-level
+# downloadSubtitles can enable them when no explicit selection is supplied.
+
 # ffmpeg
 ffmpeg:
   path: "ffmpeg"                        # path to ffmpeg, or just "ffmpeg" if in PATH
