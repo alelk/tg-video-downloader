@@ -20,6 +20,37 @@ class SubtitleSelectorTest : FunSpec({
             "--write-auto-subs",
             "--sub-langs",
             "ru,en-us",
+            "--sleep-subtitles",
+            "3",
+        )
+    }
+
+    test("sleeps between subtitle requests when both regular and automatic captions are requested") {
+        val selection = SubtitleSelector.select(
+            YtDlpConfig(sleepSubtitles = 4),
+            DownloadPolicy(downloadSubtitles = true, subtitleLanguages = listOf("en")),
+        )
+
+        selection.arguments() shouldBe listOf(
+            "--write-subs",
+            "--write-auto-subs",
+            "--sub-langs",
+            "en",
+            "--sleep-subtitles",
+            "4",
+        )
+    }
+
+    test("does not add sleep-subtitles when only one subtitle kind is requested") {
+        val selection = SubtitleSelector.select(
+            YtDlpConfig(writeSubs = true, writeAutoSubs = false, sleepSubtitles = 4),
+            DownloadPolicy(),
+        )
+
+        selection.arguments() shouldBe listOf(
+            "--write-subs",
+            "--sub-langs",
+            "ru,en",
         )
     }
 

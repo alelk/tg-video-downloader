@@ -27,6 +27,7 @@ internal object AudioTrackSelector {
         quality: DownloadPolicy.VideoQuality,
         preferredLanguages: List<String>,
         maxAdditionalTracks: Int,
+        assumedOriginalLanguage: String? = null,
     ): Selection {
         val maxHeight = when (quality) {
             DownloadPolicy.VideoQuality.BEST -> Int.MAX_VALUE
@@ -50,7 +51,18 @@ internal object AudioTrackSelector {
             .thenByDescending { it.tbr ?: 0.0 }
             .thenByDescending { it.audioChannels ?: 0 }
         val languagePreferences = audioOnly.mapNotNull { it.languagePreference }.distinct()
-        val original = audioOnly.filter { it.isOriginalAudio }.minWithOrNull(audioComparator)
+
+        // A pinned language always wins when a matching track exists. yt-dlp's own
+        // is_original/is_default signal for YouTube can be wrong — YouTube may report a dub as
+        // "default" depending on the requester's account/locale — so this is the user's escape
+        // hatch to guarantee the correct track is never silently swapped for a translation.
+        val pinnedOriginal = assumedOriginalLanguage.normalizedLanguage()?.let { pinned ->
+            audioOnly.filter { candidate -> candidate.language.normalizedLanguage()?.let { languageMatches(it, pinned) } == true }
+                .minWithOrNull(audioComparator)
+        }
+
+        val original = pinnedOriginal
+            ?: audioOnly.filter { it.isOriginalAudio }.minWithOrNull(audioComparator)
             ?: if (languagePreferences.size > 1) {
                 val bestPreference = languagePreferences.max()
                 audioOnly.filter { it.languagePreference == bestPreference }.minWithOrNull(audioComparator)

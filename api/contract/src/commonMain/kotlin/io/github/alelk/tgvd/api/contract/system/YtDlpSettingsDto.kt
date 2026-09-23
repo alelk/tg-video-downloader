@@ -29,7 +29,14 @@ data class YtDlpSettingsDto(
     val mergeOutputFormat: String? = null,
     /** Optional audio languages; the source-original track is always included separately. */
     val preferredAudioLanguages: List<String> = listOf("ru", "en"),
+    /** Maximum number of non-original audio tracks. Set to 0 to download the original track only. */
     val maxAdditionalAudioTracks: Int = 2,
+    /**
+     * Pins the expected original-audio language (e.g. "ru"). When a track in this language is
+     * available it is always treated as the original/default track, overriding yt-dlp's own
+     * (sometimes locale-dependent) default-audio detection. Null = trust yt-dlp's detection.
+     */
+    val originalAudioLanguage: String? = null,
 
     // ── Rate limiting / anti-ban ──────────────────────────────────────────────
     /** --rate-limit, e.g. "5M", "500K". Null = unlimited. */
@@ -50,6 +57,13 @@ data class YtDlpSettingsDto(
     val subLangs: String? = null,
     /** Embed subtitles into the video file (requires ffmpeg). */
     val embedSubs: Boolean = false,
+    /**
+     * --sleep-subtitles in seconds: pause before each subtitle download. Applied only when both
+     * regular and auto-generated captions are requested, since fetching both for the same
+     * language is two back-to-back requests that YouTube's caption endpoint is quick to
+     * rate-limit (HTTP 429).
+     */
+    val sleepSubtitles: Int? = 3,
 
     // ── Performance ───────────────────────────────────────────────────────────
     /** Number of parallel fragment downloads (--concurrent-fragments). */

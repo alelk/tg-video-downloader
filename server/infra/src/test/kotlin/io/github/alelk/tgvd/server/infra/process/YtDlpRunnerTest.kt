@@ -67,6 +67,26 @@ class YtDlpRunnerTest : FunSpec({
         domain.channelId.value shouldBe "unknown"
     }
 
+    test("isSubtitleOnlyFailure is true when every ERROR line is about subtitles") {
+        val lines = listOf(
+            "[info] Writing video subtitles to: video.en.vtt",
+            "ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests",
+        )
+        runner.isSubtitleOnlyFailure(lines) shouldBe true
+    }
+
+    test("isSubtitleOnlyFailure is false when a non-subtitle ERROR line is present") {
+        val lines = listOf(
+            "ERROR: unable to download video data: HTTP Error 403: Forbidden",
+            "ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests",
+        )
+        runner.isSubtitleOnlyFailure(lines) shouldBe false
+    }
+
+    test("isSubtitleOnlyFailure is false when there are no ERROR lines") {
+        runner.isSubtitleOnlyFailure(listOf("[download] 100% of 10.00MiB")) shouldBe false
+    }
+
     test("toDomain handles blank channelId from database") {
         val pm = io.github.alelk.tgvd.server.infra.db.model.VideoInfoPm(
             videoId = "v1",

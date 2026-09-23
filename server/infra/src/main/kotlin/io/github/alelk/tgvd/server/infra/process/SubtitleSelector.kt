@@ -10,6 +10,7 @@ internal object SubtitleSelector {
         val writeAutomatic: Boolean,
         val languages: List<String>,
         val embed: Boolean,
+        val sleepSubtitles: Int? = null,
     ) {
         val enabled: Boolean get() = writeRegular || writeAutomatic
 
@@ -21,6 +22,12 @@ internal object SubtitleSelector {
                 add("--sub-langs")
                 add(languages.joinToString(","))
                 if (embed) add("--embed-subs")
+                // Regular + automatic captions for the same language are fetched as two
+                // separate requests to YouTube's caption endpoint; space them out to avoid
+                // tripping its rate limiter (HTTP 429).
+                if (writeRegular && writeAutomatic) {
+                    sleepSubtitles?.let { add("--sleep-subtitles"); add(it.toString()) }
+                }
             }
         }
     }
@@ -42,6 +49,7 @@ internal object SubtitleSelector {
             writeAutomatic = config.writeAutoSubs || requestedByRule,
             languages = languages,
             embed = config.embedSubs,
+            sleepSubtitles = config.sleepSubtitles,
         )
     }
 

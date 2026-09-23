@@ -73,6 +73,7 @@ fun SettingsScreen() {
     var mergeOutputFormat by remember { mutableStateOf("") }
     var preferredAudioLanguages by remember { mutableStateOf("ru, en") }
     var maxAdditionalAudioTracks by remember { mutableStateOf("2") }
+    var originalAudioLanguage by remember { mutableStateOf("") }
 
     // ── Rate limiting state ───────────────────────────────────────────────────
     var rateLimit by remember { mutableStateOf("") }
@@ -84,6 +85,7 @@ fun SettingsScreen() {
     var writeAutoSubs by remember { mutableStateOf(false) }
     var subLangs by remember { mutableStateOf("") }
     var embedSubs by remember { mutableStateOf(false) }
+    var sleepSubtitles by remember { mutableStateOf("") }
 
     // ── Advanced state ────────────────────────────────────────────────────────
     var concurrentFragments by remember { mutableStateOf("5") }
@@ -129,6 +131,7 @@ fun SettingsScreen() {
                 mergeOutputFormat = ytDlp.mergeOutputFormat ?: ""
                 preferredAudioLanguages = ytDlp.preferredAudioLanguages.joinToString(", ")
                 maxAdditionalAudioTracks = ytDlp.maxAdditionalAudioTracks.toString()
+                originalAudioLanguage = ytDlp.originalAudioLanguage ?: ""
 
                 // Rate limiting
                 rateLimit = ytDlp.rateLimit ?: ""
@@ -140,6 +143,7 @@ fun SettingsScreen() {
                 writeAutoSubs = ytDlp.writeAutoSubs
                 subLangs = ytDlp.preferredSubtitleLanguages.joinToString(", ")
                 embedSubs = ytDlp.embedSubs
+                sleepSubtitles = ytDlp.sleepSubtitles?.toString() ?: ""
 
                 // Advanced
                 concurrentFragments = ytDlp.concurrentFragments.toString()
@@ -160,7 +164,7 @@ fun SettingsScreen() {
                 // Auto-expand collapsible sections if they have non-default values
                 // Only expand if currently collapsed — respect user's manual collapse
                 if (!subsExpanded) {
-                    subsExpanded = writeSubs || writeAutoSubs || subLangs.isNotBlank() || embedSubs
+                    subsExpanded = writeSubs || writeAutoSubs || subLangs.isNotBlank() || embedSubs || sleepSubtitles.isNotBlank()
                 }
                 if (!advancedExpanded) {
                     advancedExpanded = rateLimit.isNotBlank()
@@ -206,6 +210,7 @@ fun SettingsScreen() {
                         preferredAudioLanguages = preferredAudioLanguages.split(',')
                             .map { it.trim() }.filter { it.isNotBlank() }.distinct(),
                         maxAdditionalAudioTracks = (maxAdditionalAudioTracks.toIntOrNull() ?: 2).coerceIn(0, 8),
+                        originalAudioLanguage = originalAudioLanguage.takeIf { it.isNotBlank() },
                         // Rate limiting
                         rateLimit        = rateLimit.takeIf { it.isNotBlank() },
                         sleepInterval    = sleepInterval.toIntOrNull(),
@@ -219,6 +224,7 @@ fun SettingsScreen() {
                             .distinct(),
                         subLangs      = null,
                         embedSubs     = embedSubs,
+                        sleepSubtitles = sleepSubtitles.toIntOrNull(),
                         // Advanced
                         concurrentFragments = concurrentFragments.toIntOrNull() ?: 5,
                         socketTimeout       = socketTimeout.toIntOrNull() ?: 30,
@@ -488,6 +494,16 @@ fun SettingsScreen() {
             )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
+                value = originalAudioLanguage,
+                onValueChange = { originalAudioLanguage = it },
+                label = { Text("Original audio language (override)") },
+                placeholder = { Text("ru") },
+                supportingText = { Text("Guarantees this language is used as the original/default track, even if YouTube reports a dub as default. Leave empty to trust auto-detection.") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
                 value = preferredAudioLanguages,
                 onValueChange = { preferredAudioLanguages = it },
                 label = { Text("Additional audio languages") },
@@ -501,7 +517,7 @@ fun SettingsScreen() {
                 value = maxAdditionalAudioTracks,
                 onValueChange = { maxAdditionalAudioTracks = it.filter(Char::isDigit) },
                 label = { Text("Maximum additional tracks") },
-                supportingText = { Text("0–8; the original track is not counted.") },
+                supportingText = { Text("0–8; the original track is not counted. Set to 0 to download only the original audio, with no translations.") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
@@ -614,6 +630,18 @@ fun SettingsScreen() {
                             Text("Requires ffmpeg", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(checked = embedSubs, onCheckedChange = { embedSubs = it })
+                    }
+                    if (writeSubs && writeAutoSubs) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = sleepSubtitles,
+                            onValueChange = { sleepSubtitles = it },
+                            label = { Text("Sleep before subtitles (s)") },
+                            placeholder = { Text("3") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            supportingText = { Text("Pause before each subtitle request — avoids YouTube 429 when fetching both regular and auto captions") },
+                        )
                     }
                 }
             }

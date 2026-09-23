@@ -43,6 +43,7 @@ fun Route.systemRoutes() {
                     mergeOutputFormat = ytDlpConfig.mergeOutputFormat,
                     preferredAudioLanguages = ytDlpConfig.preferredAudioLanguages,
                     maxAdditionalAudioTracks = ytDlpConfig.maxAdditionalAudioTracks,
+                    originalAudioLanguage = ytDlpConfig.originalAudioLanguage,
                     rateLimit = ytDlpConfig.rateLimit,
                     sleepInterval = ytDlpConfig.sleepInterval,
                     maxSleepInterval = ytDlpConfig.maxSleepInterval,
@@ -51,6 +52,7 @@ fun Route.systemRoutes() {
                     preferredSubtitleLanguages = ytDlpConfig.preferredSubtitleLanguages,
                     subLangs = ytDlpConfig.subLangs,
                     embedSubs = ytDlpConfig.embedSubs,
+                    sleepSubtitles = ytDlpConfig.sleepSubtitles,
                     concurrentFragments = ytDlpConfig.concurrentFragments,
                     socketTimeout = ytDlpConfig.socketTimeout,
                     youtubePlayerClient = ytDlpConfig.youtubePlayerClient,
@@ -97,6 +99,8 @@ fun Route.systemRoutes() {
                     .filter { it.isNotBlank() }
                     .distinct(),
                 maxAdditionalAudioTracks = request.ytDlp.maxAdditionalAudioTracks.coerceIn(0, 8),
+                originalAudioLanguage = request.ytDlp.originalAudioLanguage
+                    ?.trim()?.replace('_', '-')?.lowercase()?.takeIf { it.isNotBlank() },
                 rateLimit = request.ytDlp.rateLimit,
                 sleepInterval = request.ytDlp.sleepInterval,
                 maxSleepInterval = request.ytDlp.maxSleepInterval,
@@ -109,6 +113,7 @@ fun Route.systemRoutes() {
                     .distinct(),
                 subLangs = null,
                 embedSubs = request.ytDlp.embedSubs,
+                sleepSubtitles = request.ytDlp.sleepSubtitles,
                 concurrentFragments = request.ytDlp.concurrentFragments,
                 socketTimeout = request.ytDlp.socketTimeout,
                 extractorArgs = request.ytDlp.extractorArgs,

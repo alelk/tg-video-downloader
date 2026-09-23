@@ -1497,9 +1497,11 @@ multi-audio policy:
   "ytDlp": {
     "preferredAudioLanguages": ["ru", "en"],
     "maxAdditionalAudioTracks": 2,
+    "originalAudioLanguage": null,
     "writeSubs": true,
     "writeAutoSubs": true,
-    "preferredSubtitleLanguages": ["ru", "en"]
+    "preferredSubtitleLanguages": ["ru", "en"],
+    "sleepSubtitles": 3
   }
 }
 ```
@@ -1509,6 +1511,20 @@ counted by `maxAdditionalAudioTracks`. Missing preferred languages are ignored.
 Language codes are normalised on update. A non-empty raw `preferredFormats`
 selector bypasses automatic language-aware selection.
 
+`originalAudioLanguage`, when set, pins the expected original-track language
+(e.g. `"ru"`) and always wins over yt-dlp's own default-audio detection when a
+matching track exists — this guards against YouTube reporting a dubbed track
+as default (which can depend on the requester's account/locale), which would
+otherwise silently replace the source audio with a translation. Set
+`maxAdditionalAudioTracks` to `0` to download the original track only, with no
+translated tracks at all.
+
 Regular and auto-generated subtitles are downloaded when available, restricted
 to `preferredSubtitleLanguages`. A rule with `downloadSubtitles = true` can
-override the language list through its `subtitleLanguages` field.
+override the language list through its `subtitleLanguages` field. When both
+`writeSubs` and `writeAutoSubs` are enabled, `sleepSubtitles` seconds are
+inserted before each subtitle download — regular and auto captions for the
+same language are fetched as two consecutive requests, which YouTube's
+caption endpoint otherwise rate-limits (HTTP 429). If a download otherwise
+succeeds but only the subtitle step fails, the job still completes — just
+without subtitles.

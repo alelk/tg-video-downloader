@@ -237,6 +237,7 @@ yt-dlp --proxy socks5://user:pass@127.0.0.1:1080 <url>
 | SSL errors on RuTube                                              | Add `--legacy-server-connect`                                                                                                                                         |
 | Download stuck on format check                                    | Disable with `--no-check-formats` (uncheck "Check formats" in Settings)                                                                                               |
 | Rate limited / 429                                                | Add `--sleep-interval 2 --max-sleep-interval 8 --rate-limit 2M`                                                                                                       |
+| `ERROR: Unable to download video subtitles ...: HTTP Error 429`   | Regular + auto subs for the same language are two back-to-back requests to YouTube's caption endpoint. Add `--sleep-subtitles <seconds>` (`sleepSubtitles` in Settings). The app also treats an otherwise-successful download that only fails on subtitles as a soft success — it keeps the video and just skips subtitles. |
 | YouTube "Sign in to confirm age"                                  | Export cookies from browser, use `--cookies`                                                                                                                          |
 | "This video is only available to Music Premium members"           | Need YouTube Music cookies                                                                                                                                            |
 | VK video not downloading                                          | Try `--extractor-args "vk:nocheckcertificate=1"` (Settings → Advanced → Extractor args)                                                                               |
@@ -267,7 +268,8 @@ yt-dlp --proxy socks5://user:pass@127.0.0.1:1080 <url>
 | `checkFormats`            | `--check-formats` (when `true`)              |
 | `mergeOutputFormat`       | `--merge-output-format <value>`              |
 | `preferredAudioLanguages` | Resolves optional language formats to IDs and adds them to `-f` |
-| `maxAdditionalAudioTracks`| Limits optional audio streams; original audio is not counted |
+| `maxAdditionalAudioTracks`| Limits optional audio streams; original audio is not counted; `0` = original only |
+| `originalAudioLanguage`   | Pins which language counts as "original" in `AudioTrackSelector`, overriding yt-dlp's `is_original`/default-audio detection |
 | `rateLimit`               | `--rate-limit <value>`                       |
 | `sleepInterval`           | `--sleep-interval <value>`                   |
 | `maxSleepInterval`        | `--max-sleep-interval <value>`               |
@@ -275,6 +277,7 @@ yt-dlp --proxy socks5://user:pass@127.0.0.1:1080 <url>
 | `writeAutoSubs`           | `--write-auto-subs`                          |
 | `preferredSubtitleLanguages` | `--sub-langs <comma-separated values>`    |
 | `embedSubs`               | `--embed-subs`                               |
+| `sleepSubtitles`          | `--sleep-subtitles <value>` (only when `writeSubs` and `writeAutoSubs` are both on) |
 | `concurrentFragments`     | `--concurrent-fragments <value>`             |
 | `socketTimeout`           | `--socket-timeout <value>`                   |
 | `extractorArgs`           | `--extractor-args <value>`                   |
@@ -288,3 +291,11 @@ optional language tracks are available, the command enables
 keep their explicit container and should be changed to `.mkv` when source-codec
 compatibility is required. A raw `preferredFormats` value remains an expert
 override and bypasses this language-aware selection.
+
+yt-dlp's own "original"/"default audio" signal for YouTube (`is_original`,
+`language_preference`) can be wrong — YouTube may report a dubbed track as
+default depending on the requester's account/locale, which silently downloads
+a translation instead of the source audio. Set `originalAudioLanguage` (e.g.
+`"ru"`) to pin the known original language for a channel; a matching track is
+then always treated as original regardless of what yt-dlp reports. Set
+`maxAdditionalAudioTracks` to `0` to skip translated tracks entirely.

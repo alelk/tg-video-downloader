@@ -1648,3 +1648,13 @@ original audio with a translated track.
 
 The selected original format ID is placed first in the yt-dlp multi-stream
 selector and becomes the default audio stream in the final container.
+
+yt-dlp's own original/default-audio signal (`is_original`, `language_preference`)
+is extractor-provided and can be wrong for YouTube — the reported "default"
+track can depend on the requester's account/locale, so a dubbed track is
+sometimes reported as default instead of the source audio.
+`YtDlpConfig.originalAudioLanguage` lets the operator pin the known original
+language for a channel; when a track in that language exists,
+`AudioTrackSelector` always treats it as the original, ahead of the
+`is_original`/`language_preference` heuristics. `maxAdditionalAudioTracks = 0`
+downloads the original track only, skipping translated tracks entirely.

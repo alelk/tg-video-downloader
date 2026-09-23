@@ -171,6 +171,13 @@ configs:
         sleepInterval: 5
         maxSleepInterval: 15
 
+        # Pause before each subtitle download. Regular (--write-subs) and auto-generated
+        # (--write-auto-subs) captions for the same language are fetched as two separate
+        # requests right after each other — without a gap, YouTube's caption endpoint quickly
+        # returns HTTP 429 on the second one.
+        # --sleep-subtitles
+        sleepSubtitles: 3
+
         # Real Chrome browser User-Agent.
         # yt-dlp's default UA is trivially fingerprinted by anti-bot systems.
         # For YouTube with "web" client the extractor ignores this for API calls,

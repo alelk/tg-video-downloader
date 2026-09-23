@@ -68,10 +68,12 @@ ytDlp:
   legacyServerConnect: false           # --legacy-server-connect: workaround for SSL EOF errors (e.g. RuTube)
   noCheckCertificate: false            # --no-check-certificate: disable TLS validation (use with caution!)
   preferredAudioLanguages: ["ru", "en"] # optional tracks; source-original audio is always selected
-  maxAdditionalAudioTracks: 2          # does not include the original track
+  maxAdditionalAudioTracks: 2          # does not include the original track; 0 = original only
+  originalAudioLanguage: null           # pin the original-track language, e.g. "ru", to override yt-dlp's default-audio detection
   writeSubs: true                      # download publisher-provided subtitles
   writeAutoSubs: true                  # also download generated captions
   preferredSubtitleLanguages: ["ru", "en"] # download only these languages
+  sleepSubtitles: 3                    # --sleep-subtitles: pause before each subtitle download when both writeSubs and writeAutoSubs are on (avoids YouTube 429)
   mergeOutputFormat: null              # output-rule extension is used; new multi-audio defaults use mkv
 
 # ffmpeg

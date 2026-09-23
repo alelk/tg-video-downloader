@@ -182,6 +182,7 @@ class YtDlpRunner(
             quality = quality,
             preferredLanguages = config.preferredAudioLanguages,
             maxAdditionalTracks = config.maxAdditionalAudioTracks,
+            assumedOriginalLanguage = config.originalAudioLanguage,
         )
 
     private fun effectiveContainer(policy: DownloadPolicy, outputPath: FilePath): String? {
@@ -481,19 +482,40 @@ class YtDlpRunner(
         }
 
         val exitCode = process.waitFor()
-        if (exitCode != 0) {
+        if (exitCode != 0 && !isSubtitleOnlyFailure(outputLines)) {
             val output = outputLines.takeLast(50).joinToString("\n")
             logger.error { "yt-dlp download failed (exit=$exitCode):\n$output" }
             throw RuntimeException("yt-dlp download failed (exit=$exitCode): ${output.takeLast(500)}")
+        }
+        if (exitCode != 0) {
+            // Subtitles are fetched as one of the last steps, after the video itself is fully
+            // downloaded and merged — a failure confined to them (e.g. YouTube 429-ing the
+            // caption endpoint) shouldn't fail the whole job. JobProcessor still verifies the
+            // video file actually landed on disk right after this.
+            logger.warn {
+                "yt-dlp exited with subtitle-only errors (exit=$exitCode); continuing without subtitles: " +
+                    outputLines.filter { it.contains("ERROR:") }.joinToString(" | ")
+            }
         } else {
             logger.info { "yt-dlp download completed successfully: ${outputPath.value}" }
-            val actualFormatId = downloadedFormatId ?: selectedFormatId
-            val actualFormat = if (actualFormatId != null && formats != null) {
-                resolveActualFormat(actualFormatId, formats)
-            } else null
-            emit(DownloadEvent.Completed(actualFormat))
         }
+        val actualFormatId = downloadedFormatId ?: selectedFormatId
+        val actualFormat = if (actualFormatId != null && formats != null) {
+            resolveActualFormat(actualFormatId, formats)
+        } else null
+        emit(DownloadEvent.Completed(actualFormat))
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * True when every "ERROR:" line yt-dlp printed is about subtitles — meaning the video (and
+     * any requested additional outputs) most likely downloaded fine and only the optional
+     * subtitle step failed, typically because YouTube rate-limited the caption endpoint (429).
+     */
+    internal fun isSubtitleOnlyFailure(lines: List<String>): Boolean {
+        val errorLines = lines.filter { it.contains("ERROR:") }
+        if (errorLines.isEmpty()) return false
+        return errorLines.all { it.contains("subtitle", ignoreCase = true) }
+    }
 
     private fun resolveActualFormat(formatId: String, availableFormats: List<VideoInfo.Format>): VideoInfo.Format? {
         if (!formatId.contains("+")) {

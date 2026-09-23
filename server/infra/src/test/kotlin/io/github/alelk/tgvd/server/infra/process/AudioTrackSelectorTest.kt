@@ -86,6 +86,47 @@ class AudioTrackSelectorTest : FunSpec({
         selection.originalAudio?.formatId shouldBe "source"
     }
 
+    test("pinned original language overrides a track wrongly flagged as original") {
+        // "en" is (incorrectly) flagged as original/default by the extractor — e.g. YouTube
+        // reported the dub as default for the requester's account locale — but the user has
+        // pinned "ru" as the known original language for this channel.
+        val selection = AudioTrackSelector.select(
+            formats = listOf(video("v"), audio("en", "en", 160.0, original = true), audio("ru", "ru", 96.0)),
+            quality = DownloadPolicy.VideoQuality.BEST,
+            preferredLanguages = listOf("en"),
+            maxAdditionalTracks = 2,
+            assumedOriginalLanguage = "ru",
+        )
+
+        selection.originalAudio?.formatId shouldBe "ru"
+        selection.additionalAudio.map { it.formatId }.shouldContainExactly("en")
+    }
+
+    test("pinned original language falls back to auto-detection when no track matches") {
+        val selection = AudioTrackSelector.select(
+            formats = listOf(video("v"), audio("en", "en", 160.0, original = true)),
+            quality = DownloadPolicy.VideoQuality.BEST,
+            preferredLanguages = emptyList(),
+            maxAdditionalTracks = 2,
+            assumedOriginalLanguage = "ru",
+        )
+
+        selection.originalAudio?.formatId shouldBe "en"
+    }
+
+    test("maxAdditionalTracks = 0 downloads only the original track") {
+        val selection = AudioTrackSelector.select(
+            formats = listOf(video("v"), audio("ru", "ru", 96.0, original = true), audio("en", "en", 160.0)),
+            quality = DownloadPolicy.VideoQuality.BEST,
+            preferredLanguages = listOf("ru", "en"),
+            maxAdditionalTracks = 0,
+        )
+
+        selection.originalAudio?.formatId shouldBe "ru"
+        selection.additionalAudio shouldBe emptyList()
+        selection.formatSelector shouldBe "v+ru"
+    }
+
     test("respects preferred language order and additional track limit") {
         val selection = AudioTrackSelector.select(
             listOf(video("v"), audio("de", "de", 96.0, original = true), audio("en", "en", 128.0), audio("ru", "ru", 128.0)),
