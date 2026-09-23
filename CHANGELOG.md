@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.38.0](https://github.com/alelk/tg-video-downloader/compare/v1.37.0...v1.38.0) (2026-09-23)
+
+
+### Features
+
+* add original audio language override, subtitle sleep to avoid rate limits, and soft-fail for subtitle-only errors ([4c40b3b](https://github.com/alelk/tg-video-downloader/commit/4c40b3be99e0f095e27e82534052e4bbaa873491))
+
 # [1.37.0](https://github.com/alelk/tg-video-downloader/compare/v1.36.0...v1.37.0) (2026-09-15)
 
 
