@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+# [1.41.0](https://github.com/alelk/tg-video-downloader/compare/v1.40.0...v1.41.0) (2026-09-24)
+
+
+### Features
+
+* fix video convertion issue ([baad135](https://github.com/alelk/tg-video-downloader/commit/baad1358068474ff8825cd0ce7e6242bf0af8e96))
+
 # [1.40.0](https://github.com/alelk/tg-video-downloader/compare/v1.39.0...v1.40.0) (2026-09-23)
 
 
