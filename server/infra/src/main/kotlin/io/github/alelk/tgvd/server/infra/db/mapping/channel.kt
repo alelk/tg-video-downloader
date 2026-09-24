@@ -20,6 +20,7 @@ internal fun ResultRow.toChannel(): Channel = Channel(
     tags = this[ChannelsTable.tags].map { Tag(it) }.toSet(),
     metadataOverrides = this[ChannelsTable.metadataOverrides]?.toDomain(),
     notes = this[ChannelsTable.notes],
+    trackPreferences = this[ChannelsTable.trackPreferences]?.toDomain(),
     createdAt = this[ChannelsTable.createdAt],
     updatedAt = this[ChannelsTable.updatedAt],
 )

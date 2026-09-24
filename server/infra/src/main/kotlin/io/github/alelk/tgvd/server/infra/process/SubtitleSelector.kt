@@ -24,6 +24,11 @@ object SubtitleSelector {
                 if (!regular && !automatic) return@buildList
                 add("--sub-langs")
                 add(languages.joinToString(","))
+                // Subtitles are best-effort: a missing language is only an info message, but a track
+                // that fails to download (e.g. an auto-translated caption rejected with HTTP 429)
+                // aborts the whole video unless errors are ignored. With --ignore-errors yt-dlp
+                // reports it as a warning; real download/merge failures still exit non-zero.
+                add("--ignore-errors")
                 // Regular + automatic captions for the same language are fetched as two
                 // separate requests to YouTube's caption endpoint; space them out to avoid
                 // tripping its rate limiter (HTTP 429).

@@ -19,6 +19,8 @@ import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.api.contract.metadata.MetadataTemplateDto
 import io.github.alelk.tgvd.features.common.component.ErrorCard
 import io.github.alelk.tgvd.features.common.component.SectionCard
+import io.github.alelk.tgvd.features.common.component.TrackPreferencesEditor
+import io.github.alelk.tgvd.features.common.component.TrackPreferencesForm
 import io.github.alelk.tgvd.features.common.icon.TgvdIcons
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -60,6 +62,9 @@ class ChannelEditorScreen(
         var artistOverride by remember { mutableStateOf("") }
         var seriesNameOverride by remember { mutableStateOf("") }
 
+        // Audio/subtitle overrides — take priority over the matched rule and global settings
+        var trackPreferences by remember { mutableStateOf(TrackPreferencesForm()) }
+
         // Load existing channel in edit mode
         LaunchedEffect(channelId) {
             if (channelId != null) {
@@ -70,6 +75,7 @@ class ChannelEditorScreen(
                     extractor = channel.extractor
                     tagsText = channel.tags.joinToString(", ")
                     notes = channel.notes ?: ""
+                    trackPreferences = TrackPreferencesForm.from(channel.trackPreferences)
                     channel.metadataOverrides?.let { overrides ->
                         hasOverrides = true
                         when (overrides) {
@@ -125,6 +131,7 @@ class ChannelEditorScreen(
                                 tags = parseTags(),
                                 metadataOverrides = buildOverrides(),
                                 notes = notes.takeIf { it.isNotBlank() },
+                                trackPreferences = trackPreferences.toDto(),
                             )
                         )
                     } else {
@@ -135,6 +142,7 @@ class ChannelEditorScreen(
                                 tags = parseTags(),
                                 metadataOverrides = buildOverrides(),
                                 notes = notes.takeIf { it.isNotBlank() },
+                                trackPreferences = trackPreferences.toDto(),
                             )
                         )
                     }
@@ -310,6 +318,17 @@ class ChannelEditorScreen(
                             }
                         }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Audio & subtitle tracks
+                SectionCard(title = "Audio & Subtitles", icon = TgvdIcons.Videocam) {
+                    TrackPreferencesEditor(
+                        form = trackPreferences,
+                        onChange = { trackPreferences = it },
+                        inheritFrom = "the matched rule or global settings",
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))

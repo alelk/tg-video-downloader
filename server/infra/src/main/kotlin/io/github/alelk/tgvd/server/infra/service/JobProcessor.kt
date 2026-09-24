@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.server.infra.service
 
+import io.github.alelk.tgvd.domain.channel.ChannelRepository
 import io.github.alelk.tgvd.domain.common.FilePath
 import io.github.alelk.tgvd.domain.job.JobOutput
 import io.github.alelk.tgvd.domain.job.JobOutputRepository
@@ -14,6 +15,7 @@ import io.github.alelk.tgvd.domain.video.VideoInfoCache
 import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.rule.RuleRepository
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
+import io.github.alelk.tgvd.domain.storage.effectiveDownloadPolicy
 import io.github.alelk.tgvd.domain.storage.OutputFormat
 import io.github.alelk.tgvd.domain.storage.OutputTarget
 import io.github.alelk.tgvd.domain.storage.VideoEncodeSettings
@@ -40,6 +42,7 @@ class JobProcessor(
     private val jobRepository: JobRepository,
     private val jobOutputRepository: JobOutputRepository,
     private val ruleRepository: RuleRepository,
+    private val channelRepository: ChannelRepository,
     private val videoDownloader: VideoDownloader,
     private val videoInfoCache: VideoInfoCache,
     private val ffmpegRunner: FfmpegRunner,
@@ -92,9 +95,10 @@ class JobProcessor(
             // 1. Transition to DOWNLOADING
             jobRepository.updateStatus(job.id, JobStatus.DOWNLOADING, JobPhase.DOWNLOAD, 0)
 
-            // 2. Resolve download policy from rule (if available)
+            // 2. Resolve download policy: global settings < rule < channel track overrides
             val rule = job.ruleId?.let { ruleRepository.findById(it) }
-            val basePolicy = rule?.downloadPolicy ?: DownloadPolicy()
+            val channel = job.videoInfo?.let { channelRepository.findByChannelId(job.workspaceId, it.channelId, it.extractor) }
+            val basePolicy = effectiveDownloadPolicy(rule, channel)
 
             // Enable writeThumbnail if any output needs embedThumbnail
             val needsThumbnail = job.storagePlan.allTargets.any { it.embedThumbnail }

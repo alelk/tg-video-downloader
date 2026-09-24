@@ -139,6 +139,7 @@ class ChannelRepositoryImpl(
                 it[tags] = channel.tags.map { t -> t.value }
                 it[metadataOverrides] = channel.metadataOverrides?.toPm()
                 it[notes] = channel.notes
+                it[trackPreferences] = channel.trackPreferences?.toPm()
                 it[updatedAt] = now()
             }
         } else {
@@ -151,6 +152,7 @@ class ChannelRepositoryImpl(
                 it[tags] = channel.tags.map { t -> t.value }
                 it[metadataOverrides] = channel.metadataOverrides?.toPm()
                 it[notes] = channel.notes
+                it[trackPreferences] = channel.trackPreferences?.toPm()
             }
         }
         channel.right()

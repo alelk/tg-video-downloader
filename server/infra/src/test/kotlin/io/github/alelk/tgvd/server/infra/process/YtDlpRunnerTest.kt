@@ -40,7 +40,7 @@ class YtDlpRunnerTest : FunSpec({
             VideoInfo.Format("ru", "webm", language = "ru", vcodec = "none", acodec = "opus"),
             VideoInfo.Format("en", "m4a", language = "en", vcodec = "none", acodec = "mp4a"),
         )
-        selectedRunner.selectFormats(formats, DownloadPolicy.VideoQuality.BEST,
+        selectedRunner.selectFormats(formats, DownloadPolicy(),
             MediaSelection(audioFormatIds = listOf("en"))).formatSelector shouldBe "video+en"
     }
 

@@ -80,6 +80,7 @@ CREATE TABLE channels (
     tags               TEXT[] NOT NULL DEFAULT '{}',
     metadata_overrides JSONB,
     notes              TEXT,
+    track_preferences  JSONB,             -- V8
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (workspace_id, channel_id, extractor)
@@ -100,6 +101,8 @@ COMMENT ON COLUMN channels.metadata_overrides IS 'MetadataTemplatePm JSON — me
 > `tags` are stored as a PostgreSQL `TEXT[]` with a GIN index for fast tag-based lookups.
 > The query `tags @> ARRAY['music-video']` uses the GIN index.
 > `metadata_overrides` — JSONB in the same format as `rules.metadata_template`.
+> `track_preferences` — `TrackPreferencesPm` JSON `{"audioLanguages": [..]|null, "downloadSubtitles": bool|null,
+> "subtitleLanguages": [..]|null}`; overrides the rule's `download_policy` track settings (null = inherit).
 
 ### 2.5 Table `jobs`
 
@@ -276,10 +279,12 @@ or (match on tag from the channel directory):
   "maxQuality": "best",
   "downloadSubtitles": null,
   "subtitleLanguages": [],
-  "writeThumbnail": false
+  "writeThumbnail": false,
+  "audioLanguages": null
 }
 ```
 `downloadSubtitles` is tri-state: `null` = inherit the global subtitle default, `true`/`false` = force on/off for this rule.
+`audioLanguages`: `null` = inherit the global `preferredAudioLanguages`, `[]` = original track only.
 
 ### 3.4 rules.outputs
 
@@ -396,7 +401,8 @@ Exposed table definitions are located in `server/infra/src/main/kotlin/.../db/ta
 server/infra/src/main/resources/db/migration/
 ├── V1__initial_schema.sql
 ├── ...
-└── V7__subtitle_policy_inherit.sql
+├── V7__subtitle_policy_inherit.sql
+└── V8__channel_track_preferences.sql
 ```
 
 ### 5.2 V1__initial_schema.sql
@@ -410,6 +416,9 @@ cached video info so previews include available subtitles.
 `V7__subtitle_policy_inherit.sql` reinterprets existing `rules.download_policy.downloadSubtitles`
 `false` values as `null` ("inherit the global default") now that the field is tri-state, preserving
 existing rules' behavior after `downloadSubtitles` changed from a boolean opt-in to an override.
+
+`V8__channel_track_preferences.sql` adds the nullable `channels.track_preferences` JSONB column for
+per-channel audio/subtitle overrides.
 
 ### 5.3 Flyway Configuration
 

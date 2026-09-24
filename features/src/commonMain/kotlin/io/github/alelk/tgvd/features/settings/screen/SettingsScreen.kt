@@ -69,7 +69,7 @@ fun SettingsScreen() {
     var preferredFormats by remember { mutableStateOf("") }
     var formatSort by remember { mutableStateOf("") }
     var checkFormats by remember { mutableStateOf(true) }
-    var preferredAudioLanguages by remember { mutableStateOf("ru, en") }
+    var preferredAudioLanguages by remember { mutableStateOf("") }
     var maxAdditionalAudioTracks by remember { mutableStateOf("2") }
     var originalAudioLanguage by remember { mutableStateOf("") }
 
@@ -504,7 +504,7 @@ fun SettingsScreen() {
                 onValueChange = { preferredAudioLanguages = it },
                 label = { Text("Additional audio languages") },
                 placeholder = { Text("ru, en") },
-                supportingText = { Text("Comma-separated BCP 47 language codes, in priority order.") },
+                supportingText = { Text("Comma-separated BCP 47 language codes, in priority order. Empty = original track only. Rules and channels can override this.") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )

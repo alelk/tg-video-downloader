@@ -113,7 +113,8 @@ class StorageDtoTest : FunSpec({
                     "maxQuality": "best",
                     "downloadSubtitles": null,
                     "subtitleLanguages": [],
-                    "writeThumbnail": false
+                    "writeThumbnail": false,
+                    "audioLanguages": null
                 }
             """
         }
@@ -123,6 +124,7 @@ class StorageDtoTest : FunSpec({
                 maxQuality = VideoQualityDto.HD_1080,
                 downloadSubtitles = true,
                 subtitleLanguages = listOf("en", "ru"),
+                audioLanguages = emptyList(),
             )
             val json = apiJson.encodeToString(DownloadPolicyDto.serializer(), dto)
             json shouldEqualJson """
@@ -130,7 +132,8 @@ class StorageDtoTest : FunSpec({
                     "maxQuality": "hd_1080",
                     "downloadSubtitles": true,
                     "subtitleLanguages": ["en", "ru"],
-                    "writeThumbnail": false
+                    "writeThumbnail": false,
+                    "audioLanguages": []
                 }
             """
         }

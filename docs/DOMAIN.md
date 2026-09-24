@@ -470,6 +470,7 @@ data class Channel(
     val tags: Set<Tag>,                // Tags for grouping
     val metadataOverrides: MetadataTemplate? = null,  // Per-channel metadata overrides
     val notes: String? = null,
+    val trackPreferences: TrackPreferences? = null,   // Per-channel audio/subtitle overrides
     val createdAt: Instant,
     val updatedAt: Instant,
 ) {
@@ -481,6 +482,8 @@ data class Channel(
 
 > Unique key on the platform: `channelId + extractor` (+ workspace).
 > `metadataOverrides` are merged on top of `Rule.metadataTemplate` when a rule matches.
+> `trackPreferences` are applied on top of the rule's `DownloadPolicy` (or on top of the global
+> settings when no rule matched) — see `effectiveDownloadPolicy(rule, channel)`.
 
 ### 4a.2 ChannelRepository (port)
 
@@ -1102,12 +1105,31 @@ data class DownloadPolicy(
     val maxQuality: VideoQuality = VideoQuality.BEST,
     /** null = inherit the global subtitle default; true/false = force on/off for this rule. */
     val downloadSubtitles: Boolean? = null,
-    val subtitleLanguages: List<String> = emptyList(),
+    val subtitleLanguages: List<String> = emptyList(),   // empty = inherit global
     val writeThumbnail: Boolean = false,
+    /** Additional audio languages. null = inherit global; empty = original track only. */
+    val audioLanguages: List<String>? = null,
 ) {
     enum class VideoQuality { BEST, HD_1080, HD_720, SD_480 }
+
+    val trackPreferences: TrackPreferences
+    fun withOverrides(overrides: TrackPreferences?): DownloadPolicy  // e.g. channel overrides
 }
+
+/** Optional track overrides; null fields inherit. Precedence: global < rule < channel. */
+data class TrackPreferences(
+    val audioLanguages: List<String>? = null,
+    val downloadSubtitles: Boolean? = null,
+    val subtitleLanguages: List<String>? = null,
+) {
+    fun overriddenBy(override: TrackPreferences?): TrackPreferences
+}
+
+fun effectiveDownloadPolicy(rule: Rule?, channel: Channel?): DownloadPolicy
 ```
+
+Requested audio/subtitle languages are best-effort: unavailable languages are skipped and a failed
+subtitle track never fails the download.
 
 ### 7.5 VideoEncodeSettings
 
@@ -1658,5 +1680,7 @@ sometimes reported as default instead of the source audio.
 `YtDlpConfig.originalAudioLanguage` lets the operator pin the known original
 language for a channel; when a track in that language exists,
 `AudioTrackSelector` always treats it as the original, ahead of the
-`is_original`/`language_preference` heuristics. `maxAdditionalAudioTracks = 0`
-downloads the original track only, skipping translated tracks entirely.
+`is_original`/`language_preference` heuristics. By default only the original
+track is downloaded (`preferredAudioLanguages = []`); a rule's
+`DownloadPolicy.audioLanguages` or a channel's `TrackPreferences.audioLanguages`
+adds translated tracks (channel > rule > global).

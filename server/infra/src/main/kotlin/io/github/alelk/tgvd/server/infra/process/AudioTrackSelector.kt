@@ -2,6 +2,7 @@ package io.github.alelk.tgvd.server.infra.process
 
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
 import io.github.alelk.tgvd.domain.video.VideoInfo
+import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
 
 /** Pure format selection policy. Language decides identity; bitrate only ranks variants of that language. */
 object AudioTrackSelector {
@@ -20,6 +21,22 @@ object AudioTrackSelector {
             originalAudio != null -> originalAudio.formatId
             else -> null
         }
+    }
+
+    /**
+     * Automatic selection for a download [policy]. Its `audioLanguages` (the rule/channel override)
+     * replaces the global `preferredAudioLanguages` and is not capped by `maxAdditionalAudioTracks`.
+     * Only tracks the video actually offers are selected, so a missing language is simply skipped.
+     */
+    fun select(formats: List<VideoInfo.Format>, policy: DownloadPolicy, config: YtDlpConfig): Selection {
+        val override = policy.audioLanguages
+        return select(
+            formats = formats,
+            quality = policy.maxQuality,
+            preferredLanguages = override ?: config.preferredAudioLanguages,
+            maxAdditionalTracks = override?.size ?: config.maxAdditionalAudioTracks,
+            assumedOriginalLanguage = config.originalAudioLanguage,
+        )
     }
 
     fun select(

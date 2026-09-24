@@ -3,6 +3,7 @@ package io.github.alelk.tgvd.api.mapping.channel
 import io.github.alelk.tgvd.api.contract.channel.CreateChannelDto
 import io.github.alelk.tgvd.api.contract.channel.UpdateChannelDto
 import io.github.alelk.tgvd.api.mapping.metadata.toDomain
+import io.github.alelk.tgvd.api.mapping.storage.toDomain
 import io.github.alelk.tgvd.domain.channel.CreateChannelRequest
 import io.github.alelk.tgvd.domain.channel.UpdateChannelRequest
 import io.github.alelk.tgvd.domain.common.ChannelId
@@ -18,6 +19,7 @@ fun CreateChannelDto.toDomain(workspaceId: WorkspaceId): CreateChannelRequest = 
     tags = tags.map { Tag(it) }.toSet(),
     metadataOverrides = metadataOverrides?.toDomain(),
     notes = notes,
+    trackPreferences = trackPreferences?.toDomain(),
 )
 
 fun UpdateChannelDto.toDomain(): UpdateChannelRequest = UpdateChannelRequest(
@@ -25,5 +27,6 @@ fun UpdateChannelDto.toDomain(): UpdateChannelRequest = UpdateChannelRequest(
     tags = tags?.map { Tag(it) }?.toSet(),
     metadataOverrides = metadataOverrides?.toDomain(),
     notes = notes,
+    trackPreferences = trackPreferences?.toDomain(),
 )
 

@@ -2,6 +2,7 @@ package io.github.alelk.tgvd.api.mapping.channel
 
 import io.github.alelk.tgvd.api.contract.channel.ChannelDto
 import io.github.alelk.tgvd.api.mapping.metadata.toDto
+import io.github.alelk.tgvd.api.mapping.storage.toDto
 import io.github.alelk.tgvd.domain.channel.Channel
 import kotlin.uuid.ExperimentalUuidApi
 
@@ -15,6 +16,7 @@ fun Channel.toDto(): ChannelDto = ChannelDto(
     tags = tags.map { it.value }.sorted(),
     metadataOverrides = metadataOverrides?.toDto(),
     notes = notes,
+    trackPreferences = trackPreferences?.toDto(),
     createdAt = createdAt.toString(),
     updatedAt = updatedAt.toString(),
 )

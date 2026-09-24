@@ -6,6 +6,7 @@ import io.github.alelk.tgvd.domain.common.Extractor
 import io.github.alelk.tgvd.domain.common.Tag
 import io.github.alelk.tgvd.domain.common.WorkspaceId
 import io.github.alelk.tgvd.domain.metadata.MetadataTemplate
+import io.github.alelk.tgvd.domain.storage.TrackPreferences
 import kotlin.time.Instant
 
 /**
@@ -13,6 +14,7 @@ import kotlin.time.Instant
  *
  * The combination of [channelId] + [extractor] uniquely identifies a channel on a platform.
  * [metadataOverrides] allows per-channel metadata customization (e.g., artist name, series name).
+ * [trackPreferences] overrides the rule/global audio and subtitle track selection for this channel.
  */
 data class Channel(
     val id: ChannelDirectoryEntryId,
@@ -23,6 +25,7 @@ data class Channel(
     val tags: Set<Tag>,
     val metadataOverrides: MetadataTemplate? = null,
     val notes: String? = null,
+    val trackPreferences: TrackPreferences? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
 ) {

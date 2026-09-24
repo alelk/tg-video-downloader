@@ -27,6 +27,10 @@ class UpdateChannelUseCase(
                         tags = request.tags ?: existing.tags,
                         metadataOverrides = request.metadataOverrides ?: existing.metadataOverrides,
                         notes = request.notes ?: existing.notes,
+                        trackPreferences = when (val prefs = request.trackPreferences) {
+                            null -> existing.trackPreferences
+                            else -> prefs.takeUnless { it.isEmpty }
+                        },
                         updatedAt = clock.now(),
                     )
                 channelRepository.save(updated).bind()

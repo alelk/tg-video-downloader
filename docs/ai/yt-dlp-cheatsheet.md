@@ -274,7 +274,7 @@ yt-dlp --proxy socks5://user:pass@127.0.0.1:1080 <url>
 | `maxSleepInterval`        | `--max-sleep-interval <value>`               |
 | `writeSubs`               | `--write-subs`                               |
 | `writeAutoSubs`           | `--write-auto-subs`                          |
-| `preferredSubtitleLanguages` | `--sub-langs <comma-separated values>`    |
+| `preferredSubtitleLanguages` | `--sub-langs <comma-separated values>` + `--ignore-errors` (subtitle failures become warnings) |
 | `embedSubs`               | `--embed-subs`                               |
 | `sleepSubtitles`          | `--sleep-subtitles <value>` (only when `writeSubs` and `writeAutoSubs` are both on) |
 | `concurrentFragments`     | `--concurrent-fragments <value>`             |
@@ -299,3 +299,11 @@ a translation instead of the source audio. Set `originalAudioLanguage` (e.g.
 `"ru"`) to pin the known original language for a channel; a matching track is
 then always treated as original regardless of what yt-dlp reports. Set
 `maxAdditionalAudioTracks` to `0` to skip translated tracks entirely.
+
+Rule `downloadPolicy.audioLanguages` / `subtitleLanguages` / `downloadSubtitles`
+and channel `trackPreferences` override these globals (channel > rule > global).
+
+When subtitles are requested, `--ignore-errors` is added: in yt-dlp a failing
+subtitle track (`Unable to download video subtitles ...`, e.g. an auto-translated
+caption hitting HTTP 429) otherwise aborts the whole video. With the flag it is a
+warning, while real download/merge errors still exit with code 1.

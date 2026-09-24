@@ -2,6 +2,7 @@ package io.github.alelk.tgvd.server.infra.process
 
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
 import io.github.alelk.tgvd.domain.video.VideoInfo
+import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
@@ -136,5 +137,41 @@ class AudioTrackSelectorTest : FunSpec({
         )
 
         selection.additionalAudio.map { it.formatId }.shouldContainExactly("ru")
+    }
+
+    context("policy-based selection") {
+        val formats = listOf(
+            video("v"),
+            audio("en-orig", "en", 128.0, original = true),
+            audio("ru", "ru", 128.0),
+            audio("de", "de", 128.0),
+        )
+
+        test("global default downloads the original track only") {
+            AudioTrackSelector.select(formats, DownloadPolicy(), YtDlpConfig()).formatSelector shouldBe "v+en-orig"
+        }
+
+        test("rule/channel languages override the global list and are not capped by the global limit") {
+            val config = YtDlpConfig(preferredAudioLanguages = listOf("ru"), maxAdditionalAudioTracks = 0)
+            AudioTrackSelector.select(formats, DownloadPolicy(audioLanguages = listOf("de", "ru")), config)
+                .additionalAudio.map { it.formatId }.shouldContainExactly("de", "ru")
+        }
+
+        test("empty override forces original only even when the global list has languages") {
+            val config = YtDlpConfig(preferredAudioLanguages = listOf("ru", "de"), maxAdditionalAudioTracks = 2)
+            AudioTrackSelector.select(formats, DownloadPolicy(audioLanguages = emptyList()), config)
+                .formatSelector shouldBe "v+en-orig"
+        }
+
+        test("unavailable languages are skipped without failing") {
+            AudioTrackSelector.select(formats, DownloadPolicy(audioLanguages = listOf("ja", "ru", "fr")), YtDlpConfig())
+                .formatSelector shouldBe "v+en-orig+ru"
+        }
+
+        test("video without separate audio tracks still selects a format") {
+            val muxed = listOf(VideoInfo.Format("m", "mp4", height = 720, vcodec = "avc1", acodec = "mp4a"))
+            AudioTrackSelector.select(muxed, DownloadPolicy(audioLanguages = listOf("ru")), YtDlpConfig())
+                .formatSelector shouldBe "m"
+        }
     }
 })

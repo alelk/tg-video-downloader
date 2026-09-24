@@ -1,6 +1,7 @@
 package io.github.alelk.tgvd.server.infra.process
 
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
+import io.github.alelk.tgvd.domain.storage.TrackPreferences
 import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -49,6 +50,7 @@ class SubtitleSelectorTest : FunSpec({
             "--no-embed-subs",
             "--sub-langs",
             "ru,en-us",
+            "--ignore-errors",
             "--sleep-subtitles",
             "3",
         )
@@ -66,6 +68,7 @@ class SubtitleSelectorTest : FunSpec({
             "--no-embed-subs",
             "--sub-langs",
             "en",
+            "--ignore-errors",
             "--sleep-subtitles",
             "4",
         )
@@ -83,6 +86,7 @@ class SubtitleSelectorTest : FunSpec({
             "--no-embed-subs",
             "--sub-langs",
             "ru,en",
+            "--ignore-errors",
         )
     }
 
@@ -155,5 +159,18 @@ class SubtitleSelectorTest : FunSpec({
             DownloadPolicy(downloadSubtitles = null, subtitleLanguages = listOf("ru")),
         )
         offGlobal.enabled shouldBe false
+    }
+
+    test("channel overrides win over rule, rule over global") {
+        val config = YtDlpConfig(writeSubs = true, writeAutoSubs = true, preferredSubtitleLanguages = listOf("ru"))
+        val rule = DownloadPolicy(downloadSubtitles = true, subtitleLanguages = listOf("en"))
+
+        SubtitleSelector.select(config, rule).languages shouldBe listOf("en")
+        SubtitleSelector.select(config, rule.withOverrides(TrackPreferences(subtitleLanguages = listOf("de"))))
+            .languages shouldBe listOf("de")
+        SubtitleSelector.select(config, rule.withOverrides(TrackPreferences(downloadSubtitles = false)))
+            .enabled shouldBe false
+        SubtitleSelector.select(config, DownloadPolicy(downloadSubtitles = false).withOverrides(TrackPreferences(downloadSubtitles = true)))
+            .enabled shouldBe true
     }
 })

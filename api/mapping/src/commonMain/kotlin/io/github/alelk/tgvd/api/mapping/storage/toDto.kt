@@ -45,6 +45,14 @@ fun DownloadPolicy.toDto(): DownloadPolicyDto =
         downloadSubtitles = downloadSubtitles,
         subtitleLanguages = subtitleLanguages,
         writeThumbnail = writeThumbnail,
+        audioLanguages = audioLanguages,
+    )
+
+fun TrackPreferences.toDto(): TrackPreferencesDto =
+    TrackPreferencesDto(
+        audioLanguages = audioLanguages,
+        downloadSubtitles = downloadSubtitles,
+        subtitleLanguages = subtitleLanguages,
     )
 
 fun OutputRule.toDto(): OutputRuleDto =

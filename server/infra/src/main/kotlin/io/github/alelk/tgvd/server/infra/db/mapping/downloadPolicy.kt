@@ -9,6 +9,7 @@ internal fun DownloadPolicy.toPm(): DownloadPolicyPm =
         downloadSubtitles = downloadSubtitles,
         subtitleLanguages = subtitleLanguages,
         writeThumbnail = writeThumbnail,
+        audioLanguages = audioLanguages,
     )
 
 internal fun DownloadPolicyPm.toDomain(): DownloadPolicy =
@@ -19,5 +20,6 @@ internal fun DownloadPolicyPm.toDomain(): DownloadPolicy =
         downloadSubtitles = downloadSubtitles,
         subtitleLanguages = subtitleLanguages,
         writeThumbnail = writeThumbnail,
+        audioLanguages = audioLanguages,
     )
 

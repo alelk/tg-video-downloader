@@ -19,6 +19,8 @@ import io.github.alelk.tgvd.api.contract.metadata.MetadataTemplateDto
 import io.github.alelk.tgvd.api.contract.rule.CreateRuleRequestDto
 import io.github.alelk.tgvd.api.contract.storage.*
 import io.github.alelk.tgvd.features.common.component.ErrorCard
+import io.github.alelk.tgvd.features.common.component.TrackPreferencesEditor
+import io.github.alelk.tgvd.features.common.component.TrackPreferencesForm
 import io.github.alelk.tgvd.features.common.icon.TgvdIcons
 import io.github.alelk.tgvd.features.common.util.categoryLabel
 import io.github.alelk.tgvd.features.rules.component.MatchConditionEditor
@@ -53,9 +55,8 @@ class RuleEditorScreen(
 
         // === Download policy ===
         var maxQuality by remember { mutableStateOf(VideoQualityDto.BEST) }
-        // null = inherit the global subtitle default; true/false = force on/off for this rule.
-        var downloadSubtitles by remember { mutableStateOf<Boolean?>(null) }
-        var subtitleLanguages by remember { mutableStateOf("") }
+        // Audio/subtitle overrides; unset values inherit the global settings.
+        var trackPreferences by remember { mutableStateOf(TrackPreferencesForm()) }
 
         // === Outputs ===
         val outputStates = remember { mutableStateListOf(OutputState()) }
@@ -91,8 +92,13 @@ class RuleEditorScreen(
                     matchState = rule.match.toState()
 
                     maxQuality = rule.downloadPolicy.maxQuality
-                    downloadSubtitles = rule.downloadPolicy.downloadSubtitles
-                    subtitleLanguages = rule.downloadPolicy.subtitleLanguages.joinToString(", ")
+                    trackPreferences = TrackPreferencesForm.from(
+                        TrackPreferencesDto(
+                            audioLanguages = rule.downloadPolicy.audioLanguages,
+                            downloadSubtitles = rule.downloadPolicy.downloadSubtitles,
+                            subtitleLanguages = rule.downloadPolicy.subtitleLanguages,
+                        )
+                    )
 
                     outputStates.clear()
                     rule.outputs.forEach { out ->
@@ -214,8 +220,7 @@ class RuleEditorScreen(
                 if (downloadPolicyExpanded) {
                     DownloadPolicySection(
                         maxQuality, { maxQuality = it },
-                        downloadSubtitles, { downloadSubtitles = it },
-                        subtitleLanguages, { subtitleLanguages = it },
+                        trackPreferences, { trackPreferences = it },
                     )
                 }
 
@@ -269,11 +274,14 @@ class RuleEditorScreen(
                                         category, titleOverride, titlePattern, defaultTags,
                                         artistOverride, artistPattern, seriesNameOverride, seasonPattern, episodePattern,
                                     ),
-                                    downloadPolicy = DownloadPolicyDto(
-                                        maxQuality = maxQuality,
-                                        downloadSubtitles = downloadSubtitles,
-                                        subtitleLanguages = subtitleLanguages.split(",").map { it.trim() }.filter { it.isNotBlank() },
-                                    ),
+                                    downloadPolicy = trackPreferences.toDto().let { tracks ->
+                                        DownloadPolicyDto(
+                                            maxQuality = maxQuality,
+                                            downloadSubtitles = tracks.downloadSubtitles,
+                                            subtitleLanguages = tracks.subtitleLanguages.orEmpty(),
+                                            audioLanguages = tracks.audioLanguages,
+                                        )
+                                    },
                                     outputs = outputStates.map { it.toDto() },
                                 )
                                 if (ruleId != null) client.updateRule(ruleId, request)
@@ -586,8 +594,7 @@ private fun SectionHeader(title: String, expanded: Boolean, onToggle: () -> Unit
 @Composable
 private fun DownloadPolicySection(
     maxQuality: VideoQualityDto, onMaxQualityChange: (VideoQualityDto) -> Unit,
-    downloadSubtitles: Boolean?, onSubtitlesChange: (Boolean?) -> Unit,
-    subtitleLanguages: String, onLanguagesChange: (String) -> Unit,
+    trackPreferences: TrackPreferencesForm, onTrackPreferencesChange: (TrackPreferencesForm) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(start = 8.dp), Arrangement.spacedBy(8.dp)) {
         Text("Max Download Quality", style = MaterialTheme.typography.labelMedium)
@@ -600,28 +607,11 @@ private fun DownloadPolicySection(
                     label = { Text(qualityLabel(q), style = MaterialTheme.typography.bodySmall) })
             }
         }
-        Text("Subtitles", style = MaterialTheme.typography.labelMedium)
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            FilterChip(selected = downloadSubtitles == null, onClick = { onSubtitlesChange(null) },
-                label = { Text("Inherit", style = MaterialTheme.typography.bodySmall) })
-            FilterChip(selected = downloadSubtitles == true, onClick = { onSubtitlesChange(true) },
-                label = { Text("Always", style = MaterialTheme.typography.bodySmall) })
-            FilterChip(selected = downloadSubtitles == false, onClick = { onSubtitlesChange(false) },
-                label = { Text("Never", style = MaterialTheme.typography.bodySmall) })
-        }
+        TrackPreferencesEditor(trackPreferences, onTrackPreferencesChange, inheritFrom = "the global settings")
         Text(
-            "Inherit follows the global Subtitles setting. Always/Never force it on or off for this rule.",
+            "Channel settings in the Channels tab take priority over these.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (downloadSubtitles != false) {
-            OutlinedTextField(subtitleLanguages, onLanguagesChange, label = { Text("Languages") },
-                modifier = Modifier.fillMaxWidth(), singleLine = true)
-            Text("Comma-separated (en, ru, de). Empty = use the global default languages.", style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
     }
 }
 

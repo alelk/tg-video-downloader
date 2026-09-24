@@ -41,7 +41,7 @@ ytDlp:
   allowUpdate: true
   updateChannel: "stable"
   autoDownload: true
-  preferredAudioLanguages: ["ru", "en"]
+  preferredAudioLanguages: [] # original track only; rules/channels may add languages
   maxAdditionalAudioTracks: 2
   writeSubs: true
   writeAutoSubs: true

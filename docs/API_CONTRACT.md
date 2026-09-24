@@ -686,6 +686,11 @@ List channels in a workspace. Optionally filter by tag.
         "artistOverride": "Rick Astley"
       },
       "notes": null,
+      "trackPreferences": {
+        "audioLanguages": ["ru"],
+        "downloadSubtitles": true,
+        "subtitleLanguages": ["en"]
+      },
       "createdAt": "2026-01-15T10:30:00Z",
       "updatedAt": "2026-01-15T10:30:00Z"
     }
@@ -708,9 +713,19 @@ Add a channel to the directory.
   "metadataOverrides": {
     "type": "music-video",
     "artistOverride": "Rick Astley"
+  },
+  "trackPreferences": {
+    "audioLanguages": [],
+    "downloadSubtitles": null,
+    "subtitleLanguages": ["ru"]
   }
 }
 ```
+
+`trackPreferences` (optional) overrides the rule/global audio and subtitle track
+selection for this channel; every `null` field inherits. On `PUT` an
+omitted `trackPreferences` keeps the current value and an all-`null` object clears
+it. See "Audio & subtitle track precedence".
 
 #### Response
 
@@ -927,6 +942,15 @@ data class DownloadPolicyDto(
     val downloadSubtitles: Boolean? = null,
     val subtitleLanguages: List<String> = emptyList(),
     val writeThumbnail: Boolean = false,
+    // Additional audio languages. null = inherit the global setting; [] = original track only.
+    val audioLanguages: List<String>? = null,
+)
+
+@Serializable
+data class TrackPreferencesDto(          // Channel-level overrides; null = inherit
+    val audioLanguages: List<String>? = null,
+    val downloadSubtitles: Boolean? = null,
+    val subtitleLanguages: List<String>? = null,
 )
 
 @Serializable
@@ -1503,7 +1527,7 @@ multi-audio policy:
 ```json
 {
   "ytDlp": {
-    "preferredAudioLanguages": ["ru", "en"],
+    "preferredAudioLanguages": [],
     "maxAdditionalAudioTracks": 2,
     "originalAudioLanguage": null,
     "writeSubs": true,
@@ -1536,3 +1560,24 @@ same language are fetched as two consecutive requests, which YouTube's
 caption endpoint otherwise rate-limits (HTTP 429). If a download otherwise
 succeeds but only the subtitle step fails, the job still completes — just
 without subtitles.
+
+### Audio & subtitle track precedence
+
+Track selection is resolved per download from three levels, lowest to highest
+priority: **global settings** (`ytDlp.preferredAudioLanguages`,
+`writeSubs`/`writeAutoSubs`, `preferredSubtitleLanguages`) → **rule**
+(`downloadPolicy.audioLanguages`, `downloadSubtitles`, `subtitleLanguages`) →
+**channel** (`trackPreferences`). Rule and channel values are optional; an unset
+(`null`, or an empty subtitle list) value inherits from the level below. The
+channel override applies whenever the video's channel is in the directory, even
+if no rule matched. An explicit `mediaSelection` from the preview still wins
+over all of them.
+
+- The source-original audio track is always downloaded. By default (nothing set
+  anywhere) it is the only track. `audioLanguages` adds dubbed/translated
+  tracks; `[]` forces original-only. A rule/channel list is not capped by
+  `maxAdditionalAudioTracks`.
+- Requested languages are best-effort: audio tracks are picked only from the
+  formats the video actually offers, and missing subtitle languages are skipped.
+  A subtitle track that fails to download (e.g. an auto-translated caption
+  rejected with HTTP 429) is reported as a warning and never fails the job.

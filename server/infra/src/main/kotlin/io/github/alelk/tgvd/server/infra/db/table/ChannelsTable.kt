@@ -2,6 +2,7 @@ package io.github.alelk.tgvd.server.infra.db.table
 
 import io.github.alelk.tgvd.server.infra.db.jsonb
 import io.github.alelk.tgvd.server.infra.db.model.MetadataTemplatePm
+import io.github.alelk.tgvd.server.infra.db.model.TrackPreferencesPm
 import org.jetbrains.exposed.v1.core.dao.id.UuidTable
 import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.datetime.timestamp
@@ -17,6 +18,7 @@ object ChannelsTable : UuidTable("channels") {
     val tags = array<String>("tags")
     val metadataOverrides = jsonb<MetadataTemplatePm>("metadata_overrides", jsonb).nullable()
     val notes = text("notes").nullable()
+    val trackPreferences = jsonb<TrackPreferencesPm>("track_preferences", jsonb).nullable()
     val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
     val updatedAt = timestamp("updated_at").defaultExpression(CurrentTimestamp)
 }

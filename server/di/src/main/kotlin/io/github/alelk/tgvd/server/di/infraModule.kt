@@ -83,6 +83,7 @@ internal fun infraModule() = module {
             jobRepository = get<JobRepository>(),
             jobOutputRepository = get<JobOutputRepository>(),
             ruleRepository = get<RuleRepository>(),
+            channelRepository = get<ChannelRepository>(),
             videoDownloader = get<VideoDownloader>(),
             videoInfoCache = get<VideoInfoCache>(),
             ffmpegRunner = get<FfmpegRunner>(),

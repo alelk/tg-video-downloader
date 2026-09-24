@@ -46,7 +46,17 @@ fun DownloadPolicyDto.toDomain(): DownloadPolicy =
         downloadSubtitles = downloadSubtitles,
         subtitleLanguages = subtitleLanguages,
         writeThumbnail = writeThumbnail,
+        audioLanguages = audioLanguages,
     )
+
+fun TrackPreferencesDto.toDomain(): TrackPreferences =
+    TrackPreferences(
+        audioLanguages = audioLanguages?.normalizedLanguages(),
+        downloadSubtitles = downloadSubtitles,
+        subtitleLanguages = subtitleLanguages?.normalizedLanguages()?.takeIf { it.isNotEmpty() },
+    )
+
+private fun List<String>.normalizedLanguages(): List<String> = map { it.trim() }.filter { it.isNotEmpty() }.distinct()
 
 fun OutputRuleDto.toDomain(): OutputRule =
     OutputRule(

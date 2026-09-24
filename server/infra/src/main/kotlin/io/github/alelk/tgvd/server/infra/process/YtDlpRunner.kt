@@ -127,10 +127,11 @@ class YtDlpRunner(
      * 4. `-S` (--format-sort): use [YtDlpConfig.formatSort] if set, otherwise derive from quality.
      */
     private fun MutableList<String>.addFormatArgs(
-        quality: DownloadPolicy.VideoQuality,
+        policy: DownloadPolicy,
         videoInfo: VideoInfo? = null,
         mediaSelection: MediaSelection? = null,
     ) {
+        val quality = policy.maxQuality
         // Global override from settings takes highest priority
         val preferredFormats = config.preferredFormats
         if (!preferredFormats.isNullOrBlank() && mediaSelection?.audioFormatIds == null) {
@@ -142,7 +143,7 @@ class YtDlpRunner(
 
         val formats = videoInfo?.availableFormats
         if (formats != null && formats.isNotEmpty()) {
-            val selection = selectFormats(formats, quality, mediaSelection)
+            val selection = selectFormats(formats, policy, mediaSelection)
             val bestFormatId = selection.formatSelector
             if (bestFormatId != null) {
                 logger.info {
@@ -183,16 +184,10 @@ class YtDlpRunner(
     ): String? = AudioTrackSelector.select(formats, quality, emptyList(), 0).formatSelector
 
     internal fun selectFormats(
-        formats: List<VideoInfo.Format>, quality: DownloadPolicy.VideoQuality,
+        formats: List<VideoInfo.Format>, policy: DownloadPolicy,
         mediaSelection: MediaSelection? = null,
     ): AudioTrackSelector.Selection {
-        val automatic = AudioTrackSelector.select(
-            formats = formats,
-            quality = quality,
-            preferredLanguages = config.preferredAudioLanguages,
-            maxAdditionalTracks = config.maxAdditionalAudioTracks,
-            assumedOriginalLanguage = config.originalAudioLanguage,
-        )
+        val automatic = AudioTrackSelector.select(formats, policy, config)
         val selectedIds = mediaSelection?.audioFormatIds ?: return automatic
         val tracks = selectedIds.mapNotNull { id -> formats.find { it.formatId == id } }
         return automatic.copy(originalAudio = tracks.firstOrNull(), additionalAudio = tracks.drop(1))
@@ -227,12 +222,12 @@ class YtDlpRunner(
         config.userAgent?.takeIf { it.isNotBlank() }?.let { add("--user-agent"); add(it) }
     }
 
-    /** Append the effective global/per-rule subtitle arguments. */
+    /** Append the effective global/per-rule/per-channel subtitle arguments. */
     private fun MutableList<String>.addSubtitleArgs(policy: DownloadPolicy, mediaSelection: MediaSelection? = null) {
         val subtitles = SubtitleSelector.select(config, policy, mediaSelection?.subtitleLanguages)
         logger.info {
             "yt-dlp subtitles: global=${config.writeSubs}/${config.writeAutoSubs}, " +
-                "rule=${policy.downloadSubtitles ?: "inherit"}, selected=${mediaSelection?.subtitleLanguages}, " +
+                "rule/channel=${policy.downloadSubtitles ?: "inherit"}, selected=${mediaSelection?.subtitleLanguages}, " +
                 "effective=${subtitles.enabled}, languages=${subtitles.languages}"
         }
         addAll(subtitles.arguments())
@@ -403,7 +398,7 @@ class YtDlpRunner(
                 add("--no-playlist")
                 addCookiesArgs()
                 addSslArgs(url.value)
-                addFormatArgs(policy.maxQuality, videoInfo, mediaSelection)
+                addFormatArgs(policy, videoInfo, mediaSelection)
                 addResilienceArgs()
                 addNetworkArgs()
                 addSubtitleArgs(policy, mediaSelection)
@@ -451,7 +446,7 @@ class YtDlpRunner(
     ): Flow<DownloadEvent> = flow {
         val formats = videoInfo?.availableFormats
         val selectedFormatId = if (formats != null && formats.isNotEmpty()) {
-            selectFormats(formats, policy.maxQuality, mediaSelection).formatSelector
+            selectFormats(formats, policy, mediaSelection).formatSelector
         } else null
 
         val args = buildList {
@@ -464,7 +459,7 @@ class YtDlpRunner(
             add("--no-playlist")
             addCookiesArgs()
             addSslArgs(url.value)
-            addFormatArgs(policy.maxQuality, videoInfo, mediaSelection)
+            addFormatArgs(policy, videoInfo, mediaSelection)
             addResilienceArgs()
             addNetworkArgs()
             addSubtitleArgs(policy, mediaSelection)

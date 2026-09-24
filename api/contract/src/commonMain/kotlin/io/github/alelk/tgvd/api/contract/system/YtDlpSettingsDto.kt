@@ -25,8 +25,8 @@ data class YtDlpSettingsDto(
     val formatSort: String? = null,
     /** Pass --check-formats before downloading (may drop some formats on slow connections). */
     val checkFormats: Boolean = true,
-    /** Optional audio languages; the source-original track is always included separately. */
-    val preferredAudioLanguages: List<String> = listOf("ru", "en"),
+    /** Optional audio languages; the source-original track is always included separately. Empty = original only. */
+    val preferredAudioLanguages: List<String> = emptyList(),
     /** Maximum number of non-original audio tracks. Set to 0 to download the original track only. */
     val maxAdditionalAudioTracks: Int = 2,
     /**

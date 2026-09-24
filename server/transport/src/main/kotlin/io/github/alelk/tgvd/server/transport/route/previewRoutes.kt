@@ -29,7 +29,8 @@ import io.github.alelk.tgvd.server.transport.util.respondEither
 import io.github.alelk.tgvd.server.infra.process.AudioTrackSelector
 import io.github.alelk.tgvd.server.infra.process.SubtitleSelector
 import io.github.alelk.tgvd.server.infra.service.SystemSettingsHolder
-import io.github.alelk.tgvd.domain.storage.DownloadPolicy
+import io.github.alelk.tgvd.domain.channel.ChannelRepository
+import io.github.alelk.tgvd.domain.storage.effectiveDownloadPolicy
 import io.ktor.server.request.*
 import io.ktor.server.resources.post
 import io.ktor.server.routing.*
@@ -43,6 +44,7 @@ fun Route.previewRoutes() {
     val workspaceRepository by inject<WorkspaceRepository>()
     val jobRepository by inject<JobRepository>()
     val settingsHolder by inject<SystemSettingsHolder>()
+    val channelRepository by inject<ChannelRepository>()
 
     post<ApiV1.Workspaces.ById.Preview> { res ->
         val request = call.receive<PreviewRequestDto>()
@@ -55,13 +57,11 @@ fun Route.previewRoutes() {
             val preview = previewUseCase(request.url, ws.id, overrides, force = request.force).bind()
             val context = pathTemplateEngine.buildContext(preview.videoInfo, preview.metadata)
             val storagePlan = pathTemplateEngine.buildStoragePlan(preview.outputs, context, preview.videoInfo)
-            val policy = preview.matchedRule?.downloadPolicy ?: DownloadPolicy()
+            val channel = channelRepository.findByChannelId(ws.id, preview.videoInfo.channelId, preview.videoInfo.extractor)
+            val policy = effectiveDownloadPolicy(preview.matchedRule, channel)
             val settings = settingsHolder.ytDlpConfig
-            val audioDefaults = AudioTrackSelector.select(
-                preview.videoInfo.availableFormats, policy.maxQuality,
-                settings.preferredAudioLanguages, settings.maxAdditionalAudioTracks,
-                settings.originalAudioLanguage,
-            ).audioTracks.map { it.formatId }
+            val audioDefaults = AudioTrackSelector.select(preview.videoInfo.availableFormats, policy, settings)
+                .audioTracks.map { it.formatId }
             val subtitleDefaults = SubtitleSelector.select(settings, policy).let { selection ->
                 if (selection.enabled) preview.videoInfo.subtitleTracks.map { it.language }.distinct()
                     .filter { available -> selection.languages.any { wanted ->
