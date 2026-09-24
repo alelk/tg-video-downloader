@@ -40,7 +40,6 @@ fun Route.systemRoutes() {
                     preferredFormats = ytDlpConfig.preferredFormats,
                     formatSort = ytDlpConfig.formatSort,
                     checkFormats = ytDlpConfig.checkFormats,
-                    mergeOutputFormat = ytDlpConfig.mergeOutputFormat,
                     preferredAudioLanguages = ytDlpConfig.preferredAudioLanguages,
                     maxAdditionalAudioTracks = ytDlpConfig.maxAdditionalAudioTracks,
                     originalAudioLanguage = ytDlpConfig.originalAudioLanguage,
@@ -93,7 +92,6 @@ fun Route.systemRoutes() {
                 preferredFormats = request.ytDlp.preferredFormats,
                 formatSort = request.ytDlp.formatSort,
                 checkFormats = request.ytDlp.checkFormats,
-                mergeOutputFormat = request.ytDlp.mergeOutputFormat,
                 preferredAudioLanguages = request.ytDlp.preferredAudioLanguages
                     .map { it.trim().replace('_', '-').lowercase() }
                     .filter { it.isNotBlank() }

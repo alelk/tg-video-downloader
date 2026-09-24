@@ -274,11 +274,12 @@ or (match on tag from the channel directory):
 ```json
 {
   "maxQuality": "best",
-  "preferredContainer": "mp4",
-  "downloadSubtitles": false,
-  "subtitleLanguages": []
+  "downloadSubtitles": null,
+  "subtitleLanguages": [],
+  "writeThumbnail": false
 }
 ```
+`downloadSubtitles` is tri-state: `null` = inherit the global subtitle default, `true`/`false` = force on/off for this rule.
 
 ### 3.4 rules.outputs
 
@@ -395,7 +396,7 @@ Exposed table definitions are located in `server/infra/src/main/kotlin/.../db/ta
 server/infra/src/main/resources/db/migration/
 ├── V1__initial_schema.sql
 ├── ...
-└── V6__job_media_selection.sql
+└── V7__subtitle_policy_inherit.sql
 ```
 
 ### 5.2 V1__initial_schema.sql
@@ -405,6 +406,10 @@ server/infra/src/main/resources/db/migration/
 
 `V6__job_media_selection.sql` adds a nullable per-job media selection and clears
 cached video info so previews include available subtitles.
+
+`V7__subtitle_policy_inherit.sql` reinterprets existing `rules.download_policy.downloadSubtitles`
+`false` values as `null` ("inherit the global default") now that the field is tri-state, preserving
+existing rules' behavior after `downloadSubtitles` changed from a boolean opt-in to an override.
 
 ### 5.3 Flyway Configuration
 

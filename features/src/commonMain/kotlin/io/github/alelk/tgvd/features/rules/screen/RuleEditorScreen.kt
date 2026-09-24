@@ -53,8 +53,8 @@ class RuleEditorScreen(
 
         // === Download policy ===
         var maxQuality by remember { mutableStateOf(VideoQualityDto.BEST) }
-        var preferredContainer by remember { mutableStateOf<MediaContainerDto?>(null) }
-        var downloadSubtitles by remember { mutableStateOf(false) }
+        // null = inherit the global subtitle default; true/false = force on/off for this rule.
+        var downloadSubtitles by remember { mutableStateOf<Boolean?>(null) }
         var subtitleLanguages by remember { mutableStateOf("") }
 
         // === Outputs ===
@@ -91,7 +91,6 @@ class RuleEditorScreen(
                     matchState = rule.match.toState()
 
                     maxQuality = rule.downloadPolicy.maxQuality
-                    preferredContainer = rule.downloadPolicy.preferredContainer
                     downloadSubtitles = rule.downloadPolicy.downloadSubtitles
                     subtitleLanguages = rule.downloadPolicy.subtitleLanguages.joinToString(", ")
 
@@ -215,7 +214,6 @@ class RuleEditorScreen(
                 if (downloadPolicyExpanded) {
                     DownloadPolicySection(
                         maxQuality, { maxQuality = it },
-                        preferredContainer, { preferredContainer = it },
                         downloadSubtitles, { downloadSubtitles = it },
                         subtitleLanguages, { subtitleLanguages = it },
                     )
@@ -273,7 +271,6 @@ class RuleEditorScreen(
                                     ),
                                     downloadPolicy = DownloadPolicyDto(
                                         maxQuality = maxQuality,
-                                        preferredContainer = preferredContainer,
                                         downloadSubtitles = downloadSubtitles,
                                         subtitleLanguages = subtitleLanguages.split(",").map { it.trim() }.filter { it.isNotBlank() },
                                     ),
@@ -589,8 +586,7 @@ private fun SectionHeader(title: String, expanded: Boolean, onToggle: () -> Unit
 @Composable
 private fun DownloadPolicySection(
     maxQuality: VideoQualityDto, onMaxQualityChange: (VideoQualityDto) -> Unit,
-    preferredContainer: MediaContainerDto?, onContainerChange: (MediaContainerDto?) -> Unit,
-    downloadSubtitles: Boolean, onSubtitlesChange: (Boolean) -> Unit,
+    downloadSubtitles: Boolean?, onSubtitlesChange: (Boolean?) -> Unit,
     subtitleLanguages: String, onLanguagesChange: (String) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(start = 8.dp), Arrangement.spacedBy(8.dp)) {
@@ -604,26 +600,26 @@ private fun DownloadPolicySection(
                     label = { Text(qualityLabel(q), style = MaterialTheme.typography.bodySmall) })
             }
         }
-        Text("Preferred Container", style = MaterialTheme.typography.labelMedium)
+        Text("Subtitles", style = MaterialTheme.typography.labelMedium)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            FilterChip(selected = preferredContainer == null, onClick = { onContainerChange(null) },
-                label = { Text("Auto", style = MaterialTheme.typography.bodySmall) })
-            MediaContainerDto.entries.forEach { c ->
-                FilterChip(selected = preferredContainer == c, onClick = { onContainerChange(c) },
-                    label = { Text(c.extension.uppercase(), style = MaterialTheme.typography.bodySmall) })
-            }
+            FilterChip(selected = downloadSubtitles == null, onClick = { onSubtitlesChange(null) },
+                label = { Text("Inherit", style = MaterialTheme.typography.bodySmall) })
+            FilterChip(selected = downloadSubtitles == true, onClick = { onSubtitlesChange(true) },
+                label = { Text("Always", style = MaterialTheme.typography.bodySmall) })
+            FilterChip(selected = downloadSubtitles == false, onClick = { onSubtitlesChange(false) },
+                label = { Text("Never", style = MaterialTheme.typography.bodySmall) })
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(checked = downloadSubtitles, onCheckedChange = onSubtitlesChange)
-            Spacer(Modifier.width(8.dp)); Text("Download Subtitles")
-        }
-        if (downloadSubtitles) {
+        Text(
+            "Inherit follows the global Subtitles setting. Always/Never force it on or off for this rule.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (downloadSubtitles != false) {
             OutlinedTextField(subtitleLanguages, onLanguagesChange, label = { Text("Languages") },
                 modifier = Modifier.fillMaxWidth(), singleLine = true)
-            Text("Comma-separated (en, ru, de)", style = MaterialTheme.typography.bodySmall,
+            Text("Comma-separated (en, ru, de). Empty = use the global default languages.", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

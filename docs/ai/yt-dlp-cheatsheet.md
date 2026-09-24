@@ -266,7 +266,6 @@ yt-dlp --proxy socks5://user:pass@127.0.0.1:1080 <url>
 | `preferredFormats`        | `-f <value>` (overrides auto-selection)      |
 | `formatSort`              | `-S <value>`                                 |
 | `checkFormats`            | `--check-formats` (when `true`)              |
-| `mergeOutputFormat`       | `--merge-output-format <value>`              |
 | `preferredAudioLanguages` | Resolves optional language formats to IDs and adds them to `-f` |
 | `maxAdditionalAudioTracks`| Limits optional audio streams; original audio is not counted; `0` = original only |
 | `originalAudioLanguage`   | Pins which language counts as "original" in `AudioTrackSelector`, overriding yt-dlp's `is_original`/default-audio detection |
@@ -287,10 +286,11 @@ yt-dlp --proxy socks5://user:pass@127.0.0.1:1080 <url>
 
 Automatic selection places the source-original/default audio ID first. When
 optional language tracks are available, the command enables
-`--audio-multistreams`. New default output rules use Matroska; existing rules
-keep their explicit container and should be changed to `.mkv` when source-codec
-compatibility is required. A raw `preferredFormats` value remains an expert
-override and bypasses this language-aware selection.
+`--audio-multistreams`. `--merge-output-format` always follows the extension of
+the chosen Output format for that rule/output — there is no separate global or
+per-rule container setting, so use `.mkv` for a given output when source-codec
+compatibility (e.g. multiple audio tracks) requires it. A raw `preferredFormats`
+value remains an expert override and bypasses this language-aware selection.
 
 yt-dlp's own "original"/"default audio" signal for YouTube (`is_original`,
 `language_preference`) can be wrong — YouTube may report a dubbed track as

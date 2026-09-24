@@ -111,8 +111,7 @@ class StorageDtoTest : FunSpec({
             json shouldEqualJson """
                 {
                     "maxQuality": "best",
-                    "preferredContainer": null,
-                    "downloadSubtitles": false,
+                    "downloadSubtitles": null,
                     "subtitleLanguages": [],
                     "writeThumbnail": false
                 }
@@ -122,7 +121,6 @@ class StorageDtoTest : FunSpec({
         test("serializes with custom values") {
             val dto = DownloadPolicyDto(
                 maxQuality = VideoQualityDto.HD_1080,
-                preferredContainer = MediaContainerDto.MP4,
                 downloadSubtitles = true,
                 subtitleLanguages = listOf("en", "ru"),
             )
@@ -130,7 +128,6 @@ class StorageDtoTest : FunSpec({
             json shouldEqualJson """
                 {
                     "maxQuality": "hd_1080",
-                    "preferredContainer": "mp4",
                     "downloadSubtitles": true,
                     "subtitleLanguages": ["en", "ru"],
                     "writeThumbnail": false
@@ -141,8 +138,7 @@ class StorageDtoTest : FunSpec({
         test("round-trip") {
             val original = DownloadPolicyDto(
                 maxQuality = VideoQualityDto.HD_720,
-                preferredContainer = MediaContainerDto.MKV,
-                downloadSubtitles = true,
+                downloadSubtitles = false,
                 subtitleLanguages = listOf("en"),
             )
             val json = apiJson.encodeToString(DownloadPolicyDto.serializer(), original)

@@ -23,7 +23,6 @@ import org.koin.compose.koinInject
 
 private val browserOptions = listOf("", "chrome", "firefox", "safari", "brave", "edge", "opera")
 private val proxyTypes = listOf("HTTP", "SOCKS5")
-private val mergeOutputFormats = listOf("", "mkv", "mp4", "webm", "ogg")
 
 /**
  * YouTube player clients. "ios" and "android" work without a JS runtime (deno/node).
@@ -70,7 +69,6 @@ fun SettingsScreen() {
     var preferredFormats by remember { mutableStateOf("") }
     var formatSort by remember { mutableStateOf("") }
     var checkFormats by remember { mutableStateOf(true) }
-    var mergeOutputFormat by remember { mutableStateOf("") }
     var preferredAudioLanguages by remember { mutableStateOf("ru, en") }
     var maxAdditionalAudioTracks by remember { mutableStateOf("2") }
     var originalAudioLanguage by remember { mutableStateOf("") }
@@ -128,7 +126,6 @@ fun SettingsScreen() {
                 preferredFormats = ytDlp.preferredFormats ?: ""
                 formatSort = ytDlp.formatSort ?: ""
                 checkFormats = ytDlp.checkFormats
-                mergeOutputFormat = ytDlp.mergeOutputFormat ?: ""
                 preferredAudioLanguages = ytDlp.preferredAudioLanguages.joinToString(", ")
                 maxAdditionalAudioTracks = ytDlp.maxAdditionalAudioTracks.toString()
                 originalAudioLanguage = ytDlp.originalAudioLanguage ?: ""
@@ -206,7 +203,6 @@ fun SettingsScreen() {
                         preferredFormats  = preferredFormats.takeIf { it.isNotBlank() },
                         formatSort        = formatSort.takeIf { it.isNotBlank() },
                         checkFormats      = checkFormats,
-                        mergeOutputFormat = mergeOutputFormat.takeIf { it.isNotBlank() },
                         preferredAudioLanguages = preferredAudioLanguages.split(',')
                             .map { it.trim() }.filter { it.isNotBlank() }.distinct(),
                         maxAdditionalAudioTracks = (maxAdditionalAudioTracks.toIntOrNull() ?: 2).coerceIn(0, 8),
@@ -561,31 +557,6 @@ fun SettingsScreen() {
                     Text("Verify format availability before download (may fail on some sites)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = checkFormats, onCheckedChange = { checkFormats = it })
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Merge output format dropdown
-            var mergeExpanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(expanded = mergeExpanded, onExpandedChange = { mergeExpanded = it }) {
-                OutlinedTextField(
-                    value = mergeOutputFormat.ifBlank { "Auto" },
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Merge output format") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(mergeExpanded) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth(),
-                    singleLine = true,
-                    supportingText = { Text("Container for muxed video+audio. Auto = yt-dlp decides.") },
-                )
-                ExposedDropdownMenu(expanded = mergeExpanded, onDismissRequest = { mergeExpanded = false }) {
-                    mergeOutputFormats.forEach { fmt ->
-                        DropdownMenuItem(
-                            text = { Text(fmt.ifBlank { "Auto" }) },
-                            onClick = { mergeOutputFormat = fmt; mergeExpanded = false },
-                        )
-                    }
-                }
             }
         }
 

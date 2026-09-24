@@ -130,4 +130,30 @@ class SubtitleSelectorTest : FunSpec({
 
         selection.languages shouldBe listOf("uk", "en-us")
     }
+
+    test("rule can explicitly disable subtitles even though global default is on") {
+        val selection = SubtitleSelector.select(
+            YtDlpConfig(writeSubs = true, writeAutoSubs = true),
+            DownloadPolicy(downloadSubtitles = false, subtitleLanguages = listOf("ru")),
+        )
+
+        selection.writeRegular shouldBe false
+        selection.writeAutomatic shouldBe false
+        selection.enabled shouldBe false
+    }
+
+    test("rule with no override (null) inherits the global default") {
+        val onGlobal = SubtitleSelector.select(
+            YtDlpConfig(writeSubs = true, writeAutoSubs = false),
+            DownloadPolicy(downloadSubtitles = null, subtitleLanguages = listOf("ru")),
+        )
+        onGlobal.writeRegular shouldBe true
+        onGlobal.writeAutomatic shouldBe false
+
+        val offGlobal = SubtitleSelector.select(
+            YtDlpConfig(writeSubs = false, writeAutoSubs = false),
+            DownloadPolicy(downloadSubtitles = null, subtitleLanguages = listOf("ru")),
+        )
+        offGlobal.enabled shouldBe false
+    }
 })

@@ -2,8 +2,8 @@ package io.github.alelk.tgvd.domain.storage
 
 data class DownloadPolicy(
     val maxQuality: VideoQuality = VideoQuality.BEST,
-    val preferredContainer: MediaContainer? = null,
-    val downloadSubtitles: Boolean = false,
+    /** null = inherit the global writeSubs/writeAutoSubs default; true/false = force on/off for this rule. */
+    val downloadSubtitles: Boolean? = null,
     val subtitleLanguages: List<String> = emptyList(),
     val writeThumbnail: Boolean = false,
 ) {

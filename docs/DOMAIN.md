@@ -1095,13 +1095,15 @@ data class StoragePlan(
 ```kotlin
 /**
  * Download policy. Controls yt-dlp parameters.
- * Determines maximum quality, preferred container, and subtitles.
+ * Determines maximum quality and subtitles. The merge container is not
+ * configurable here — it always follows the chosen Output format's extension.
  */
 data class DownloadPolicy(
     val maxQuality: VideoQuality = VideoQuality.BEST,
-    val preferredContainer: MediaContainer? = null,
-    val downloadSubtitles: Boolean = false,
+    /** null = inherit the global subtitle default; true/false = force on/off for this rule. */
+    val downloadSubtitles: Boolean? = null,
     val subtitleLanguages: List<String> = emptyList(),
+    val writeThumbnail: Boolean = false,
 ) {
     enum class VideoQuality { BEST, HD_1080, HD_720, SD_480 }
 }

@@ -5,8 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class DownloadPolicyPm(
     val maxQuality: String = "best",
-    val preferredContainer: String? = null,
-    val downloadSubtitles: Boolean = false,
+    val downloadSubtitles: Boolean? = null,
     val subtitleLanguages: List<String> = emptyList(),
     val writeThumbnail: Boolean = false,
 )

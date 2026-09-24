@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.server.infra.process
 
+import io.github.alelk.tgvd.domain.common.FilePath
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
 import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.github.alelk.tgvd.domain.video.MediaSelection
@@ -105,6 +106,12 @@ class YtDlpRunnerTest : FunSpec({
         progress.onLine("[download] Destination: video.f270.webm") shouldBe null
         progress.onLine("[download] 50.0% of 100MiB")?.percent shouldBe 23
         progress.onLine("[download] 40.0% of 100MiB")?.percent shouldBe 23
+    }
+
+    test("effectiveContainer always follows the output path's extension") {
+        runner.effectiveContainer(FilePath("/tmp/video.mp4")) shouldBe "mp4"
+        runner.effectiveContainer(FilePath("/tmp/video.mkv")) shouldBe "mkv"
+        runner.effectiveContainer(FilePath("/tmp/video")) shouldBe null
     }
 
     test("toDomain handles blank channelId from database") {

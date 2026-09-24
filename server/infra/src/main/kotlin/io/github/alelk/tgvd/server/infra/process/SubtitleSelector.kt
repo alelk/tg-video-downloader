@@ -35,8 +35,10 @@ object SubtitleSelector {
     }
 
     fun select(config: YtDlpConfig, policy: DownloadPolicy, selectedLanguages: List<String>? = null): Selection {
-        val requestedByRule = policy.downloadSubtitles
         val explicitlyDisabled = selectedLanguages != null && selectedLanguages.isEmpty()
+        // null = inherit the global default; true/false = force on/off for this rule,
+        // overriding the global default in either direction.
+        val ruleOverride = policy.downloadSubtitles
         val languages = normalizeLanguages(
             selectedLanguages ?: policy.subtitleLanguages.takeIf { it.isNotEmpty() }
                 ?: config.subLangs
@@ -45,11 +47,18 @@ object SubtitleSelector {
                 ?: config.preferredSubtitleLanguages,
         )
 
+        // An explicit preview-time selection always wins; then a rule's explicit
+        // override; otherwise fall back to the global default.
+        fun resolve(globalDefault: Boolean): Boolean = when {
+            explicitlyDisabled -> false
+            !selectedLanguages.isNullOrEmpty() -> true
+            ruleOverride != null -> ruleOverride
+            else -> globalDefault
+        }
+
         return Selection(
-            writeRegular = !explicitlyDisabled && (config.writeSubs || requestedByRule || !selectedLanguages.isNullOrEmpty()),
-            // A rule asking for subtitles includes generated captions too: for many
-            // videos they are the only subtitles available.
-            writeAutomatic = !explicitlyDisabled && (config.writeAutoSubs || requestedByRule || !selectedLanguages.isNullOrEmpty()),
+            writeRegular = resolve(config.writeSubs),
+            writeAutomatic = resolve(config.writeAutoSubs),
             languages = languages,
             embed = config.embedSubs,
             sleepSubtitles = config.sleepSubtitles,

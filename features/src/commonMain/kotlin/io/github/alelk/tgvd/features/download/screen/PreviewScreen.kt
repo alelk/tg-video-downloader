@@ -67,6 +67,7 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
             addAll(initialPreview.defaultMediaSelection?.subtitleLanguages.orEmpty())
         } }
         var mediaSelectionEdited by remember { mutableStateOf(false) }
+        var subtitlesExpanded by remember { mutableStateOf(false) }
 
         // Channel directory: check if this channel is already registered
         var existingChannel by remember { mutableStateOf<ChannelDto?>(null) }
@@ -474,25 +475,43 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                         }
                         if (subtitleOptions.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(stringResource(Res.string.preview_subtitle_tracks), style = MaterialTheme.typography.titleSmall)
-                            subtitleOptions.forEach { (language, tracks) ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().clickable {
-                                        mediaSelectionEdited = true
-                                        if (language in selectedSubtitleLanguages) selectedSubtitleLanguages.remove(language)
-                                        else selectedSubtitleLanguages.add(language)
-                                    },
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Checkbox(
-                                        checked = language in selectedSubtitleLanguages,
-                                        onCheckedChange = { checked ->
-                                            mediaSelectionEdited = true
-                                            if (checked) selectedSubtitleLanguages.add(language)
-                                            else selectedSubtitleLanguages.remove(language)
-                                        },
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clickable { subtitlesExpanded = !subtitlesExpanded },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(Res.string.preview_subtitle_tracks), style = MaterialTheme.typography.titleSmall)
+                                    Text(
+                                        selectedSubtitleLanguages.joinToString(", ").ifEmpty { "None selected" },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                    Text(language + if (tracks.all { it.automatic }) " (${stringResource(Res.string.preview_auto_subtitles)})" else "")
+                                }
+                                TextButton(onClick = { subtitlesExpanded = !subtitlesExpanded }) {
+                                    Text(if (subtitlesExpanded) "Collapse" else "Edit")
+                                }
+                            }
+                            if (subtitlesExpanded) {
+                                subtitleOptions.forEach { (language, tracks) ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().clickable {
+                                            mediaSelectionEdited = true
+                                            if (language in selectedSubtitleLanguages) selectedSubtitleLanguages.remove(language)
+                                            else selectedSubtitleLanguages.add(language)
+                                        },
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Checkbox(
+                                            checked = language in selectedSubtitleLanguages,
+                                            onCheckedChange = { checked ->
+                                                mediaSelectionEdited = true
+                                                if (checked) selectedSubtitleLanguages.add(language)
+                                                else selectedSubtitleLanguages.remove(language)
+                                            },
+                                        )
+                                        Text(language + if (tracks.all { it.automatic }) " (${stringResource(Res.string.preview_auto_subtitles)})" else "")
+                                    }
                                 }
                             }
                         }

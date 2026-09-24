@@ -74,11 +74,14 @@ ytDlp:
   writeAutoSubs: true                  # also download generated captions
   preferredSubtitleLanguages: ["ru", "en"] # download only these languages
   sleepSubtitles: 3                    # --sleep-subtitles: pause before each subtitle download when both writeSubs and writeAutoSubs are on (avoids YouTube 429)
-  mergeOutputFormat: null              # output-rule extension is used; new multi-audio defaults use mkv
 
+# The merge container (--merge-output-format) always follows the extension of the chosen
+# Output format for that rule/output — there is no separate global or per-rule override.
+#
 # A preview's explicit subtitle selection takes priority over these defaults and its rule.
-# An empty selection disables subtitle downloads for that job. Rule-level
-# downloadSubtitles can enable them when no explicit selection is supplied.
+# An empty selection disables subtitle downloads for that job. A rule's downloadSubtitles
+# is tri-state: null = inherit writeSubs/writeAutoSubs above, true/false = force on/off for
+# that rule regardless of the global default, when no explicit preview selection is supplied.
 
 # ffmpeg
 ffmpeg:

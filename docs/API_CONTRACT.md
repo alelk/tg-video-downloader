@@ -923,8 +923,8 @@ sealed interface MetadataTemplateDto {
 @Serializable
 data class DownloadPolicyDto(
     val maxQuality: VideoQualityDto = VideoQualityDto.BEST,
-    val preferredContainer: MediaContainerDto? = null,
-    val downloadSubtitles: Boolean = false,
+    // null = inherit the global subtitle default; true/false = force on/off for this rule.
+    val downloadSubtitles: Boolean? = null,
     val subtitleLanguages: List<String> = emptyList(),
     val writeThumbnail: Boolean = false,
 )
@@ -1052,8 +1052,7 @@ enum class ImageFormatDto { @SerialName("jpg") JPG, @SerialName("png") PNG,
   },
   "downloadPolicy": {
     "maxQuality": "best",
-    "preferredContainer": null,
-    "downloadSubtitles": false,
+    "downloadSubtitles": null,
     "subtitleLanguages": [],
     "writeThumbnail": false
   },

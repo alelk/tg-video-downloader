@@ -41,8 +41,6 @@ data class YtDlpConfig(
     val formatSort: String? = null,
     /** Pass --check-formats before downloading. May drop formats on slow connections. */
     val checkFormats: Boolean = true,
-    /** Container for muxing (--merge-output-format), e.g. "mkv", "mp4". Null = yt-dlp default. */
-    val mergeOutputFormat: String? = null,
     /** Optional audio languages to include in addition to the source-original track. */
     val preferredAudioLanguages: List<String> = listOf("ru", "en"),
     /** Maximum number of non-original audio tracks. Set to 0 to download the original track only. */

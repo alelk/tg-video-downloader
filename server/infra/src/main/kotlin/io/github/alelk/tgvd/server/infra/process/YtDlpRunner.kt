@@ -198,13 +198,10 @@ class YtDlpRunner(
         return automatic.copy(originalAudio = tracks.firstOrNull(), additionalAudio = tracks.drop(1))
     }
 
-    private fun effectiveContainer(policy: DownloadPolicy, outputPath: FilePath): String? {
-        policy.preferredContainer?.extension?.let { return it }
-        config.mergeOutputFormat?.takeIf { it.isNotBlank() }?.let { return it }
-        // A literal output template has a literal extension. Honour it to avoid
-        // producing Matroska bytes in a file named .mp4/.webm. New default rules use MKV.
-        return outputPath.extension.takeIf { it.isNotBlank() }
-    }
+    // The user's chosen Output format (rendered into the literal output path extension) is the
+    // sole source of truth for the merge container — never silently substitute a different one.
+    internal fun effectiveContainer(outputPath: FilePath): String? =
+        outputPath.extension.takeIf { it.isNotBlank() }
 
     /** Append retry/resilience arguments for robust downloads on slow/unstable networks. */
     private fun MutableList<String>.addResilienceArgs() {
@@ -235,7 +232,7 @@ class YtDlpRunner(
         val subtitles = SubtitleSelector.select(config, policy, mediaSelection?.subtitleLanguages)
         logger.info {
             "yt-dlp subtitles: global=${config.writeSubs}/${config.writeAutoSubs}, " +
-                "rule=${policy.downloadSubtitles}, selected=${mediaSelection?.subtitleLanguages}, " +
+                "rule=${policy.downloadSubtitles ?: "inherit"}, selected=${mediaSelection?.subtitleLanguages}, " +
                 "effective=${subtitles.enabled}, languages=${subtitles.languages}"
         }
         addAll(subtitles.arguments())
@@ -411,8 +408,7 @@ class YtDlpRunner(
                 addNetworkArgs()
                 addSubtitleArgs(policy, mediaSelection)
                 addSiteArgs()
-                // Per-job container takes priority over global setting
-                val container = effectiveContainer(policy, outputPath)
+                val container = effectiveContainer(outputPath)
                 container?.takeIf { it.isNotBlank() }?.let { add("--merge-output-format"); add(it) }
                 effectiveProxyUrl(url.value)?.let { add("--proxy"); add(it) }
 
@@ -473,8 +469,7 @@ class YtDlpRunner(
             addNetworkArgs()
             addSubtitleArgs(policy, mediaSelection)
             addSiteArgs()
-            // Per-job container takes priority over global setting
-            val container = effectiveContainer(policy, outputPath)
+            val container = effectiveContainer(outputPath)
             container?.takeIf { it.isNotBlank() }?.let { add("--merge-output-format"); add(it) }
 
             if (policy.writeThumbnail) {
@@ -512,9 +507,10 @@ class YtDlpRunner(
         }
         val exitCode = process.waitFor()
         if (exitCode != 0) {
-            val output = outputLines.takeLast(50).joinToString("\n")
-            logger.error { "yt-dlp download failed (exit=$exitCode):\n$output" }
-            throw RuntimeException("yt-dlp download failed (exit=$exitCode): ${output.takeLast(500)}")
+            val output = outputLines.takeLast(150).joinToString("\n")
+            val phase = if (output.contains("Postprocessing") || output.contains("[Merger]")) "postprocessing/merge" else "download"
+            logger.error { "yt-dlp $phase failed (exit=$exitCode):\n$output" }
+            throw RuntimeException("yt-dlp $phase failed (exit=$exitCode): ${output.takeLast(4000)}")
         }
         logger.info { "yt-dlp download completed successfully: ${outputPath.value}" }
         val actualFormatId = downloadedFormatId ?: selectedFormatId

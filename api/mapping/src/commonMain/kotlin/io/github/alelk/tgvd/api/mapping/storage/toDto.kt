@@ -42,7 +42,6 @@ fun DownloadPolicy.VideoQuality.toDto(): VideoQualityDto = when (this) {
 fun DownloadPolicy.toDto(): DownloadPolicyDto =
     DownloadPolicyDto(
         maxQuality = maxQuality.toDto(),
-        preferredContainer = preferredContainer?.toDto(),
         downloadSubtitles = downloadSubtitles,
         subtitleLanguages = subtitleLanguages,
         writeThumbnail = writeThumbnail,
