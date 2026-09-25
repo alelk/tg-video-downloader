@@ -129,6 +129,27 @@ class RuleMatchingServiceTest : FunSpec({
             result.rule.name shouldBe "channelMatch"
         }
 
+        test("compares priorities without integer overflow") {
+            val wsId = WorkspaceId(Uuid.random())
+            val low = rule(
+                name = "low",
+                priority = 0,
+                match = RuleMatch.ChannelId("UC_music"),
+                workspaceId = wsId,
+            )
+            val highest = rule(
+                name = "highest",
+                priority = Int.MAX_VALUE,
+                match = RuleMatch.TitleRegex(".*Song.*"),
+                workspaceId = wsId,
+            )
+
+            val result = service(listOf(low, highest)).findMatchingRule(videoInfo(), wsId)
+
+            result.shouldNotBeNull()
+            result.rule.name shouldBe "highest"
+        }
+
         test("returns null when no rules match") {
             val wsId = WorkspaceId(Uuid.random())
             val r = rule(match = RuleMatch.ChannelId("UC_other"), workspaceId = wsId)

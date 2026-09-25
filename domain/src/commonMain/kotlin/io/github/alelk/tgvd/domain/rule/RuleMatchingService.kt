@@ -20,7 +20,10 @@ class RuleMatchingService(
         val rule =
             rules
                 .filter { it.match.matches(ctx) }
-                .maxByOrNull { it.priority * 1000 + it.match.matchSpecificity() }
+                .maxWithOrNull(
+                    compareBy<Rule> { it.priority }
+                        .thenBy { it.match.matchSpecificity() },
+                )
                 ?: return null
         return MatchResult(rule, channel)
     }
