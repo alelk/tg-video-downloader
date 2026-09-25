@@ -27,4 +27,3 @@ fun Arb.Companion.ruleMatch(maxDepth: Int = 2): Arb<RuleMatch> = arbitrary {
         }
     }
 }
-

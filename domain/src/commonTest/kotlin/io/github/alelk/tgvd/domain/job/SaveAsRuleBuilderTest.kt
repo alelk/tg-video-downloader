@@ -120,6 +120,33 @@ class SaveAsRuleBuilderTest : FunSpec({
             )
             request.enabled shouldBe false
         }
+
+        test("storage policy fields are preserved when requested") {
+            val job = buildTestJob(ResolvedMetadata.Other(title = "T"))
+
+            val request = buildSaveAsRuleRequest(
+                workspaceId = job.workspaceId,
+                match = RuleMatch.ChannelId("ch"),
+                job = job,
+                includeStoragePolicy = true,
+            )
+
+            request.outputs[1].embedMetadata shouldBe true
+        }
+
+        test("storage policy fields are reset when excluded") {
+            val job = buildTestJob(ResolvedMetadata.Other(title = "T"))
+
+            val request = buildSaveAsRuleRequest(
+                workspaceId = job.workspaceId,
+                match = RuleMatch.ChannelId("ch"),
+                job = job,
+                includeStoragePolicy = false,
+            )
+
+            request.outputs[1].embedMetadata shouldBe false
+            request.outputs[1].maxQuality shouldBe null
+            request.outputs[1].encodeSettings shouldBe null
+        }
     }
 })
-

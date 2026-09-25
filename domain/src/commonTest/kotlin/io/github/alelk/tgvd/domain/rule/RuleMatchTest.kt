@@ -108,6 +108,12 @@ class RuleMatchTest : FunSpec({
 
             match.matches(MatchContext(video)) shouldBe false
         }
+
+        test("throws on invalid regex") {
+            shouldThrow<IllegalArgumentException> {
+                RuleMatch.UrlRegex("[invalid")
+            }
+        }
     }
 
     context("AllOf (AND) matching") {
@@ -292,4 +298,3 @@ class RuleMatchTest : FunSpec({
         }
     }
 })
-

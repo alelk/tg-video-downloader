@@ -94,7 +94,7 @@ class PathTemplateEngineTest : FunSpec({
     context("sanitize") {
         test("replaces forbidden characters with underscore") {
             val video = videoInfo(channelName = "Test/Channel:Name")
-            val metadata = ResolvedMetadata.Other(title = "Video \"Part\" <1>")
+            val metadata = ResolvedMetadata.Other(title = "Video \"Part\" <1>|Final")
             val format = OutputFormat.OriginalVideo(MediaContainer.MP4)
 
             val result = engine.render("/{channelName}/{title}.{ext}", video, metadata, format)
@@ -103,6 +103,7 @@ class PathTemplateEngineTest : FunSpec({
             result.value.split("/").drop(1).let { segments ->
                 segments[0] shouldNotContain "/"
                 segments[0] shouldNotContain ":"
+                segments[1] shouldNotContain "|"
             }
         }
     }
@@ -137,5 +138,4 @@ class PathTemplateEngineTest : FunSpec({
         }
     }
 })
-
 

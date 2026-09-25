@@ -7,6 +7,7 @@ import io.github.alelk.tgvd.domain.rule.CreateRuleRequest
 import io.github.alelk.tgvd.domain.rule.RuleMatch
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
 import io.github.alelk.tgvd.domain.storage.OutputRule
+import io.github.alelk.tgvd.domain.storage.OutputTarget
 
 /**
  * Builds a [CreateRuleRequest] from a completed job, suitable for "save as rule" functionality.
@@ -24,50 +25,11 @@ fun buildSaveAsRuleRequest(
     includeStoragePolicy: Boolean = true,
     enabled: Boolean = true,
 ): CreateRuleRequest {
-    val metadataTemplate = if (includeMetadataTemplate) {
-        when (val meta = job.metadata) {
-            is ResolvedMetadata.MusicVideo -> MetadataTemplate.MusicVideo(
-                artistOverride = meta.artist,
-                titlePattern = null, // keep dynamic from video
-            )
-            is ResolvedMetadata.SeriesEpisode -> MetadataTemplate.SeriesEpisode(
-                seriesNameOverride = meta.seriesName,
-                seasonPattern = null,
-                episodePattern = null,
-            )
-            is ResolvedMetadata.Other -> MetadataTemplate.Other()
-        }
-    } else {
-        when (job.metadata) {
-            is ResolvedMetadata.MusicVideo -> MetadataTemplate.MusicVideo()
-            is ResolvedMetadata.SeriesEpisode -> MetadataTemplate.SeriesEpisode()
-            is ResolvedMetadata.Other -> MetadataTemplate.Other()
-        }
-    }
+    val metadataTemplate = job.metadata.toTemplate(includeOverrides = includeMetadataTemplate)
 
-    val outputs = if (includeStoragePolicy) {
-        // Convert concrete paths back to templates by replacing variable parts with placeholders
-        job.storagePlan.allTargets.map { target ->
-            OutputRule(
-                pathTemplate = target.path.value
-                    .replace(job.source.videoId.value, "{videoId}"),
-                format = target.format,
-                maxQuality = target.maxQuality,
-                encodeSettings = target.encodeSettings,
-                embedThumbnail = target.embedThumbnail,
-                embedMetadata = target.embedMetadata,
-                embedSubtitles = target.embedSubtitles,
-                normalizeAudio = target.normalizeAudio,
-            )
-        }
-    } else {
-        job.storagePlan.allTargets.map { target ->
-            OutputRule(
-                pathTemplate = target.path.value
-                    .replace(job.source.videoId.value, "{videoId}"),
-                format = target.format,
-            )
-        }
+    // Convert concrete paths back to templates by replacing variable parts with placeholders.
+    val outputs = job.storagePlan.allTargets.map { target ->
+        target.toOutputRule(job.source.videoId.value, includeStoragePolicy)
     }
 
     return CreateRuleRequest(
@@ -76,17 +38,30 @@ fun buildSaveAsRuleRequest(
         match = match,
         metadataTemplate = metadataTemplate,
         downloadPolicy = DownloadPolicy(),
-        outputs = outputs.ifEmpty {
-            listOf(
-                OutputRule(
-                    pathTemplate = job.storagePlan.original.path.value
-                        .replace(job.source.videoId.value, "{videoId}"),
-                    format = job.storagePlan.original.format,
-                )
-            )
-        },
+        outputs = outputs,
         enabled = enabled,
         priority = 0,
     )
 }
 
+private fun ResolvedMetadata.toTemplate(includeOverrides: Boolean): MetadataTemplate = when (this) {
+    is ResolvedMetadata.MusicVideo -> MetadataTemplate.MusicVideo(
+        artistOverride = artist.takeIf { includeOverrides },
+    )
+    is ResolvedMetadata.SeriesEpisode -> MetadataTemplate.SeriesEpisode(
+        seriesNameOverride = seriesName.takeIf { includeOverrides },
+    )
+    is ResolvedMetadata.Other -> MetadataTemplate.Other()
+}
+
+private fun OutputTarget.toOutputRule(videoId: String, includeStoragePolicy: Boolean): OutputRule =
+    OutputRule(
+        pathTemplate = path.value.replace(videoId, "{videoId}"),
+        format = format,
+        maxQuality = maxQuality.takeIf { includeStoragePolicy },
+        encodeSettings = encodeSettings.takeIf { includeStoragePolicy },
+        embedThumbnail = includeStoragePolicy && embedThumbnail,
+        embedMetadata = includeStoragePolicy && embedMetadata,
+        embedSubtitles = includeStoragePolicy && embedSubtitles,
+        normalizeAudio = includeStoragePolicy && normalizeAudio,
+    )

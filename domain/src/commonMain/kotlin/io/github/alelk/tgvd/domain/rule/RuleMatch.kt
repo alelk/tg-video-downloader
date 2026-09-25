@@ -30,25 +30,11 @@ sealed interface RuleMatch {
     }
 
     data class TitleRegex(val pattern: String) : RuleMatch {
-        val regex: Regex by lazy { pattern.toRegex() }
-
-        init {
-            require(pattern.isNotBlank()) { "TitleRegex pattern cannot be blank" }
-            runCatching { pattern.toRegex() }.getOrElse {
-                throw IllegalArgumentException("Invalid regex: $pattern", it)
-            }
-        }
+        val regex: Regex = compileRegex(pattern, "TitleRegex")
     }
 
     data class UrlRegex(val pattern: String) : RuleMatch {
-        val regex: Regex by lazy { pattern.toRegex() }
-
-        init {
-            require(pattern.isNotBlank()) { "UrlRegex pattern cannot be blank" }
-            runCatching { pattern.toRegex() }.getOrElse {
-                throw IllegalArgumentException("Invalid regex: $pattern", it)
-            }
-        }
+        val regex: Regex = compileRegex(pattern, "UrlRegex")
     }
 
     /** Матчит по категории из user overrides. Если overrides == null — не матчит. */
@@ -59,4 +45,13 @@ sealed interface RuleMatch {
      * Матчинг: channelId + extractor из VideoInfo → поиск в ChannelRepository → проверка tag.
      */
     data class HasTag(val tag: Tag) : RuleMatch
+}
+
+private fun compileRegex(pattern: String, matchType: String): Regex {
+    require(pattern.isNotBlank()) { "$matchType pattern cannot be blank" }
+    return try {
+        pattern.toRegex()
+    } catch (error: IllegalArgumentException) {
+        throw IllegalArgumentException("Invalid regex: $pattern", error)
+    }
 }
