@@ -67,6 +67,20 @@ kotlin {
                 implementation(libs.kotlinx.coroutines.core)
             }
         }
+        commonTest {
+            dependencies {
+                implementation(libs.kotest.framework.engine)
+                implementation(libs.kotest.assertions.core)
+            }
+        }
+        jvmTest {
+            dependencies {
+                implementation(libs.kotest.runner)
+            }
+        }
     }
 }
 
+tasks.withType<Test> {
+    useJUnitPlatform()
+}

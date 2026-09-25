@@ -15,15 +15,12 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.api.contract.job.CreateJobRequestDto
-import io.github.alelk.tgvd.api.contract.metadata.ResolvedMetadataDto
 import io.github.alelk.tgvd.api.contract.preview.DownloadHistoryEntryDto
 import io.github.alelk.tgvd.api.contract.preview.PreviewRequestDto
 import io.github.alelk.tgvd.api.contract.preview.PreviewResponseDto
 import io.github.alelk.tgvd.api.contract.preview.UserOverridesDto
 import io.github.alelk.tgvd.api.contract.storage.MediaContainerDto
 import io.github.alelk.tgvd.api.contract.storage.OutputFormatDto
-import io.github.alelk.tgvd.api.contract.storage.OutputTargetDto
-import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
 import io.github.alelk.tgvd.api.contract.storage.VideoQualityDto
 import io.github.alelk.tgvd.api.contract.channel.ChannelDto
 import io.github.alelk.tgvd.api.contract.video.MediaSelectionDto
@@ -36,7 +33,10 @@ import io.github.alelk.tgvd.features.common.util.categoryLabel
 import io.github.alelk.tgvd.features.common.util.formatDuration
 import io.github.alelk.tgvd.features.generated.resources.Res
 import io.github.alelk.tgvd.features.generated.resources.*
-import io.github.alelk.tgvd.domain.common.FileNameValidator
+import io.github.alelk.tgvd.features.download.model.PreviewEditorValues
+import io.github.alelk.tgvd.features.download.model.groupSubtitleOptions
+import io.github.alelk.tgvd.features.download.model.maxAvailableQualityLabel as calculateMaxAvailableQualityLabel
+import io.github.alelk.tgvd.features.download.model.selectAudioOptions
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -95,87 +95,46 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
         val userEdits = remember { mutableStateSetOf<String>() }
 
         // --- Editable state initialized from preview ---
-        var category by remember { mutableStateOf(preview.category) }
-        var metadataType by remember {
-            mutableStateOf(
-                when (preview.metadata) {
-                    is ResolvedMetadataDto.MusicVideo -> CategoryDto.MUSIC_VIDEO
-                    is ResolvedMetadataDto.SeriesEpisode -> CategoryDto.SERIES_EPISODE
-                    is ResolvedMetadataDto.Other -> CategoryDto.OTHER
-                }
-            )
-        }
-        var title by remember { mutableStateOf(preview.metadata.title) }
-        var artist by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.MusicVideo)?.artist ?: "") }
-        var album by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.MusicVideo)?.album ?: "") }
-        var seriesName by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.SeriesEpisode)?.seriesName ?: "") }
-        var season by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.SeriesEpisode)?.season ?: "") }
-        var episode by remember { mutableStateOf((preview.metadata as? ResolvedMetadataDto.SeriesEpisode)?.episode ?: "") }
-        var tags by remember { mutableStateOf(preview.metadata.tags.joinToString(", ")) }
-        var originalPath by remember { mutableStateOf(preview.storagePlan.original.path) }
-        var originalFormat by remember { mutableStateOf(preview.storagePlan.original.format) }
-        var originalMaxQuality by remember { mutableStateOf(preview.storagePlan.original.maxQuality) }
+        val initialValues = remember { PreviewEditorValues.from(initialPreview) }
+        var category by remember { mutableStateOf(initialValues.category) }
+        var metadataType by remember { mutableStateOf(initialValues.metadataType) }
+        var title by remember { mutableStateOf(initialValues.title) }
+        var artist by remember { mutableStateOf(initialValues.artist) }
+        var album by remember { mutableStateOf(initialValues.album) }
+        var seriesName by remember { mutableStateOf(initialValues.seriesName) }
+        var season by remember { mutableStateOf(initialValues.season) }
+        var episode by remember { mutableStateOf(initialValues.episode) }
+        var tags by remember { mutableStateOf(initialValues.tags) }
+        var originalPath by remember { mutableStateOf(initialValues.originalPath) }
+        var originalFormat by remember { mutableStateOf(initialValues.originalFormat) }
+        var originalMaxQuality by remember { mutableStateOf(initialValues.originalMaxQuality) }
         val additionalOutputs = remember {
-            mutableStateListOf(*preview.storagePlan.additional.map {
-                OutputTargetDto(
-                    path = it.path,
-                    format = it.format,
-                    maxQuality = it.maxQuality,
-                    encodeSettings = it.encodeSettings,
-                    embedThumbnail = it.embedThumbnail,
-                    embedMetadata = it.embedMetadata,
-                    embedSubtitles = it.embedSubtitles,
-                    normalizeAudio = it.normalizeAudio,
-                )
-            }.toTypedArray())
+            mutableStateListOf(*initialValues.additionalOutputs.toTypedArray())
         }
 
-        // --- Field-level validation errors (unsafe characters) ---
-        val fieldErrors: Map<String, String> by remember {
-            derivedStateOf {
-                buildMap {
-                    FileNameValidator.validate("title", title)?.let { put("title", it.message) }
-                    when (metadataType) {
-                        CategoryDto.MUSIC_VIDEO -> {
-                            FileNameValidator.validate("artist", artist)?.let { put("artist", it.message) }
-                            if (album.isNotBlank()) FileNameValidator.validate("album", album)?.let { put("album", it.message) }
-                        }
-                        CategoryDto.SERIES_EPISODE -> {
-                            FileNameValidator.validate("seriesName", seriesName)?.let { put("seriesName", it.message) }
-                            if (season.isNotBlank()) FileNameValidator.validate("season", season)?.let { put("season", it.message) }
-                            if (episode.isNotBlank()) FileNameValidator.validate("episode", episode)?.let { put("episode", it.message) }
-                        }
-                        CategoryDto.OTHER -> {}
-                    }
-                }
-            }
-        }
+        fun editorValues() = PreviewEditorValues(
+            category = category,
+            metadataType = metadataType,
+            title = title,
+            artist = artist,
+            album = album,
+            seriesName = seriesName,
+            season = season,
+            episode = episode,
+            tags = tags,
+            originalPath = originalPath,
+            originalFormat = originalFormat,
+            originalMaxQuality = originalMaxQuality,
+            additionalOutputs = additionalOutputs,
+        )
+
+        val fieldErrors = editorValues().fieldErrors
 
         // In-flight re-preview job (for cancellation)
         var rePreviewJob by remember { mutableStateOf<Job?>(null) }
 
         /** Build UserOverridesDto from current user edits */
-        fun buildOverrides(): UserOverridesDto? {
-            // Always send overrides when category changed, or any field was user-edited
-            if ("category" !in userEdits && userEdits.isEmpty()) return null
-
-            return when (metadataType) {
-                CategoryDto.MUSIC_VIDEO -> UserOverridesDto.MusicVideo(
-                    artist = artist.takeIf { "artist" in userEdits },
-                    title = title.takeIf { "title" in userEdits },
-                    album = album.takeIf { "album" in userEdits },
-                )
-                CategoryDto.SERIES_EPISODE -> UserOverridesDto.SeriesEpisode(
-                    seriesName = seriesName.takeIf { "seriesName" in userEdits },
-                    season = season.takeIf { "season" in userEdits },
-                    episode = episode.takeIf { "episode" in userEdits },
-                    title = title.takeIf { "title" in userEdits },
-                )
-                CategoryDto.OTHER -> UserOverridesDto.Other(
-                    title = title.takeIf { "title" in userEdits },
-                )
-            }
-        }
+        fun buildOverrides(): UserOverridesDto? = editorValues().toOverrides(userEdits)
 
         /** Apply server response: update fields NOT in userEdits */
         fun applyServerResponse(response: PreviewResponseDto) {
@@ -187,30 +146,21 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                 selectedSubtitleLanguages.addAll(response.defaultMediaSelection?.subtitleLanguages.orEmpty())
             }
 
-            // Update category only if user didn't manually change it
-            if ("category" !in userEdits) {
-                category = response.category
-                metadataType = when (response.metadata) {
-                    is ResolvedMetadataDto.MusicVideo -> CategoryDto.MUSIC_VIDEO
-                    is ResolvedMetadataDto.SeriesEpisode -> CategoryDto.SERIES_EPISODE
-                    is ResolvedMetadataDto.Other -> CategoryDto.OTHER
-                }
-            }
-
-            // Update metadata fields not in userEdits
-            if ("title" !in userEdits) title = response.metadata.title
-            if ("artist" !in userEdits) artist = (response.metadata as? ResolvedMetadataDto.MusicVideo)?.artist ?: ""
-            if ("album" !in userEdits) album = (response.metadata as? ResolvedMetadataDto.MusicVideo)?.album ?: ""
-            if ("seriesName" !in userEdits) seriesName = (response.metadata as? ResolvedMetadataDto.SeriesEpisode)?.seriesName ?: ""
-            if ("season" !in userEdits) season = (response.metadata as? ResolvedMetadataDto.SeriesEpisode)?.season ?: ""
-            if ("episode" !in userEdits) episode = (response.metadata as? ResolvedMetadataDto.SeriesEpisode)?.episode ?: ""
-            if ("tags" !in userEdits) tags = response.metadata.tags.joinToString(", ")
-
-            // Always update storage plan from server
-            originalPath = response.storagePlan.original.path
-            originalFormat = response.storagePlan.original.format
+            val merged = editorValues().mergeServerResponse(response, userEdits)
+            category = merged.category
+            metadataType = merged.metadataType
+            title = merged.title
+            artist = merged.artist
+            album = merged.album
+            seriesName = merged.seriesName
+            season = merged.season
+            episode = merged.episode
+            tags = merged.tags
+            originalPath = merged.originalPath
+            originalFormat = merged.originalFormat
+            originalMaxQuality = merged.originalMaxQuality
             additionalOutputs.clear()
-            response.storagePlan.additional.forEach { additionalOutputs.add(it) }
+            additionalOutputs.addAll(merged.additionalOutputs)
         }
 
         /** Trigger re-preview with debounce */
@@ -257,57 +207,18 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
             }
         }
 
-        fun buildMetadata(): ResolvedMetadataDto {
-            val tagList = tags.split(",").map { it.trim() }.filter { it.isNotBlank() }
-            return when (metadataType) {
-                CategoryDto.MUSIC_VIDEO -> ResolvedMetadataDto.MusicVideo(
-                    artist = artist,
-                    title = title,
-                    album = album.takeIf { it.isNotBlank() },
-                    tags = tagList,
-                )
-                CategoryDto.SERIES_EPISODE -> ResolvedMetadataDto.SeriesEpisode(
-                    seriesName = seriesName,
-                    season = season.takeIf { it.isNotBlank() },
-                    episode = episode.takeIf { it.isNotBlank() },
-                    title = title,
-                    tags = tagList,
-                )
-                CategoryDto.OTHER -> ResolvedMetadataDto.Other(
-                    title = title,
-                    tags = tagList,
-                )
-            }
-        }
-
         // Compute max available quality label from availableFormats
         val maxAvailableQualityLabel: String? = remember(preview.videoInfo.availableFormats) {
-            preview.videoInfo.availableFormats
-                .mapNotNull { it.height }
-                .maxOrNull()
-                ?.let { h ->
-                    when {
-                        h >= 2160 -> "4K"
-                        h >= 1440 -> "1440p"
-                        h >= 1080 -> "1080p"
-                        h >= 720 -> "720p"
-                        h >= 480 -> "480p"
-                        h >= 360 -> "360p"
-                        else -> "${h}p"
-                    }
-                }
+            calculateMaxAvailableQualityLabel(preview.videoInfo.availableFormats)
         }
         val audioOptions = remember(preview.videoInfo.availableFormats, preview.defaultMediaSelection) {
-            preview.videoInfo.availableFormats
-                .filter { it.acodec != null && it.acodec != "none" && (it.vcodec == null || it.vcodec == "none") }
-                .groupBy { it.language ?: it.formatId }
-                .values.map { formats ->
-                    formats.firstOrNull { it.formatId in preview.defaultMediaSelection?.audioFormatIds.orEmpty() }
-                        ?: formats.maxByOrNull { it.tbr ?: 0.0 }!!
-                }
+            selectAudioOptions(
+                formats = preview.videoInfo.availableFormats,
+                defaultAudioFormatIds = preview.defaultMediaSelection?.audioFormatIds.orEmpty(),
+            )
         }
         val subtitleOptions = remember(preview.videoInfo.subtitleTracks) {
-            preview.videoInfo.subtitleTracks.groupBy { it.language }
+            groupSubtitleOptions(preview.videoInfo.subtitleTracks)
         }
 
         Scaffold(
@@ -894,28 +805,15 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                         errorMessage = null
                         scope.launch {
                             try {
-                                val metadata = buildMetadata()
-                                val storagePlan = StoragePlanDto(
-                                    original = OutputTargetDto(
-                                        path = originalPath,
-                                        format = originalFormat,
-                                        maxQuality = originalMaxQuality,
-                                        encodeSettings = preview.storagePlan.original.encodeSettings,
-                                        embedThumbnail = preview.storagePlan.original.embedThumbnail,
-                                        embedMetadata = preview.storagePlan.original.embedMetadata,
-                                        embedSubtitles = preview.storagePlan.original.embedSubtitles,
-                                        normalizeAudio = preview.storagePlan.original.normalizeAudio,
-                                    ),
-                                    additional = additionalOutputs.toList(),
-                                )
+                                val values = editorValues()
                                 client.createJob(
                                     CreateJobRequestDto(
                                         source = preview.source,
                                         ruleId = preview.matchedRule?.id,
                                         category = category,
                                         videoInfo = preview.videoInfo,
-                                        metadata = metadata,
-                                        storagePlan = storagePlan,
+                                        metadata = values.toMetadata(),
+                                        storagePlan = values.toStoragePlan(preview.storagePlan.original),
                                         mediaSelection = MediaSelectionDto(
                                             audioFormatIds = selectedAudioIds.toList().takeIf { audioOptions.isNotEmpty() },
                                             subtitleLanguages = selectedSubtitleLanguages.toList(),
