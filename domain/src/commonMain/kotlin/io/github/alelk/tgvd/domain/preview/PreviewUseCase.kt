@@ -43,20 +43,14 @@ class PreviewUseCase(
         overrides: UserOverrides? = null,
         force: Boolean = false,
     ): Either<DomainError, PreviewResult> = either {
-        // 1 & 2: VideoInfo + rule matching — within a single read-only transaction
-        val (videoInfo, matchResult, cacheMiss) =
-            txRunner.inRoTransaction {
-                either {
-                    val cached = if (force) null else videoInfoCache.get(url)
-                    val info = cached ?: videoInfoExtractor.extract(url).bind()
-                    val match = ruleMatchingService.findMatchingRule(info, workspaceId, overrides)
-                    Triple(info, match, cached == null)
-                }.bind()
-            }
+        // Keep the potentially slow extractor call outside a database transaction.
+        val cached = if (force) null else txRunner.inRoTransaction { videoInfoCache.get(url) }
+        val videoInfo = cached ?: videoInfoExtractor.extract(url).bind().also { extracted ->
+            txRunner.inRwTransaction { videoInfoCache.put(url, extracted) }
+        }
 
-        // Write cache outside the read-only transaction
-        if (cacheMiss) {
-            txRunner.inRwTransaction { either<DomainError, Unit> { videoInfoCache.put(url, videoInfo) } }
+        val matchResult = txRunner.inRoTransaction {
+            ruleMatchingService.findMatchingRule(videoInfo, workspaceId, overrides)
         }
 
         // 3. Resolve metadata (rule + channel overrides → LLM → fallback)
