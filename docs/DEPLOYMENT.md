@@ -13,160 +13,69 @@ related: [ CONFIGURATION.md, SECURITY.md, ../docker-compose.yaml ]
 
 ## 1. Docker
 
-### 1.1 Dockerfile
+### 1.1 Images and Dockerfiles
 
-```dockerfile
-# Build stage
-FROM gradle:8.5-jdk21 AS build
+| Dockerfile               | Image / use                                                          | Build                               |
+|--------------------------|----------------------------------------------------------------------|-------------------------------------|
+| `server/app/Dockerfile`  | server, used by `docker-compose.yaml` (`server`)                     | multi-stage, from source            |
+| `Dockerfile.tgvd-server` | server with the bgutil plugin, Intel variant by default              | multi-stage, from source            |
+| `tgminiapp/Dockerfile`   | Mini App (nginx), used by `docker-compose.yaml` (`webapp`)           | multi-stage, from source            |
+| `server/app/Dockerfile.ci` | `ghcr.io/<owner>/tg-video-downloader-server` (+ `-intel` tags)     | runtime only, takes `tgvd-server.jar` |
+| `tgminiapp/Dockerfile.ci`  | `ghcr.io/<owner>/tg-video-downloader-webapp`                       | runtime only, takes `tgvd-webapp.tar.gz` |
 
-WORKDIR /app
+**Builder stage** (the three multi-stage files): `eclipse-temurin:21-jdk` (Debian/Ubuntu — the Node.js
+that the Kotlin/JS plugin downloads needs glibc, so never Alpine), pinned to `linux/amd64` so Node.js
+also runs on ARM64 hosts. Gradle comes from the repository's wrapper: `gradlew`, `gradle/` (wrapper +
+version catalogue), the build scripts, `convention-plugins/` and `app.version` are copied first
+(`./gradlew dependencies` as a cached layer), then the sources, then
+`./gradlew :server:app:shadowJar` or `./gradlew :tgminiapp:jsBrowserDistribution`. The Mini App build
+also copies `kotlin-js-store/` so the locked npm versions (`yarn.lock`) are installed.
 
-# Cache dependencies
-COPY build.gradle.kts settings.gradle.kts gradle.properties ./
-COPY gradle ./gradle
-RUN gradle dependencies --no-daemon
+`GITHUB_USER` / `GITHUB_TOKEN` build args authenticate to GitHub Packages (`io.github.alelk:tg-mini-app`
+when `../tg-mini-app` is not next to the repository). They exist only in the builder stage; BuildKit
+secrets are deliberately not used (ADR-009).
 
-# Build
-COPY . .
-RUN gradle :server:app:shadowJar :tgminiapp:jsBrowserProductionWebpack --no-daemon
+**Runtime stage (server)**: `eclipse-temurin:21-jre-noble` + `ffmpeg`, non-root `appuser` (uid 1001),
+`EXPOSE 8080`, `HEALTHCHECK` on `/health`, writable `/data/media`, `/data/temp`, `/app/bin` (yt-dlp is
+downloaded there at runtime), `JAVA_OPTS` (`MaxRAMPercentage=75`, G1) overridable at `docker run`,
+`ENTRYPOINT ["sh","-c","exec java $JAVA_OPTS -jar /app/app.jar"]`. `GPU_VARIANT=intel` adds the Intel
+QSV/VAAPI driver stack (`--device /dev/dri` at run time).
 
-# Runtime stage
-FROM eclipse-temurin:21-jre-alpine
-
-# Install yt-dlp and ffmpeg
-RUN apk add --no-cache \
-    python3 \
-    ffmpeg \
-    curl \
-    && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
-    && chmod a+rx /usr/local/bin/yt-dlp
-
-WORKDIR /app
-
-# Copy jar
-COPY --from=build /app/server/app/build/libs/server-app-all.jar app.jar
-
-# Copy tgminiapp JS bundle (served by Ktor static files)
-COPY --from=build /app/tgminiapp/build/dist/js/productionExecutable/ /app/static/
-
-# Create non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-RUN mkdir -p /data/temp && chown -R appuser:appgroup /data
-USER appuser
-
-# Config
-ENV SERVER_PORT=8080
-ENV APP_PROFILE=production
-
-EXPOSE 8080
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
-
-ENTRYPOINT ["java", "-jar", "app.jar"]
-```
+**Runtime stage (Mini App)**: `nginx:1.27-alpine`, `API_BASE_URL` applied at start by
+`tgminiapp/docker-entrypoint.sh`, `EXPOSE 80`.
 
 ### 1.2 .dockerignore
 
-```
-.git
-.idea
-.gradle
-build
-*/build
-*.md
-!README.md
-docker-compose*.yml
-```
+`.dockerignore` (repository root) keeps the context small and free of secrets: `.git`, `.github`,
+`.idea`, `.claude`, `*.md`, all `build/` and `.gradle/` directories, `node_modules/`, compose files and
+Dockerfiles, `.env`/`.env.*`, the local `yt-dlp` binaries, `data/`, `output/`. `kotlin-js-store/` is
+**not** excluded (see 1.1).
 
 ---
 
 ## 2. Docker Compose
 
-### 2.1 docker-compose.yml
+### 2.1 docker-compose.yaml
 
-```yaml
-version: '3.8'
+`docker-compose.yaml` is for local development and a single-host installation:
 
-services:
-  app:
-    build: .
-    container_name: tgvd-app
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    environment:
-      - SERVER_PORT=8080
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - TELEGRAM_ALLOWED_USER_IDS=${TELEGRAM_ALLOWED_USER_IDS}
-      - DB_URL=jdbc:postgresql://postgres:5432/tgvd
-      - DB_USER=tgvd
-      - DB_PASSWORD=${DB_PASSWORD}
-      - APP_PROFILE=production
-    volumes:
-      - /media:/media:rw
-      - tgvd-temp:/data/temp
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - tgvd-network
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+| Service   | Image / build                                  | Ports                    | Notes                                     |
+|-----------|------------------------------------------------|--------------------------|-------------------------------------------|
+| `db`      | `postgres:16-alpine`                           | `5433:5432`              | volume `tgvd-db-data`, `pg_isready` check |
+| `server`  | `server/app/Dockerfile`                        | `8080:8080`              | waits for `db` healthy; config below      |
+| `webapp`  | `tgminiapp/Dockerfile`                         | `3000:80`                | `API_BASE_URL` (seen by the browser)      |
+| `bgutil`  | `brainicism/bgutil-ytdlp-pot-provider:latest`  | `4416:4416`              | optional, see `BGUTIL_HTTP_ENDPOINT`      |
 
-  postgres:
-    image: postgres:16-alpine
-    container_name: tgvd-postgres
-    restart: unless-stopped
-    environment:
-      - POSTGRES_DB=tgvd
-      - POSTGRES_USER=tgvd
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - tgvd-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tgvd"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+The server's `application.yaml` is an inline compose `configs` entry mounted at
+`/app/config/application.yaml` (`APP_CONFIG`); secrets and switches come from environment variables
+(`.env`) and are resolved inside it (`$${VAR:-default}`). Media and temp directories are bind mounts
+(`TGVD_MEDIA_DIR`, `TGVD_TEMP_DIR`, default `./data/...`).
 
-volumes:
-  postgres-data:
-  tgvd-temp:
+`stop_grace_period: 20s` on `server`: on `docker stop` the job processor returns running jobs to the
+queue (up to 10 s for the jobs, the shutdown hook is bounded by 15 s). With Docker's default 10 s the
+JVM may be killed first — nothing is lost (the next start requeues such jobs), it just happens later.
 
-networks:
-  tgvd-network:
-    driver: bridge
-```
-
-### 2.2 docker-compose.dev.yml
-
-```yaml
-version: '3.8'
-
-services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: tgvd-postgres-dev
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_DB=tgvd
-      - POSTGRES_USER=tgvd
-      - POSTGRES_PASSWORD=tgvd
-    volumes:
-      - postgres-dev-data:/var/lib/postgresql/data
-
-volumes:
-  postgres-dev-data:
-```
-
-### 2.3 .env.example
+### 2.2 .env.example
 
 > **`TELEGRAM_DEV_MODE=true` is the default** in `docker-compose.yaml` and `.env.example` (the compose
 > file is for local development). With dev mode on, the header `X-Telegram-Init-Data: dev` is accepted
@@ -179,18 +88,10 @@ volumes:
 empty → any Telegram user (a `WARN` at start). Before this was fixed (stage 01.5) the variables did
 not reach the config at all, so an installation that sets them now **narrows** its access.
 
-```bash
-# Telegram
-TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
-TELEGRAM_ALLOWED_USER_IDS=123456789,987654321
-TELEGRAM_ALLOWED_USERNAMES=my_username
-
-# Database
-DB_PASSWORD=your-secure-password
-
-# Optional
-APP_PROFILE=production
-```
+Variables in `.env.example`: `GITHUB_USER`, `GITHUB_TOKEN` (image build), `TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_ALLOWED_USER_IDS`, `TELEGRAM_ALLOWED_USERNAMES`, `TELEGRAM_DEV_MODE`, `API_BASE_URL`,
+`TGVD_MEDIA_DIR`, `TGVD_TEMP_DIR`, `YTDLP_COOKIES_FILE`. Further optional ones are listed in the header
+of `docker-compose.yaml` and in [CONFIGURATION.md](CONFIGURATION.md).
 
 ---
 
@@ -199,25 +100,24 @@ APP_PROFILE=production
 ### 3.1 Development
 
 ```bash
-# Start PostgreSQL only
-docker compose -f docker-compose.dev.yml up -d
+# Start PostgreSQL only (host port 5433)
+docker compose up -d db
 
 # Run the application locally
 ./gradlew :server:app:run
 ```
 
-### 3.2 Production
+### 3.2 Single host (compose)
 
 ```bash
 # Copy example env file and fill in values
 cp .env.example .env
-# Edit .env with your values
 
 # Build and start
 docker compose up -d --build
 
 # View logs
-docker compose logs -f app
+docker compose logs -f server
 
 # Stop
 docker compose down
@@ -227,143 +127,27 @@ docker compose down
 
 ## 4. CI/CD
 
-### 4.1 GitHub Actions
+### 4.1 CI (`.github/workflows/ci.yml`)
 
-```yaml
-# .github/workflows/ci.yml
-name: CI
+Runs on push and pull request to `main` / `next` and on manual dispatch. Workflow default permissions
+are `contents: read`; one run per ref (`concurrency`), a newer push cancels an older run only for pull
+requests.
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+| Job       | When                          | Permissions                                                 | Does                                                                                               |
+|-----------|-------------------------------|-------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
+| `ci`      | always                        | `contents: read`, `checks: write`                           | `./gradlew build :server:app:shadowJar :tgminiapp:jsBrowserDistribution --no-daemon` (the local gate + release artifacts; Testcontainers use the runner's Docker), JUnit report |
+| `release` | push to `main`/`next`, after `ci` | `contents: write`, `issues: write`, `pull-requests: write` | semantic-release dry-run → `app.version`, builds `tgvd-server.jar` and `tgvd-webapp.tar.gz` with that version, `semantic-release` (tag, GitHub Release with assets `tgvd-server.jar`, `tgvd-webapp.tar.gz`, `app.version`, CHANGELOG commit) |
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: tgvd_test
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-      
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v3
-      
-      - name: Run tests
-        run: ./gradlew test
-        env:
-          DB_URL: jdbc:postgresql://localhost:5432/tgvd_test
-          DB_USER: test
-          DB_PASSWORD: test
-      
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: test-results
-          path: '**/build/reports/tests/'
+Both jobs use `gradle/actions/setup-gradle` (cache, wrapper validation) and have `timeout-minutes`.
+Release configuration: `.releaserc.yaml` (`main` → stable, `next` → `-rc.N`).
 
-  build:
-    runs-on: ubuntu-latest
-    needs: test
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-      
-      - name: Build
-        run: ./gradlew :server:app:shadowJar
-      
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: server-app
-          path: server/app/build/libs/*-all.jar
+### 4.2 Docker images (`.github/workflows/docker-publish.yml`)
 
-  docker:
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Login to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ghcr.io/${{ github.repository }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-```
-
-### 4.2 Deployment Workflow
-
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy
-
-on:
-  workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            cd /opt/tgvd
-            git pull
-            docker compose pull
-            docker compose up -d
-            docker system prune -f
-```
+Manual (`workflow_dispatch`: `release_tag`, `target` server/webapp/both, `gpu_variant`, `extra_tag`).
+Downloads the release assets with `gh release download` and builds the runtime-only
+`server/app/Dockerfile.ci` / `tgminiapp/Dockerfile.ci` — no Gradle — then pushes to GHCR
+(`<repo>-server`, `<repo>-webapp`). Default permissions `contents: read`; `packages: write` only on the
+two publishing jobs; `concurrency` per release tag (never cancelled); `timeout-minutes` per job.
 
 ---
 

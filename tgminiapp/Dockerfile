@@ -6,7 +6,9 @@
 # linux/amd64 — фиксируем платформу builder-стадии, чтобы Node.js (скачиваемый
 # Kotlin/JS плагином) корректно запускался на ARM64-хостах (Apple Silicon).
 # Итоговый nginx-образ собирается под нативную платформу хоста.
-FROM --platform=linux/amd64 gradle:8.14-jdk21 AS builder
+# Сборка — wrapper'ом репозитория (./gradlew фиксирует версию Gradle), базовый образ — только JDK 21
+# на Debian/Ubuntu (не Alpine: скачиваемый Node.js требует glibc).
+FROM --platform=linux/amd64 eclipse-temurin:21-jdk AS builder
 
 # Build arguments for private registry authentication (GitHub Packages)
 ARG GITHUB_USER
@@ -19,10 +21,13 @@ WORKDIR /build
 
 # ── Layer 1: dependency resolution (cached) ──
 COPY gradle.properties settings.gradle.kts build.gradle.kts ./
+COPY gradlew ./
 COPY gradle ./gradle
 COPY app.version ./
 # Included build with the tgvd.* convention plugins (settings.gradle.kts → pluginManagement)
 COPY convention-plugins ./convention-plugins
+# Yarn lockfile of the Kotlin/JS build — reproducible npm dependency versions
+COPY kotlin-js-store ./kotlin-js-store
 
 COPY domain/build.gradle.kts              ./domain/
 COPY domain/domain-test-fixtures/build.gradle.kts ./domain/domain-test-fixtures/
@@ -36,16 +41,17 @@ COPY server/di/build.gradle.kts           ./server/di/
 COPY features/build.gradle.kts            ./features/
 COPY tgminiapp/build.gradle.kts           ./tgminiapp/
 
-RUN gradle dependencies --no-daemon || true
+RUN ./gradlew dependencies --no-daemon || true
 
 # ── Layer 2: source + build ──
+COPY domain/src          ./domain/src
 COPY api/contract/src    ./api/contract/src
 COPY api/mapping/src     ./api/mapping/src
 COPY api/client/src      ./api/client/src
 COPY features/src        ./features/src
 COPY tgminiapp/src       ./tgminiapp/src
 
-RUN gradle :tgminiapp:jsBrowserDistribution --no-daemon
+RUN ./gradlew :tgminiapp:jsBrowserDistribution --no-daemon
 
 # ---- Stage 2: Serve with nginx ----
 FROM nginx:1.27-alpine

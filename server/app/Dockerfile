@@ -9,7 +9,9 @@ ARG GPU_VARIANT=base
 # ---- Stage 1: Build ----
 # linux/amd64 — фиксируем платформу builder-стадии, чтобы Node.js (скачиваемый
 # Kotlin/JS плагином для KMP-модулей) корректно запускался на ARM64-хостах.
-FROM --platform=linux/amd64 gradle:8.14-jdk21 AS builder
+# Сборка — wrapper'ом репозитория (./gradlew фиксирует версию Gradle), базовый образ — только JDK 21
+# на Debian/Ubuntu (не Alpine: скачиваемый Node.js требует glibc).
+FROM --platform=linux/amd64 eclipse-temurin:21-jdk AS builder
 
 # Build arguments for private registry authentication (GitHub Packages)
 ARG GITHUB_USER
@@ -22,6 +24,7 @@ WORKDIR /build
 
 # ── Layer 1: dependency resolution (cached) ──
 COPY gradle.properties settings.gradle.kts build.gradle.kts ./
+COPY gradlew ./
 COPY gradle ./gradle
 COPY app.version ./
 # Included build with the tgvd.* convention plugins (settings.gradle.kts → pluginManagement)
@@ -40,7 +43,7 @@ COPY server/di/build.gradle.kts           ./server/di/
 COPY features/build.gradle.kts            ./features/
 COPY tgminiapp/build.gradle.kts           ./tgminiapp/
 
-RUN gradle dependencies --no-daemon || true
+RUN ./gradlew dependencies --no-daemon || true
 
 # ── Layer 2: source + build ──
 COPY domain/src          ./domain/src
@@ -52,7 +55,7 @@ COPY server/infra/src    ./server/infra/src
 COPY server/transport/src ./server/transport/src
 COPY server/di/src       ./server/di/src
 
-RUN gradle :server:app:shadowJar --no-daemon
+RUN ./gradlew :server:app:shadowJar --no-daemon
 
 # ---- Stage 2: Runtime (software-only) ----
 # Debian-based (not Alpine): standalone yt-dlp binary requires glibc.

@@ -14,7 +14,9 @@ ARG GPU_VARIANT=intel
 
 # ---- Stage 1: Build fat JAR ----
 # linux/amd64 — fixes Node.js download in Kotlin/JS plugin on ARM64 hosts.
-FROM --platform=linux/amd64 gradle:8.14-jdk21 AS builder
+# Built with the repository's ./gradlew (the wrapper pins the Gradle version); the base image only
+# provides JDK 21 on Debian/Ubuntu (not Alpine: the downloaded Node.js needs glibc).
+FROM --platform=linux/amd64 eclipse-temurin:21-jdk AS builder
 
 ARG GITHUB_USER
 ARG GITHUB_TOKEN
@@ -25,6 +27,7 @@ WORKDIR /build
 
 # Layer 1: dependency resolution (cached)
 COPY gradle.properties settings.gradle.kts build.gradle.kts ./
+COPY gradlew ./
 COPY gradle ./gradle
 COPY app.version ./
 # Included build with the tgvd.* convention plugins (settings.gradle.kts → pluginManagement)
@@ -42,7 +45,7 @@ COPY server/di/build.gradle.kts                           ./server/di/
 COPY features/build.gradle.kts                            ./features/
 COPY tgminiapp/build.gradle.kts                           ./tgminiapp/
 
-RUN gradle dependencies --no-daemon || true
+RUN ./gradlew dependencies --no-daemon || true
 
 # Layer 2: source + build
 COPY domain/src          ./domain/src
@@ -54,7 +57,7 @@ COPY server/infra/src    ./server/infra/src
 COPY server/transport/src ./server/transport/src
 COPY server/di/src       ./server/di/src
 
-RUN gradle :server:app:shadowJar --no-daemon
+RUN ./gradlew :server:app:shadowJar --no-daemon
 
 # ---- Stage 2: Runtime (software-only) ----
 FROM eclipse-temurin:21-jre-noble AS base

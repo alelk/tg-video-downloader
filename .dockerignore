@@ -5,6 +5,7 @@
 .gitignore
 .github
 .idea
+.claude
 *.md
 LICENSE
 
@@ -14,8 +15,8 @@ build/
 .gradle/
 **/.gradle/
 
-# Kotlin JS store
-kotlin-js-store/
+# kotlin-js-store/ is NOT excluded: tgminiapp/Dockerfile copies kotlin-js-store/yarn.lock so the
+# Kotlin/JS build installs the locked npm versions (reproducible bundle).
 
 # Node (semantic-release)
 node_modules/
@@ -34,9 +35,12 @@ Dockerfile*
 .env
 .env.*
 
-# yt-dlp binary at repo root (downloaded at runtime)
+# yt-dlp binaries (repo root, server/app) — the server downloads its own at runtime
 yt-dlp
+**/yt-dlp
 
-# Downloads folder
+# Local runtime data (docker-compose volumes, downloads)
+data/
+output/
 ~/
 

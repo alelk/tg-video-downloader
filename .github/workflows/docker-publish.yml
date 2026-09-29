@@ -46,9 +46,14 @@ on:
         default: "latest"
         type: string
 
+# Read-only by default; `packages: write` only on the jobs that push an image.
 permissions:
   contents: read
-  packages: write
+
+# One publish per release tag at a time; a running publish is never cancelled half-way.
+concurrency:
+  group: docker-publish-${{ inputs.release_tag }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
@@ -57,7 +62,11 @@ jobs:
   publish-server:
     name: "Publish server image (${{ matrix.gpu }})"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: ${{ inputs.target == 'server' || inputs.target == 'both' }}
+    permissions:
+      contents: read # gh release download
+      packages: write # push to GHCR
 
     strategy:
       fail-fast: false
@@ -136,7 +145,11 @@ jobs:
   publish-webapp:
     name: Publish webapp image
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     if: ${{ inputs.target == 'webapp' || inputs.target == 'both' }}
+    permissions:
+      contents: read # gh release download
+      packages: write # push to GHCR
 
     steps:
       - name: Checkout

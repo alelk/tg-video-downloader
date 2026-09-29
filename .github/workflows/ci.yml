@@ -7,65 +7,44 @@ on:
     branches: [main, next]
   workflow_dispatch:
 
+# Read-only by default; write access is granted only to the `release` job below.
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  checks: write
-  id-token: write
+  contents: read
+
+# One run per ref; a newer push to a pull request cancels the older run, release branches never do.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # ── Gate: exactly the local `./gradlew build` (+ the release artifacts) on every push/PR ──
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      checks: write # test report
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: "21"
           distribution: temurin
-          cache: gradle
+
+      # Gradle caching + wrapper checksum validation
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Verify Docker is available (for Testcontainers)
         run: |
           docker --version
           docker info
 
-      # ── Node + semantic-release: только на release-ветках ──
-      - name: Set up Node 20 (for semantic-release)
-        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install semantic-release plugins
-        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
-        run: >
-          npm install --global
-          semantic-release@24
-          @semantic-release/changelog@6
-          @semantic-release/git@10
-          @semantic-release/github@11
-          @semantic-release/exec@6
-
-      # dry-run записывает правильную версию в app.version через prepare.sh,
-      # чтобы Gradle собрал артефакт уже с финальной версией релиза.
-      - name: Determine version (dry-run)
-        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release --dry-run || true
-
-      - name: Show resolved app.version
-        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
-        run: echo "app.version = $(cat app.version)"
-
-      # `build` is the gate (includes `check`); shadowJar is not part of `build`, so the fat JAR
-      # attached by semantic-release (server/app/build/libs/tgvd-server.jar) is built explicitly.
+      # `build` is the gate (includes `check`); shadowJar and the JS distribution are not part of
+      # `build`, so the release artifacts are built here too — a broken artifact fails the PR.
       - name: Build and Test
         env:
           GITHUB_USER: ${{ github.actor }}
@@ -77,23 +56,81 @@ jobs:
           :tgminiapp:jsBrowserDistribution
           --no-daemon
 
-      - name: Package webapp dist as tar.gz
-        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
-        run: |
-          tar -czf tgvd-webapp.tar.gz \
-            -C tgminiapp/build/dist/js/productionExecutable .
-
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v4
         if: success() || failure()
         with:
           report_paths: "**/build/test-results/**/TEST-*.xml"
 
-      # ── Semantic Release — создаёт GitHub Release и прикрепляет артефакты ──
+  # ── Release: only on push to a release branch, after the gate is green ──
+  # semantic-release creates the tag, the GitHub Release (assets: tgvd-server.jar, tgvd-webapp.tar.gz,
+  # app.version) and the CHANGELOG/app.version commit. The artifacts are rebuilt here because the
+  # release version must be in app.version before Gradle packages them.
+  release:
+    needs: ci
+    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # tag, GitHub Release, CHANGELOG/app.version commit
+      issues: write # @semantic-release/github: comments on released issues
+      pull-requests: write # @semantic-release/github: comments on released pull requests
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Node 20 (for semantic-release)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install semantic-release plugins
+        run: >
+          npm install --global
+          semantic-release@24
+          @semantic-release/changelog@6
+          @semantic-release/git@10
+          @semantic-release/github@11
+          @semantic-release/exec@6
+
+      # dry-run записывает правильную версию в app.version через prepare.sh,
+      # чтобы Gradle собрал артефакт уже с финальной версией релиза.
+      - name: Determine version (dry-run)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release --dry-run || true
+
+      - name: Show resolved app.version
+        run: echo "app.version = $(cat app.version)"
+
+      # Tests already ran in the `ci` job for this commit; only the release artifacts are built.
+      - name: Build release artifacts
+        env:
+          GITHUB_USER: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          ./gradlew
+          :server:app:shadowJar
+          :tgminiapp:jsBrowserDistribution
+          --no-daemon
+
+      - name: Package webapp dist as tar.gz
+        run: |
+          tar -czf tgvd-webapp.tar.gz \
+            -C tgminiapp/build/dist/js/productionExecutable .
+
       - name: Release
-        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release
-
-

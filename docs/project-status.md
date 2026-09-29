@@ -59,6 +59,11 @@ anything a user, client or deployed installation sees (except G10 and Fork 5,
   `requeueInterrupted` at start (Fork 2); cancel stops the download and kills the yt-dlp/ffmpeg process tree;
   `stop()` requeues running jobs; the mine test (`JobLifecycleTest`) proven red on an unconditional `UPDATE`;
   714 JVM tests.
+- 2026-09-29 — 01.10 done: the three multi-stage Dockerfiles build with the repository's `./gradlew`
+  on `eclipse-temurin:21-jdk` (Mini App image: `domain/src` and `kotlin-js-store/yarn.lock` added — it
+  did not build before); `.dockerignore` drops `.claude`, `data/`, `output/`, yt-dlp binaries; CI split
+  into a read-only `ci` gate and a `release` job with write rights, `concurrency`, timeouts,
+  `setup-gradle`; `docker-publish` with `packages: write` per job; compose `stop_grace_period: 20s`.
 
 ## Known issues
 

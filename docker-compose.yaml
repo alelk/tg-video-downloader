@@ -57,6 +57,10 @@ services:
         GITHUB_USER: ${GITHUB_USER:-}
         GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     container_name: tgvd-server
+    # On SIGTERM the server returns running jobs to the queue (JobProcessor.stop: ≤ 10 s, shutdown
+    # hook ≤ 15 s). Docker's default 10 s before SIGKILL is shorter; without the extra time such jobs
+    # are requeued on the next start instead.
+    stop_grace_period: 20s
     ports:
       - "8080:8080"
     environment:
