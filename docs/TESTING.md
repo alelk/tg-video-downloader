@@ -1,3 +1,10 @@
+---
+status: stable
+owner: Alex (alelk)
+updated: 2026-09-29
+related: [ PROJECT_CONTEXT.md, ../AGENTS.md ]
+---
+
 # Testing
 
 > **Purpose**: Testing strategy, KMP tests, and examples.
@@ -84,20 +91,17 @@ api/mapping/src/commonTest/kotlin/
 ### JVM Modules (server:*)
 
 ```
-server/infra/src/test/kotlin/
-├── repository/
-│   ├── RuleRepositoryTest.kt
-│   └── JobRepositoryTest.kt
-└── process/
-    └── YtDlpVideoInfoExtractorTest.kt
+server/infra/src/test/kotlin/.../server/infra/process/
+├── AudioTrackSelectorTest.kt
+├── SubtitleSelectorTest.kt
+└── YtDlpRunnerTest.kt
 
-server/transport/src/test/kotlin/
-├── routes/
-│   ├── PreviewRoutesTest.kt
-│   └── JobRoutesTest.kt
-└── security/
-    └── TelegramAuthValidatorTest.kt
+server/app/src/test/kotlin/.../server/telegram/
+└── MiniAppDeepLinkTest.kt
 ```
+
+> There are no repository, route or `TelegramAuthValidator` tests yet; the examples in §3.3 and §5
+> show the intended shape. They are added in Step 01 (stage 01.4).
 
 ---
 
@@ -615,6 +619,8 @@ class RuleMatchMappingTest : FunSpec({
 
 ## 5. Integration Tests
 
+> Not implemented yet (see §2) — the code below is the intended shape.
+
 ### 5.1 Repository Tests
 
 ```kotlin
@@ -859,30 +865,19 @@ fun Arb.Companion.ruleMatch(depth: Int = 3): Arb<RuleMatch> = arbitrary {
 ### 8.1 build.gradle.kts
 
 ```kotlin
+// server/transport/build.gradle.kts (actual) — versions come from gradle/libs.versions.toml
 dependencies {
-    testImplementation("io.kotest:kotest-runner-junit5:5.9.0")
-    testImplementation("io.kotest:kotest-assertions-core:5.9.0")
-    testImplementation("io.kotest:kotest-property:5.9.0")
-    testImplementation("io.mockk:mockk:1.13.10")
-    testImplementation("org.testcontainers:postgresql:1.19.0")
-    testImplementation("io.ktor:ktor-server-test-host:3.1.0")
+    testImplementation(libs.bundles.testing)          // Kotest runner/assertions/property, MockK, coroutines-test
+    testImplementation(libs.ktor.server.test.host)
 }
 
 tasks.test {
     useJUnitPlatform()
-    
-    // Exclude e2e tests by default
-    filter {
-        excludeTags("e2e")
-    }
-}
-
-tasks.register<Test>("e2eTest") {
-    useJUnitPlatform {
-        includeTags("e2e")
-    }
 }
 ```
+
+> `server:infra` and `server:app` add `libs.bundles.testcontainers`. There is no `e2e` tag filter
+> and no `e2eTest` task in the build; all tests run in `./gradlew build`.
 
 ### 8.2 Kotest Config
 

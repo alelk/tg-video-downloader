@@ -1,3 +1,10 @@
+---
+status: stable
+owner: Alex (alelk)
+updated: 2026-09-29
+related: [ PROJECT_CONTEXT.md, ../AGENTS.md, ADR/009-engineering-skills-baseline.md ]
+---
+
 # Architecture
 
 > **Purpose**: Module structure, KMP strategy, dependency rules, and design principles.
@@ -36,7 +43,6 @@ The project uses **Kotlin Multiplatform** to share code between the server (JVM)
 | `api:contract`     | `multiplatform` | `jvm`, `js` | DTOs shared via kotlinx.serialization                  |
 | `api:mapping`      | `multiplatform` | `jvm`, `js` | Mapping needed on both server and in features          |
 | `api:client`       | `multiplatform` | `jvm`, `js` | HTTP client works on both platforms                    |
-| `api:client:di`    | `multiplatform` | `jvm`, `js` | Koin modules for wiring the client per platform        |
 | `features`         | `multiplatform` | `jvm`, `js` | Compose UI shared between shell applications           |
 | `tgminiapp`        | `multiplatform` | `js`        | Telegram-specific shell, browser only                  |
 | `server:infra`     | `jvm`           | `jvm`       | DB, processes — JVM-only                               |
@@ -66,38 +72,24 @@ The project uses **Kotlin Multiplatform** to share code between the server (JVM)
 ### 2.1 Dependency Diagram
 
 ```
-                     ┌──────────────────┐
-                     │    tgminiapp     │  (JS only — Telegram shell)
-                     └────────┬─────────┘
-                              │
-                     ┌────────▼─────────┐
-                     │    features      │  (KMP — Compose Multiplatform UI)
-                     └────────┬─────────┘
-                              │
-              ┌───────────────┼────────────────┐
-              │               │                │
-              ▼               ▼                ▼
-      ┌──────────────┐ ┌──────────┐  ┌──────────────┐
-      │  api:client  │ │  domain  │  │ api:mapping  │
-      └──────┬───────┘ └────┬─────┘  └──────┬───────┘
-             │              │               │
-      ┌──────▼───────┐      │        ┌──────▼───────┐
-      │api:client:di │      │        │ api:contract │
-      └──────────────┘      │        └──────────────┘
-                            │
-          ┌─────────────────┼────────────────┐
-          │                 │                │
-          ▼                 ▼                ▼
-  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-  │server:transp.│ │ server:infra │ │  server:di   │
-  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
-         │                │                │
-         └────────────────┼────────────────┘
-                          │
-                   ┌──────▼──────┐
-                   │ server:app  │
-                   └─────────────┘
+Client side (KMP):
+  tgminiapp ──▶ features, api:client, api:contract
+  features  ──▶ domain, api:client, api:contract
+  api:client ─▶ api:contract
+  api:mapping ▶ domain, api:contract
+
+Server side (JVM):
+  server:app ───────▶ server:di, server:transport, server:infra, domain, api:contract
+  server:di ────────▶ server:transport, server:infra, domain
+  server:transport ─▶ domain, api:contract, api:mapping   (+ server:infra today, see note)
+  server:infra ─────▶ domain
+
+Test support:
+  domain:domain-test-fixtures ─▶ domain   (used by commonTest of domain)
 ```
+
+> Note: `server:transport` currently depends on `server:infra` — a violation of the rule in §2.3,
+> removed in Step 01 (stage 01.7, [`plans/step-01/`](plans/step-01/README.md)).
 
 ### 2.2 Module Descriptions
 
@@ -168,28 +160,8 @@ The project uses **Kotlin Multiplatform** to share code between the server (JVM)
 
 ---
 
-#### `api:client:di` — KMP (jvm, js)
-
-**Purpose**: Koin modules for wiring `api:client`.
-
-**Contains**: Koin module with `TgVideoDownloaderClient` factory, platform-specific Ktor engine (`expect/actual`).
-
-**Dependencies**: `api:client`, Koin core, Ktor Client engine.
-
-```kotlin
-// commonMain
-val apiClientModule = module {
-    single<TgVideoDownloaderClient> { TgVideoDownloaderClientImpl(get()) }
-}
-
-// jvmMain
-actual fun createPlatformHttpClient(config: ClientConfig): HttpClient =
-    HttpClient(CIO) { /* ... */ }
-
-// jsMain
-actual fun createPlatformHttpClient(config: ClientConfig): HttpClient =
-    HttpClient(Js) { /* ... */ }
-```
+> There is no `api:client:di` module. The Koin binding of `TgVideoDownloaderClient` (with the
+> Ktor `Js` engine, base URL and `initData` provider) lives in the shell — `tgminiapp/Main.kt`.
 
 ---
 
@@ -199,7 +171,7 @@ actual fun createPlatformHttpClient(config: ClientConfig): HttpClient =
 
 **Contains**: Screens, components, state holders / ViewModels, navigation.
 
-**Dependencies**: `domain`, `api:client`, `api:mapping`, Compose Multiplatform, Koin.
+**Dependencies**: `domain`, `api:contract`, `api:client`, Compose Multiplatform, Voyager, Koin.
 
 **Does NOT contain**: Platform-specific code (Telegram interop, Android Activity, etc.)
 
@@ -234,9 +206,9 @@ actual fun createPlatformHttpClient(config: ClientConfig): HttpClient =
 
 **Purpose**: Telegram Mini App shell (thin wrapper).
 
-**Contains**: `Main.kt`, `LocalStoragePreferences.kt`, TelegramWebApp interop, DI wiring.
+**Contains**: `Main.kt`, `LocalStoragePreferences.kt`, TelegramWebApp interop, DI wiring (including the API client).
 
-**Dependencies**: `features`, `api:client:di`, Compose HTML/Web runtime.
+**Dependencies**: `features`, `api:contract`, `api:client`, Compose Multiplatform (web), Koin.
 
 **Does NOT contain**: Business logic, screens, components — all of that lives in `features`.
 
@@ -248,7 +220,7 @@ actual fun createPlatformHttpClient(config: ClientConfig): HttpClient =
 
 #### `server:infra` — JVM only
 
-**Purpose**: Implementation of domain ports (DB, processes, filesystem, LLM).
+**Purpose**: Implementation of domain ports (DB, processes, filesystem). No LLM adapter exists yet — `LlmPort` has no implementation.
 
 **Contains**:
 - `db/` — tables, repositories, persistence models, mappings
@@ -257,10 +229,10 @@ actual fun createPlatformHttpClient(config: ClientConfig): HttpClient =
 - `config/` — configuration data classes
 
 **JobProcessor** — a background coroutine loop that:
-1. Polls the DB for `QUEUED` jobs (interval from `JobsConfig.pollIntervalMs`)
+1. Polls the DB for `PENDING` jobs (interval from `JobsConfig.pollIntervalMs`)
 2. Limits concurrency via `Semaphore(maxConcurrentDownloads)`
 3. Downloads video via `VideoDownloader.downloadWithProgress()` with progress updates
-4. Updates job status: `QUEUED → RUNNING → DONE / FAILED`
+4. Updates job status: `PENDING → DOWNLOADING → POST_PROCESSING → COMPLETED / FAILED` (`CANCELLED` on user cancel)
 5. Starts and stops automatically with the Ktor Application lifecycle
 
 **Dependencies**: `domain`, Exposed, Flyway, Ktor Client (JVM), kotlinx.serialization.
@@ -301,9 +273,8 @@ actual fun createPlatformHttpClient(config: ClientConfig): HttpClient =
 | `api:contract`     | Kotlin stdlib, kotlinx.serialization                   | domain, server:*, features     |
 | `api:mapping`      | domain, api:contract, Arrow                            | server:*, api:client, features |
 | `api:client`       | api:contract, Ktor Client                              | domain, server:*, features     |
-| `api:client:di`    | api:client, Koin, Ktor engine                          | domain, server:*, features     |
-| `features`         | domain, api:client, api:mapping, Compose, Koin         | server:*                       |
-| `tgminiapp`        | features, api:client:di                                | server:*, domain directly      |
+| `features`         | domain, api:contract, api:client, Compose, Koin        | server:*                       |
+| `tgminiapp`        | features, api:contract, api:client                     | server:*, domain directly      |
 | `server:infra`     | domain                                                 | api:*, transport, di, app      |
 | `server:transport` | domain, api:contract, api:mapping, Ktor Server         | infra, di, app, features       |
 | `server:di`        | domain, server:infra, server:transport, Koin           | api:*, app, features           |
@@ -334,7 +305,7 @@ See [CONFIGURATION.md](./CONFIGURATION.md).
 
 ### 3.4 KMP Source Set Conventions
 
-All reusable code goes in `commonMain`. Platform-specific code uses `expect/actual`.
+All reusable code goes in `commonMain`. Platform services are `commonMain` interfaces implemented in the shell and bound in its Koin module (e.g. `PreferencesStorage` → `LocalStoragePreferences`); the project has no hand-written `expect/actual`.
 
 Do NOT use JVM-only classes in `commonMain`:
 - `java.util.UUID` → `kotlin.uuid.Uuid`
@@ -352,12 +323,12 @@ rootProject.name = "tg-video-downloader"
 
 // === Domain (KMP) ===
 include(":domain")
+include(":domain:domain-test-fixtures")
 
 // === API (KMP) ===
 include(":api:contract")
 include(":api:mapping")
 include(":api:client")
-include(":api:client:di")
 
 // === Server (JVM only) ===
 include(":server:infra")
@@ -445,48 +416,8 @@ dependencies {
 
 ### 4.3 Versions (libs.versions.toml)
 
-```toml
-[versions]
-kotlin = "2.3.0"
-ktor = "3.1.0"
-exposed = "1.0.0"
-koin = "4.1.0"
-serialization = "1.8.0"
-coroutines = "1.10.0"
-arrow = "2.0.0"
-kotest = "6.0.0"
-logback = "1.5.0"
-flyway = "10.0.0"
-compose = "1.7.0"
-
-[libraries]
-ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
-ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
-ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
-ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
-ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
-exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
-exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
-exposed-json = { module = "org.jetbrains.exposed:exposed-json", version.ref = "exposed" }
-koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
-koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
-koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
-kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
-kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
-arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
-kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
-kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
-kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
-flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
-
-[plugins]
-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
-kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-compose = { id = "org.jetbrains.compose", version.ref = "compose" }
-compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-kotest = { id = "io.kotest", version.ref = "kotest" }
-```
+All dependency and plugin versions live only in [`gradle/libs.versions.toml`](../gradle/libs.versions.toml);
+the product version lives only in [`app.version`](../app.version). This document does not copy them.
 
 ---
 
@@ -526,7 +457,7 @@ See [ADR/007-interactive-preview-refinement.md](./ADR/007-interactive-preview-re
 ### 5.2 Job Execution Flow
 
 ```
-JobScheduler (polls QUEUED)
+JobProcessor.pollLoop (polls PENDING)
        │
        ▼
 JobProcessor
@@ -577,7 +508,7 @@ JobProcessor
 ### 6.1 Adding a New UI Platform
 
 1. Create a new shell module (`:desktopapp`, `:androidapp`, `:webapp`)
-2. Depend on: `features`, `api:client:di`
+2. Depend on: `features`, `api:client` (bind `TgVideoDownloaderClient` in the shell's Koin module)
 3. Implement platform-specific glue (entry point, DI setup)
 4. All screens and components are already in `features`
 

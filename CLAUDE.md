@@ -1,133 +1,48 @@
-# CLAUDE.md — Claude Code Quick Reference
+# CLAUDE.md
 
-> Companion to [AGENTS.md](./AGENTS.md). Read AGENTS.md first for full architecture context.
-> This file covers Claude Code-specific shortcuts, gotchas, and task recipes.
+> **Start here.** Cross-agent guide (modules, commands, rules): [`AGENTS.md`](AGENTS.md). Project
+> context: [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md). This file adds the current phase
+> and what is specific to Claude Code.
 
----
+## Current phase
 
-## Project in One Line
+**Step 01 — backward-compatible refactoring to the engineering-ai-skills baseline.**
+Plan: [`docs/plans/step-01-refactoring.md`](docs/plans/step-01-refactoring.md); stages and their
+statuses: [`docs/plans/step-01/README.md`](docs/plans/step-01/README.md) — the next stage is the
+first one not `done`. Executing a stage = follow the **Executor protocol** in that README exactly
+(strict order, no decisions beyond the plan, no drive-by fixes, executor notes, green build).
 
-Self-hosted video downloader (yt-dlp backend) with a Telegram Mini App UI.
-Stack: Kotlin 2.3 + Ktor 3 + Compose Multiplatform + PostgreSQL.
+Project history and known issues: [`docs/project-status.md`](docs/project-status.md) — read it
+before implementation work (not needed for a doc edit or a point fix).
 
----
+## Quick commands (Claude Code)
 
-## Quick Commands
+The gate is `./gradlew build` (see AGENTS.md). While iterating, narrower tasks are faster:
 
 ```bash
-./gradlew build                          # full build (all targets)
-./gradlew check                          # all tests (commonTest + jvmTest + jsTest)
-./gradlew :server:app:run                # run server
-./gradlew :tgminiapp:jsBrowserDevelopmentRun  # run UI (dev mode)
-docker compose up -d postgres            # DB only
-docker compose up -d                     # everything
+./gradlew :domain:jvmTest                 # domain use-cases and models (commonTest, run on JVM)
+./gradlew :api:contract:jvmTest           # contract serialization tests
+./gradlew :server:infra:test              # server infra tests (JVM)
+./gradlew :domain:compileTestKotlinJs     # commonMain/commonTest purity (no java.*)
 ```
 
----
+- A full build takes minutes: run it in the background with `--console=plain`, output to a log.
+- Read git state with `git --no-optional-locks status` in automation (no stray `index.lock`).
 
-## Module Map (Where to Find Things)
+## Skills
 
-| What                          | Where                                           |
-|-------------------------------|-------------------------------------------------|
-| Domain models, use-cases      | `domain/src/commonMain/`                        |
-| HTTP DTOs                     | `api/contract/src/commonMain/`                  |
-| Domain ↔ DTO mapping          | `api/mapping/src/commonMain/`                   |
-| Ktor HTTP client              | `api/client/src/commonMain/`                    |
-| Compose UI screens/components | `features/src/commonMain/`                      |
-| DB repositories, yt-dlp       | `server/infra/src/main/`                        |
-| Ktor routes, auth middleware  | `server/transport/src/main/`                    |
-| DI wiring (server)            | `server/di/src/main/`                           |
-| Entrypoint                    | `server/app/src/main/`                          |
-| Telegram Mini App shell       | `tgminiapp/src/jsMain/`                         |
-| yt-dlp arg reference          | `docs/ai/yt-dlp-cheatsheet.md`                  |
-| Dependency versions           | `gradle/libs.versions.toml`                     |
-| DB migrations                 | `server/infra/src/main/resources/db/migration/` |
+`.claude/skills/` loads by description; it is a local, git-ignored copy — never edit it (see
+AGENTS.md → Skills). Project exceptions to the skills: [ADR-009](docs/ADR/009-engineering-skills-baseline.md).
+Don't restate skill rules in prompts or docs — link the skill or the ADR.
 
----
+## Doc-first workflow
 
-## Hard Rules (Compiler Won't Catch These)
+1. Work only from `stable` documents (plan, stage file, ADR). 2. Implement the slice from the docs
++ skills. 3. `./gradlew build` green + the stage's Checks. 4. Code and docs disagree → stop and ask;
+the doc changes first. 5. Commit only when asked; Conventional Commits.
 
-1. **No JVM types in `commonMain`** — use `kotlin.uuid.Uuid`, `kotlin.time.Instant`, `kotlin.time.Duration`; custom
-   `LocalDate`, `Url`, `FilePath` value classes from `domain/common/`
-2. **No exceptions for business errors** — return `Either<DomainError, T>` from use-cases and mapping
-3. **Transactions** — wrap writes in `txRunner.inRwTransaction {}`, reads in `inRoTransaction {}`; never put long I/O (
-   LLM, yt-dlp) inside a transaction block
-4. **No Ktor/DB in `domain`** — `domain` depends only on stdlib, Arrow, coroutines
-5. **No UI in `tgminiapp`** — all screens/components live in `features`; `tgminiapp` is just shell + DI
+## Domain names most often confused
 
----
-
-## Common Task Recipes
-
-### New endpoint
-
-1. DTO → `api/contract` (`commonMain`)
-2. Route → `server/transport`
-3. Use-case → `domain` (if business logic; inject `TransactionRunner`)
-4. Tests → `commonTest` (domain) + `jvmTest` (route)
-5. Update `docs/API_CONTRACT.md`
-
-### New domain type (sealed hierarchy)
-
-Order matters — inner layers first:
-
-1. `domain/commonMain` — sealed class/interface
-2. `api/contract/commonMain` — sealed DTO with `@SerialName`
-3. `api/mapping/commonMain` — bidirectional mapping
-4. `commonTest` — tests
-5. `features` — UI
-
-### New category
-
-When adding a new `Category` value, cascade through:
-`Category enum` → `ResolvedMetadata` (sealed) → `MetadataTemplate` (sealed) → DTOs → mapping → `MetadataResolver` → UI
-
-### Add a field to `Job` or `Rule`
-
-DB migration in `server/infra/.../db/migration/` (Flyway, sequential numbering).
-Update Exposed table object → persistence model (`*Pm`) → domain mapping.
-`server:infra` does NOT depend on `api:contract` — DB models are separate from API DTOs.
-
----
-
-## Key Types Cheatsheet
-
-```
-DomainError          — sealed interface, all business errors (domain/common/)
-TransactionRunner    — interface; NoopTransactionRunner for tests (domain/tx/)
-VideoInfo            — yt-dlp extraction result (domain/video/)
-ResolvedMetadata     — sealed: MusicVideo | SeriesEpisode | Other (domain/metadata/)
-MetadataTemplate     — sealed: same variants, used in Rule (domain/metadata/)
-StoragePlan          — original + additional output targets (domain/storage/)
-OutputFormat         — sealed: OriginalVideo | ConvertedVideo | Audio | Thumbnail (domain/storage/)
-RuleMatch            — sealed match criteria: ChannelId | ChannelName | HasTag | TitleRegex | ... (domain/rule/)
-UserOverrides        — sealed user edits in preview: MusicVideo | SeriesEpisode | Other (domain/preview/)
-PreviewUseCase       — orchestrates: yt-dlp cache → rule match → LLM → overrides (domain/preview/)
-```
-
----
-
-## Testing Conventions
-
-- **KMP domain/mapping tests**: `commonTest`, Kotest `FunSpec`, no MockK — use fake implementations
-- **JVM server tests**: `jvmTest`, MockK allowed, Testcontainers for PostgreSQL
-- **Route tests**: Ktor `testApplication`, use `X-Telegram-Init-Data: dev` with `devMode = true`
-- **Transaction in tests**: `NoopTransactionRunner()` — executes block inline, no DB required
-- Run tests: `./gradlew check` (excludes `e2e` tag by default)
-
----
-
-## Docs Quick-Reference
-
-| Topic                     | File                           |
-|---------------------------|--------------------------------|
-| Architecture + data flows | `docs/ARCHITECTURE.md`         |
-| All domain models         | `docs/DOMAIN.md`               |
-| Full API spec             | `docs/API_CONTRACT.md`         |
-| DB schema + migrations    | `docs/DATABASE.md`             |
-| Config schema (YAML/env)  | `docs/CONFIGURATION.md`        |
-| Auth + security           | `docs/SECURITY.md`             |
-| Test examples             | `docs/TESTING.md`              |
-| Deployment                | `docs/DEPLOYMENT.md`           |
-| Architecture decisions    | `docs/ADR/`                    |
-| yt-dlp arg reference      | `docs/ai/yt-dlp-cheatsheet.md` |
+`Channel` vs `ChannelId`, `MetadataTemplate` vs `ResolvedMetadata` vs `UserOverrides`, domain
+`*Request` vs `*RequestDto`, job statuses — see
+[PROJECT_CONTEXT §8](docs/PROJECT_CONTEXT.md#8-terminology-pitfalls).

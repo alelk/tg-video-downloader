@@ -1,221 +1,84 @@
-# AGENTS.md — Instructions for AI Agents
+# AGENTS.md
 
-> **Purpose**: This is the primary instruction file for AI agents working with this project.
-> Humans may read it too, but the main documentation lives in `docs/`.
+Working guide for AI agents (Claude Code, Codex, Junie…). Full context:
+**[`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md)**. Current phase: [`CLAUDE.md`](CLAUDE.md) →
+"Current phase" — read it before each task.
 
----
+## What this is
 
-## 🎯 Project Overview
+TG Video Downloader — a self-hosted **home** service (one instance, 1–5 users) that downloads
+videos with `yt-dlp` (+ `ffmpeg` post-processing) and is operated through a Telegram Mini App.
+Kotlin Multiplatform: Ktor server + PostgreSQL, Compose Multiplatform UI compiled to JS.
+Versions only in `gradle/libs.versions.toml`; product version only in `app.version`.
 
-**TG Video Downloader** — a self-hosted service for downloading videos from various platforms
-(YouTube, RuTube, VK Video, and [1000+ others](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md))
-managed through a Telegram Mini App. Supports LLM (Gemini/OpenAI) for metadata extraction and HTTP/SOCKS5 proxies.
+## Modules
 
-**Stack**: Kotlin 2.3+ (Multiplatform), Ktor 3, Compose Multiplatform, PostgreSQL, yt-dlp.
+| Path                     | What                                                            | Targets |
+|--------------------------|-----------------------------------------------------------------|---------|
+| `domain/`                | entities, ports, use-cases, `DomainError`, `TransactionRunner` | jvm, js |
+| `domain/domain-test-fixtures/` | Kotest `Arb` generators for tests                         | jvm, js |
+| `api/contract/`          | HTTP DTOs (kotlinx.serialization)                               | jvm, js |
+| `api/mapping/`           | domain ↔ DTO mapping                                            | jvm, js |
+| `api/client/`            | Ktor HTTP client `TgVideoDownloaderClient`                      | jvm, js |
+| `features/`              | all Compose screens/components, Koin `FeaturesModule`           | jvm, js |
+| `tgminiapp/`             | Telegram Mini App shell: entrypoint, DI, Telegram interop       | js      |
+| `server/infra/`          | Exposed repositories, Flyway migrations, yt-dlp/ffmpeg, `JobProcessor`, config | jvm |
+| `server/transport/`      | Ktor routes, `initData` auth, error mapping                     | jvm     |
+| `server/di/`             | server Koin modules                                             | jvm     |
+| `server/app/`            | `Application.kt` entrypoint, Telegram bot, `application.yaml`   | jvm     |
 
----
+Web target is `js(IR)` (no wasm). LLM adapters don't exist yet: `LlmPort` is declared in
+`domain`, nothing implements it.
 
-## 📚 Where to Find Information
+## Commands
 
-| What you need                  | Where to look                                                    |
-|--------------------------------|------------------------------------------------------------------|
-| Project overview               | [`README.md`](./README.md)                                       |
-| Claude Code quick reference    | [`CLAUDE.md`](./CLAUDE.md)                                       |
-| Architecture, KMP, modules     | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)                 |
-| Domain models (sealed classes) | [`docs/DOMAIN.md`](./docs/DOMAIN.md)                             |
-| HTTP API and DTOs              | [`docs/API_CONTRACT.md`](./docs/API_CONTRACT.md)                 |
-| Database                       | [`docs/DATABASE.md`](./docs/DATABASE.md)                         |
-| Configuration                  | [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md)               |
-| Security and authorization     | [`docs/SECURITY.md`](./docs/SECURITY.md)                         |
-| Testing                        | [`docs/TESTING.md`](./docs/TESTING.md)                           |
-| Deployment                     | [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)                     |
-| Architecture decisions         | [`docs/ADR/`](./docs/ADR/)                                       |
-| yt-dlp args reference          | [`docs/ai/yt-dlp-cheatsheet.md`](./docs/ai/yt-dlp-cheatsheet.md) |
-
----
-
-## 🏗️ Module Structure
-
-```
-tg-video-downloader/
-├── domain/              # Domain models, use-cases (KMP: jvm, js)
-├── api/
-│   ├── contract/        # HTTP API DTOs (KMP: jvm, js)
-│   ├── mapping/         # Domain ↔ DTO mapping (KMP: jvm, js)
-│   ├── client/          # Ktor HTTP client (KMP: jvm, js)
-│   └── client/di/       # Koin modules for API client (KMP: jvm, js)
-├── features/            # UI components, Compose Multiplatform (KMP: jvm, js)
-├── tgminiapp/           # Telegram Mini App shell (JS only)
-├── server/
-│   ├── infra/           # Repositories, DB, yt-dlp, ffmpeg, LLM (JVM only)
-│   ├── transport/       # Ktor routing, auth middleware (JVM only)
-│   ├── di/              # Server Koin modules (JVM only)
-│   └── app/             # Entrypoint, Application.kt (JVM only)
-└── docs/                # Documentation
+```bash
+docker compose up -d postgres              # local PostgreSQL 16 on localhost:5433
+./gradlew build                            # THE gate: compiles all targets, runs all tests
+./gradlew :server:app:run                  # run the server
+./gradlew :tgminiapp:jsBrowserDevelopmentRun   # run the Mini App UI (dev)
 ```
 
-**KMP rule**: `domain`, `api:*`, `features` — Kotlin Multiplatform (jvm + js). `server:*` — JVM only. `tgminiapp` — JS
-only.
+`./gradlew build` is the only gate — a change is done when it is green. There is no other
+aggregate test task to run.
 
----
+## Rules
 
-## ⚡ Key Principles
+- **Compatibility is a contract** ([ADR-009](docs/ADR/009-engineering-skills-baseline.md#compatibility-contract)):
+  routes, JSON fields/types/discriminators/defaults, error codes and statuses, config keys and env
+  variables, image names, ports and volumes change only by **addition**.
+- Migrations `V1…V8` in `server/infra/src/main/resources/db/migration/` are never edited; schema
+  changes go into a new `V9+`.
+- Dependencies point inward; `domain` knows only stdlib, Arrow, coroutines; `server:infra` never
+  depends on `api:*` (`*Pm` models are separate from DTOs) — skill `kotlin-clean-architecture`.
+- No `java.*` in `commonMain`: `kotlin.uuid.Uuid`, `kotlin.time.Instant/Duration`, project value
+  classes — skill `kmp-architecture`.
+- Business errors are `Either<DomainError, T>`, never exceptions; DTO → domain mapping never
+  throws — skills `kotlin-domain-modeling`, `ktor-api-contract`.
+- Writes in `txRunner.inRwTransaction {}`, reads in `inRoTransaction {}`; never yt-dlp, ffmpeg,
+  LLM or HTTP inside a transaction block — skill `exposed-postgres`.
+- No UI in `tgminiapp` — screens and components live in `features` — skill `telegram-miniapp`.
+- Never log `initData`, the bot token or other secrets.
+- Bug → failing test first. Never weaken, skip or delete a test to get green. A red fitness test
+  (API surface, conventions, schema) means: fix the code; `KNOWN_*` lists only shrink.
+- Commits only when the owner asks; Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`,
+  `build:`, `docs:`), never `!` or `BREAKING CHANGE` (semantic-release would bump major).
 
-### 1. Kotlin Multiplatform
+## Never
 
-- All reusable code goes in the `commonMain` source set
-- Platform-specific code via `expect/actual`
-- `java.util.UUID` → `kotlin.uuid.Uuid` (Kotlin 2.0+)
-- `java.time.*` → `kotlin.time.Instant` (in stdlib since Kotlin 2.1.20+)
-- Do NOT use JVM-only classes in `commonMain`
+- Inline a dependency version or the product version.
+- Implement from a `draft` document or decide beyond the current plan — ask the owner.
+- Fix things outside the task at hand — record them instead.
+- Invent deploy commands or config keys.
 
-### 2. Kotlin Idioms
+## Skills
 
-- **Sealed classes** for polymorphic types (`RuleMatch`, `ResolvedMetadata`, `MetadataTemplate`, `UserOverrides`,
-  `OutputFormat`, `DomainError`)
-- **Value classes** for typesafe IDs and value objects (`VideoId`, `RuleId`, `JobId`, `ChannelDirectoryEntryId`, `Tag`,
-  `Url`, `FilePath`, `LocalDate`, `Extractor`)
-- **Data classes** for DTOs and value objects
-- **Either<Error, T>** for error handling (Arrow)
-- **Coroutines** for async operations
-- **`val` (extension property)** for cheap computed values instead of `fun` with no arguments
+Code conventions ("how to write it") are the skills in `.claude/skills/`. They are a **local,
+git-ignored copy** (excluded via `.git/info/exclude`) of the
+[`engineering-ai-skills`](https://github.com/alelk/engineering-ai-skills) catalogue — **never edit
+them here**; change the catalogue instead. Where this project deviates from a skill, the deviation
+is recorded in [ADR-009](docs/ADR/009-engineering-skills-baseline.md) and ADR-009 wins.
 
-### 3. Layer Separation
-
-```
-UI Shell (tgminiapp) → features (Compose)
-                            ↓
-              api:client → api:contract
-                            ↓
-              api:mapping → domain
-                            ↓
-              server:transport → server:infra (DB, yt-dlp, LLM, Proxy)
-```
-
-### 4. Contract-First & Workspace-Scoped API
-
-- Define DTOs in `api:contract` before implementing
-- Use `type` discriminator for sealed DTOs in JSON
-- All domain resources are scoped to workspace: `/api/v1/workspaces/{workspaceId}/...`
-- API versioning via `/api/v1/`, `/api/v2/`
-
----
-
-## 📝 Implementation Guidelines
-
-### Creating a new KMP module
-
-1. Add to `settings.gradle.kts`
-2. Use `kotlin("multiplatform")` plugin
-3. Declare targets: `jvm()`, `js(IR) { browser() }`
-4. All code in `commonMain`, platform-specific via `expect/actual`
-
-### Adding a new type to a sealed hierarchy
-
-1. Add to domain (`commonMain`)
-2. Add to DTO (`api:contract`, `commonMain`) with `@SerialName`
-3. Add mapping (`api:mapping`, `commonMain`)
-4. Add tests (`commonTest`)
-5. Update UI (`features`)
-
-### Creating a new endpoint
-
-1. Define DTO in `api:contract`
-2. Add route in `server:transport`
-3. Implement use-case in `domain` (if business logic is needed)
-    - Inject `TransactionRunner`; use `inRwTransaction` for writes, `inRoTransaction` for reads
-    - Expose a single `suspend operator fun invoke(...)` method
-4. Add tests
-5. Update [API_CONTRACT.md](./docs/API_CONTRACT.md)
-
-### Working with errors
-
-- In domain: return `Either<DomainError, T>`
-- In mapping: return `Either<ValidationError, T>`
-- In transport: map `DomainError` → HTTP status + `ApiErrorDto`
-- Never use exceptions for business errors
-
-### Use Case conventions
-
-- One class = one use case
-- Single public method: `suspend operator fun invoke(...)`  — call sites use `useCase(args)` syntax
-- Always inject `TransactionRunner txRunner`; wrap business logic in `txRunner.inRwTransaction { }` or
-  `txRunner.inRoTransaction { }`
-- In tests: use `NoopTransactionRunner()` from `domain/tx`
-
----
-
-## 🔑 Important Implementation Details
-
-### LlmPort (Optional)
-
-```kotlin
-// domain/metadata/LlmPort.kt (commonMain)
-interface LlmPort {
-    suspend fun suggestMetadata(video: VideoInfo): Either<DomainError.LlmError, LlmSuggestion>
-}
-```
-
-Implementations (`GeminiLlmAdapter`, `OpenAiLlmAdapter`) live in `server:infra/llm/`.
-Injected as nullable (`getOrNull()`). If LLM is not configured — `null`, fallback to `MetadataResolver`.
-
-### Proxy
-
-`ProxyConfig` is used in:
-
-- `yt-dlp` → `--proxy` argument
-- LLM HTTP client → `Ktor Client` engine proxy config
-
-### Save as Rule
-
-When creating a job (`POST /api/v1/jobs`), you can pass `saveAsRule`
-to automatically create a rule for this channel from the current metadata.
-
-### features → tgminiapp
-
-`features` contains all Compose UI components. `tgminiapp` is a thin shell that:
-
-- Initializes DI (Koin)
-- Connects `features` screens
-- Provides Telegram WebApp JS interop
-
----
-
-## ✅ Pre-Commit Checklist
-
-- [ ] Code compiles on all targets (`./gradlew build`)
-- [ ] Tests pass (`./gradlew allTests`)
-- [ ] New code in `commonMain` does not use JVM-only classes
-- [ ] Documentation is updated
-- [ ] No hardcoded secrets
-- [ ] Follows principles from ADR
-
----
-
-## 🚫 What NOT to Do
-
-- ❌ Do not add JVM-only dependencies to `commonMain` of KMP modules
-- ❌ Do not add Ktor/DB dependencies to `domain`
-- ❌ Do not use exceptions for business errors
-- ❌ Do not hardcode paths and configuration
-- ❌ Do not log sensitive data (botToken, initData)
-- ❌ Do not create circular dependencies between modules
-- ❌ Do not place UI components in `tgminiapp` — only in `features`
-
----
-
-## 📎 Quick Reference
-
-- **Gradle commands**:
-    - `./gradlew build` — full build of all modules
-    - `./gradlew check` — all tests (commonTest + jvmTest + jsTest)
-    - `./gradlew :server:app:run` — run the server
-    - `./gradlew :tgminiapp:jsBrowserDevelopmentRun` — run the UI
-
-- **Docker**:
-    - `docker compose up -d postgres` — database only
-    - `docker compose up -d` — everything
-
-- **Useful files**:
-    - `docs/ADR/` — architecture decision records
-    - `gradle/libs.versions.toml` — dependency versions
+Installing the copy on a new machine: Option C ("Project-level install") of the catalogue's
+[`INSTALL.md`](https://github.com/alelk/engineering-ai-skills/blob/main/docs/ai/skills/INSTALL.md),
+for the 15 skills listed in ADR-009.
