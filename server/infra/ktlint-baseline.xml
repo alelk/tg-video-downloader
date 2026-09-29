@@ -36,15 +36,6 @@
         <error line="5" column="45" source="standard:class-signature" />
         <error line="8" column="1" source="standard:no-consecutive-blank-lines" />
     </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/infra/db/ExposedTransactionRunner.kt">
-        <error line="29" column="93" source="standard:function-signature" />
-        <error line="36" column="93" source="standard:function-signature" />
-        <error line="44" column="1" source="standard:no-consecutive-blank-lines" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/infra/db/dbQuery.kt">
-        <error line="1" column="1" source="standard:filename" />
-        <error line="9" column="82" source="standard:function-signature" />
-    </file>
     <file name="src/main/kotlin/io/github/alelk/tgvd/server/infra/db/jsonb.kt">
         <error line="1" column="1" source="standard:filename" />
         <error line="12" column="1" source="standard:no-consecutive-blank-lines" />
@@ -62,10 +53,6 @@
         <error line="6" column="55" source="standard:function-signature" />
         <error line="15" column="59" source="standard:function-signature" />
         <error line="26" column="1" source="standard:no-consecutive-blank-lines" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/infra/db/mapping/instant.kt">
-        <error line="1" column="1" source="standard:filename" />
-        <error line="5" column="30" source="standard:function-signature" />
     </file>
     <file name="src/main/kotlin/io/github/alelk/tgvd/server/infra/db/mapping/jobStatus.kt">
         <error line="1" column="1" source="standard:filename" />
@@ -198,58 +185,6 @@
         <error line="48" column="5" source="standard:class-signature" />
         <error line="49" column="5" source="standard:class-signature" />
         <error line="49" column="29" source="standard:class-signature" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/infra/db/repository/ChannelRepositoryImpl.kt">
-        <error line="20" column="1" source="standard:no-unused-imports" />
-        <error line="21" column="1" source="standard:no-unused-imports" />
-        <error line="38" column="86" source="standard:function-signature" />
-        <error line="54" column="86" source="standard:function-signature" />
-        <error line="71" column="5" source="standard:class-signature" />
-        <error line="71" column="36" source="standard:class-signature" />
-        <error line="113" column="9" source="standard:function-signature" />
-        <error line="114" column="9" source="standard:function-signature" />
-        <error line="115" column="9" source="standard:function-signature" />
-        <error line="115" column="27" source="standard:function-signature" />
-        <error line="116" column="24" source="standard:function-signature" />
-        <error line="122" column="35" source="standard:multiline-if-else" />
-        <error line="123" column="26" source="standard:multiline-if-else" />
-        <error line="176" column="1" source="standard:no-consecutive-blank-lines" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/infra/db/repository/JobOutputRepositoryImpl.kt">
-        <error line="17" column="5" source="standard:class-signature" />
-        <error line="17" column="36" source="standard:class-signature" />
-        <error line="45" column="1" source="standard:no-consecutive-blank-lines" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/infra/db/repository/JobRepositoryImpl.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="6" column="1" source="standard:no-wildcard-imports" />
-        <error line="7" column="1" source="standard:no-wildcard-imports" />
-        <error line="11" column="1" source="standard:no-wildcard-imports" />
-        <error line="32" column="5" source="standard:class-signature" />
-        <error line="32" column="36" source="standard:class-signature" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/infra/db/repository/RuleRepositoryImpl.kt">
-        <error line="32" column="5" source="standard:class-signature" />
-        <error line="32" column="36" source="standard:class-signature" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/infra/db/repository/VideoInfoCacheImpl.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="24" column="1" source="standard:no-unused-imports" />
-        <error line="39" column="22" source="standard:wrapping" />
-        <error line="41" column="41" source="standard:argument-list-wrapping" />
-        <error line="41" column="72" source="standard:argument-list-wrapping" />
-        <error line="41" column="117" source="standard:argument-list-wrapping" />
-        <error line="41" column="121" source="standard:max-line-length" />
-        <error line="41" column="122" source="standard:argument-list-wrapping" />
-        <error line="41" column="162" source="standard:argument-list-wrapping" />
-        <error line="41" column="163" source="standard:argument-list-wrapping" />
-        <error line="41" column="164" source="standard:trailing-comma-on-call-site" />
-        <error line="42" column="25" source="standard:wrapping" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/infra/db/repository/WorkspaceRepositoryImpl.kt">
-        <error line="28" column="1" source="standard:spacing-between-declarations-with-annotations" />
-        <error line="30" column="5" source="standard:class-signature" />
-        <error line="30" column="36" source="standard:class-signature" />
     </file>
     <file name="src/main/kotlin/io/github/alelk/tgvd/server/infra/db/table/ChannelsTable.kt">
         <error line="26" column="1" source="standard:no-consecutive-blank-lines" />
@@ -414,103 +349,6 @@
         <error line="101" column="118" source="standard:argument-list-wrapping" />
         <error line="101" column="121" source="standard:max-line-length" />
         <error line="113" column="1" source="standard:no-consecutive-blank-lines" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/infra/service/JobProcessor.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="11" column="1" source="standard:no-unused-imports" />
-        <error line="13" column="1" source="standard:no-unused-imports" />
-        <error line="25" column="1" source="standard:no-wildcard-imports" />
-        <error line="55" column="21" source="standard:function-literal" />
-        <error line="55" column="22" source="standard:wrapping" />
-        <error line="55" column="121" source="standard:max-line-length" />
-        <error line="55" column="136" source="standard:function-literal" />
-        <error line="100" column="46" source="standard:function-literal" />
-        <error line="100" column="82" source="standard:argument-list-wrapping" />
-        <error line="100" column="99" source="standard:argument-list-wrapping" />
-        <error line="100" column="113" source="standard:argument-list-wrapping" />
-        <error line="100" column="121" source="standard:max-line-length" />
-        <error line="100" column="125" source="standard:argument-list-wrapping" />
-        <error line="100" column="127" source="standard:function-literal" />
-        <error line="118" column="29" source="standard:function-literal" />
-        <error line="118" column="121" source="standard:max-line-length" />
-        <error line="118" column="136" source="standard:function-literal" />
-        <error line="127" column="57" source="standard:no-multi-spaces" />
-        <error line="128" column="52" source="standard:no-multi-spaces" />
-        <error line="133" column="121" source="standard:max-line-length" />
-        <error line="139" column="25" source="standard:multiline-if-else" />
-        <error line="139" column="77" source="standard:multiline-if-else" />
-        <error line="148" column="53" source="standard:condition-wrapping" />
-        <error line="150" column="70" source="standard:wrapping" />
-        <error line="151" column="54" source="standard:argument-list-wrapping" />
-        <error line="151" column="70" source="standard:argument-list-wrapping" />
-        <error line="151" column="82" source="standard:argument-list-wrapping" />
-        <error line="151" column="98" source="standard:argument-list-wrapping" />
-        <error line="151" column="109" source="standard:argument-list-wrapping" />
-        <error line="151" column="121" source="standard:max-line-length" />
-        <error line="151" column="127" source="standard:argument-list-wrapping" />
-        <error line="164" column="49" source="standard:function-literal" />
-        <error line="164" column="50" source="standard:wrapping" />
-        <error line="164" column="121" source="standard:max-line-length" />
-        <error line="164" column="180" source="standard:function-literal" />
-        <error line="184" column="121" source="standard:max-line-length" />
-        <error line="196" column="33" source="standard:function-literal" />
-        <error line="196" column="34" source="standard:wrapping" />
-        <error line="196" column="121" source="standard:max-line-length" />
-        <error line="196" column="143" source="standard:function-literal" />
-        <error line="224" column="37" source="standard:function-literal" />
-        <error line="224" column="121" source="standard:max-line-length" />
-        <error line="224" column="124" source="standard:function-literal" />
-        <error line="252" column="25" source="standard:function-literal" />
-        <error line="252" column="26" source="standard:wrapping" />
-        <error line="252" column="27" source="standard:statement-wrapping" />
-        <error line="253" column="121" source="standard:max-line-length" />
-        <error line="270" column="9" source="standard:function-signature" />
-        <error line="271" column="9" source="standard:function-signature" />
-        <error line="272" column="9" source="standard:function-signature" />
-        <error line="272" column="30" source="standard:function-signature" />
-        <error line="274" column="21" source="standard:function-literal" />
-        <error line="274" column="22" source="standard:wrapping" />
-        <error line="274" column="121" source="standard:max-line-length" />
-        <error line="274" column="130" source="standard:function-literal" />
-        <error line="289" column="43" source="standard:argument-list-wrapping" />
-        <error line="289" column="57" source="standard:argument-list-wrapping" />
-        <error line="289" column="70" source="standard:argument-list-wrapping" />
-        <error line="289" column="88" source="standard:argument-list-wrapping" />
-        <error line="289" column="110" source="standard:argument-list-wrapping" />
-        <error line="289" column="121" source="standard:max-line-length" />
-        <error line="289" column="133" source="standard:argument-list-wrapping" />
-        <error line="289" column="154" source="standard:argument-list-wrapping" />
-        <error line="292" column="52" source="standard:argument-list-wrapping" />
-        <error line="292" column="121" source="standard:max-line-length" />
-        <error line="292" column="137" source="standard:argument-list-wrapping" />
-        <error line="304" column="52" source="standard:argument-list-wrapping" />
-        <error line="304" column="121" source="standard:max-line-length" />
-        <error line="304" column="139" source="standard:argument-list-wrapping" />
-        <error line="324" column="43" source="standard:string-template" />
-        <error line="324" column="51" source="standard:string-template" />
-        <error line="350" column="43" source="standard:string-template" />
-        <error line="350" column="51" source="standard:string-template" />
-        <error line="404" column="62" source="standard:no-multi-spaces" />
-        <error line="405" column="50" source="standard:no-multi-spaces" />
-        <error line="409" column="25" source="standard:condition-wrapping" />
-        <error line="421" column="25" source="standard:condition-wrapping" />
-        <error line="426" column="25" source="standard:function-literal" />
-        <error line="426" column="121" source="standard:max-line-length" />
-        <error line="426" column="131" source="standard:function-literal" />
-        <error line="433" column="25" source="standard:function-literal" />
-        <error line="433" column="26" source="standard:wrapping" />
-        <error line="433" column="121" source="standard:max-line-length" />
-        <error line="433" column="137" source="standard:function-literal" />
-        <error line="433" column="147" source="standard:function-literal" />
-        <error line="433" column="151" source="standard:function-literal" />
-        <error line="437" column="22" source="standard:function-literal" />
-        <error line="437" column="23" source="standard:wrapping" />
-        <error line="437" column="120" source="standard:max-line-length" />
-        <error line="437" column="131" source="standard:function-literal" />
-        <error line="437" column="141" source="standard:function-literal" />
-        <error line="437" column="145" source="standard:function-literal" />
-        <error line="459" column="25" source="standard:condition-wrapping" />
-        <error line="467" column="46" source="standard:no-multi-spaces" />
     </file>
     <file name="src/test/kotlin/io/github/alelk/tgvd/server/infra/process/YtDlpRunnerTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />

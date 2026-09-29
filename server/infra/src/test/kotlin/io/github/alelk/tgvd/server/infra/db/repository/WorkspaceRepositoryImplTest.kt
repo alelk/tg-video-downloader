@@ -26,9 +26,9 @@ class WorkspaceRepositoryImplTest :
     FunSpec({
         val db = PostgresTestContainer.newMigratedDatabase().database
         val tx = ExposedTransactionRunner(db)
-        val repository = WorkspaceRepositoryImpl(db)
+        val repository = WorkspaceRepositoryImpl()
 
-        // created_at is set by the database on insert; the repository does not write it.
+        // created_at / joined_at are the values of the saved objects (the use-case clock); normalised to T0.
         fun Workspace.withoutCreatedAt() = copy(createdAt = T0)
 
         fun WorkspaceMember.withoutJoinedAt() = copy(joinedAt = T0)

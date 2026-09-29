@@ -2,27 +2,37 @@ package io.github.alelk.tgvd.server.infra.service
 
 import io.github.alelk.tgvd.domain.channel.ChannelRepository
 import io.github.alelk.tgvd.domain.common.FilePath
+import io.github.alelk.tgvd.domain.common.JobId
 import io.github.alelk.tgvd.domain.job.JobOutput
 import io.github.alelk.tgvd.domain.job.JobOutputRepository
 import io.github.alelk.tgvd.domain.job.JobPhase
 import io.github.alelk.tgvd.domain.job.JobRepository
 import io.github.alelk.tgvd.domain.job.JobStatus
-import io.github.alelk.tgvd.domain.video.DownloadEvent
-import io.github.alelk.tgvd.domain.video.DownloadProgress
-import io.github.alelk.tgvd.domain.video.VideoDownloader
-import io.github.alelk.tgvd.domain.video.VideoInfo
-import io.github.alelk.tgvd.domain.video.VideoInfoCache
 import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.rule.RuleRepository
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
-import io.github.alelk.tgvd.domain.storage.effectiveDownloadPolicy
 import io.github.alelk.tgvd.domain.storage.OutputFormat
 import io.github.alelk.tgvd.domain.storage.OutputTarget
 import io.github.alelk.tgvd.domain.storage.VideoEncodeSettings
+import io.github.alelk.tgvd.domain.storage.effectiveDownloadPolicy
+import io.github.alelk.tgvd.domain.tx.TransactionRunner
+import io.github.alelk.tgvd.domain.video.DownloadEvent
+import io.github.alelk.tgvd.domain.video.VideoDownloader
+import io.github.alelk.tgvd.domain.video.VideoInfo
+import io.github.alelk.tgvd.domain.video.VideoInfoCache
 import io.github.alelk.tgvd.server.infra.config.JobsConfig
 import io.github.alelk.tgvd.server.infra.process.FfmpegRunner
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import java.io.File
 import java.nio.file.Files
@@ -37,7 +47,12 @@ private val logger = KotlinLogging.logger {}
  * Background job processor that polls for pending jobs and executes downloads.
  *
  * Lifecycle: [start] launches a coroutine loop, [stop] cancels it gracefully.
+ *
+ * Transactions: the processor runs outside any use-case, so it opens them itself through [txRunner] —
+ * every read a short read-only transaction, every write a short read-write one. yt-dlp, ffmpeg and file
+ * work always run outside a transaction.
  */
+@Suppress("LongParameterList") // ports, runners and config of one background service; splitting it is Not in (Step 01)
 class JobProcessor(
     private val jobRepository: JobRepository,
     private val jobOutputRepository: JobOutputRepository,
@@ -47,12 +62,17 @@ class JobProcessor(
     private val videoInfoCache: VideoInfoCache,
     private val ffmpegRunner: FfmpegRunner,
     private val config: JobsConfig,
+    private val txRunner: TransactionRunner,
+    private val clock: Clock,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("JobProcessor"))
     private val semaphore = Semaphore(config.maxConcurrentDownloads)
 
     fun start() {
-        logger.info { "JobProcessor started (maxConcurrent=${config.maxConcurrentDownloads}, pollInterval=${config.pollIntervalMs}ms)" }
+        logger.info {
+            "JobProcessor started (maxConcurrent=${config.maxConcurrentDownloads}, " +
+                "pollInterval=${config.pollIntervalMs}ms)"
+        }
         scope.launch { pollLoop() }
     }
 
@@ -64,7 +84,7 @@ class JobProcessor(
     private suspend fun pollLoop() {
         while (currentCoroutineContext().isActive) {
             try {
-                val pendingJobs = jobRepository.findActive()
+                val pendingJobs = txRunner.inRoTransaction { jobRepository.findActive() }
                     .filter { it.status == JobStatus.PENDING }
 
                 for (job in pendingJobs) {
@@ -93,11 +113,16 @@ class JobProcessor(
 
         try {
             // 1. Transition to DOWNLOADING
-            jobRepository.updateStatus(job.id, JobStatus.DOWNLOADING, JobPhase.DOWNLOAD, 0)
+            writeStatus(job.id, JobStatus.DOWNLOADING, JobPhase.DOWNLOAD, 0)
 
             // 2. Resolve download policy: global settings < rule < channel track overrides
-            val rule = job.ruleId?.let { ruleRepository.findById(it) }
-            val channel = job.videoInfo?.let { channelRepository.findByChannelId(job.workspaceId, it.channelId, it.extractor) }
+            val (rule, channel) = txRunner.inRoTransaction {
+                val rule = job.ruleId?.let { ruleRepository.findById(it) }
+                val channel = job.videoInfo?.let {
+                    channelRepository.findByChannelId(job.workspaceId, it.channelId, it.extractor)
+                }
+                rule to channel
+            }
             val basePolicy = effectiveDownloadPolicy(rule, channel)
 
             // Enable writeThumbnail if any output needs embedThumbnail
@@ -110,12 +135,15 @@ class JobProcessor(
 
             // 4. Try to get VideoInfo from cache for better format selection
             val videoInfo = if (job.mediaSelection?.audioFormatIds != null) {
-                job.videoInfo ?: videoInfoCache.get(job.source.url.value)
+                job.videoInfo ?: cachedVideoInfo(job)
             } else {
-                videoInfoCache.get(job.source.url.value) ?: job.videoInfo
+                cachedVideoInfo(job) ?: job.videoInfo
             }
             if (videoInfo == null) {
-                logger.warn { "VideoInfo not found in cache for ${job.source.url.value}. Download might use generic format selection." }
+                logger.warn {
+                    "VideoInfo not found in cache for ${job.source.url.value}. " +
+                        "Download might use generic format selection."
+                }
             }
 
             // 4.5. Check if existing file has lower quality than requested — delete if so, skip if sufficient
@@ -124,35 +152,47 @@ class JobProcessor(
                 val requestedMaxHeight = downloadPolicy.maxQuality.toMaxHeight()
                 val existingHeight = ffmpegRunner.probeHeight(outputPath)
                 val existingIsLowerQuality = when {
-                    requestedMaxHeight == null -> false  // BEST: treat existing file as sufficient
-                    existingHeight == null -> true       // can't probe → re-download to be safe
+                    requestedMaxHeight == null -> false // BEST: treat existing file as sufficient
+                    existingHeight == null -> true // can't probe → re-download to be safe
                     else -> existingHeight < requestedMaxHeight
                 }
                 if (existingIsLowerQuality) {
                     logger.info {
-                        "Existing file has lower quality (${existingHeight}p < ${requestedMaxHeight}p) for job ${job.id.value}, " +
-                            "deleting '${outputPath.value}' to re-download at higher quality"
+                        "Existing file has lower quality (${existingHeight}p < ${requestedMaxHeight}p) " +
+                            "for job ${job.id.value}, deleting '${outputPath.value}' to re-download at higher quality"
                     }
                     existingFile.delete()
                 } else {
-                    val qualityDesc = if (existingHeight != null && requestedMaxHeight != null)
-                        "${existingHeight}p >= ${requestedMaxHeight}p" else "BEST policy"
+                    val qualityDesc = if (existingHeight != null && requestedMaxHeight != null) {
+                        "${existingHeight}p >= ${requestedMaxHeight}p"
+                    } else {
+                        "BEST policy"
+                    }
                     logger.info {
-                        "File already exists at sufficient quality ($qualityDesc) for job ${job.id.value}, skipping download"
+                        "File already exists at sufficient quality ($qualityDesc) for job ${job.id.value}, " +
+                            "skipping download"
                     }
                 }
             }
 
             // Existing media may have different audio or be missing the chosen subtitles.
             // A retry also needs to recheck any sidecars from the failed attempt.
-            if (!File(outputPath.value).exists() || job.attempt > 0 ||
+            if (!File(outputPath.value).exists() ||
+                job.attempt > 0 ||
                 job.mediaSelection?.audioFormatIds != null ||
-                !job.mediaSelection?.subtitleLanguages.isNullOrEmpty()) {
-                videoDownloader.downloadWithProgress(job.source.url, outputPath, downloadPolicy, videoInfo, job.mediaSelection)
+                !job.mediaSelection?.subtitleLanguages.isNullOrEmpty()
+            ) {
+                videoDownloader.downloadWithProgress(
+                    job.source.url,
+                    outputPath,
+                    downloadPolicy,
+                    videoInfo,
+                    job.mediaSelection,
+                )
                     .collect { event ->
                         when (event) {
                             is DownloadEvent.Progress -> {
-                                jobRepository.updateStatus(
+                                writeStatus(
                                     id = job.id,
                                     status = JobStatus.DOWNLOADING,
                                     phase = JobPhase.DOWNLOAD,
@@ -161,13 +201,21 @@ class JobProcessor(
                             }
                             is DownloadEvent.Completed -> {
                                 event.actualFormat?.let { format ->
-                                    logger.info { "Download completed for job ${job.id.value}. Actual format: ${format.formatId} (${format.width ?: "?"}x${format.height ?: "?"})" }
-                                    videoInfoCache.updateActualFormat(job.source.url.value, format)
+                                    logger.info {
+                                        "Download completed for job ${job.id.value}. " +
+                                            "Actual format: ${format.formatId} " +
+                                            "(${format.width ?: "?"}x${format.height ?: "?"})"
+                                    }
+                                    txRunner.inRwTransaction {
+                                        videoInfoCache.updateActualFormat(job.source.url.value, format)
 
-                                    // Update current job's videoInfo as well
-                                    val currentVideoInfo = videoInfoCache.get(job.source.url.value)
-                                    if (currentVideoInfo != null) {
-                                        jobRepository.save(job.copy(videoInfo = currentVideoInfo))
+                                        // Update current job's videoInfo as well
+                                        val currentVideoInfo = videoInfoCache.get(job.source.url.value)
+                                        if (currentVideoInfo != null) {
+                                            jobRepository.save(
+                                                job.copy(videoInfo = currentVideoInfo, updatedAt = clock.now()),
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -178,10 +226,11 @@ class JobProcessor(
             // 6. Resolve actual file (yt-dlp may add format suffixes like .f313.webm)
             val actualFile = resolveDownloadedFile(outputPath)
             if (actualFile == null) {
-                jobRepository.updateStatus(
+                writeStatus(
                     id = job.id,
                     status = JobStatus.FAILED,
-                    errorMessage = "Downloaded file not found: ${outputPath.value} (also checked for yt-dlp format suffixes)",
+                    errorMessage =
+                    "Downloaded file not found: ${outputPath.value} (also checked for yt-dlp format suffixes)",
                 )
                 return
             }
@@ -193,7 +242,10 @@ class JobProcessor(
                     logger.info { "Renamed '${actualFile.name}' → '${target.name}'" }
                     outputPath
                 } catch (e: Exception) {
-                    logger.warn { "Failed to rename '${actualFile.absolutePath}' → '${target.absolutePath}': ${e.message}, using actual path" }
+                    logger.warn {
+                        "Failed to rename '${actualFile.absolutePath}' → '${target.absolutePath}': " +
+                            "${e.message}, using actual path"
+                    }
                     FilePath(actualFile.absolutePath)
                 }
             } else {
@@ -206,14 +258,14 @@ class JobProcessor(
 
             // 6. Process additional outputs (conversions/copies)
             if (job.storagePlan.additional.isNotEmpty()) {
-                jobRepository.updateStatus(job.id, JobStatus.DOWNLOADING, JobPhase.CONVERT, 0)
+                writeStatus(job.id, JobStatus.DOWNLOADING, JobPhase.CONVERT, 0)
 
                 // Track completed outputs by conversion signature to reuse results
                 val completedOutputs = mutableMapOf<ConversionKey, FilePath>()
 
                 for ((index, target) in job.storagePlan.additional.withIndex()) {
                     val progress = ((index.toDouble() / job.storagePlan.additional.size) * 100).toInt()
-                    jobRepository.updateStatus(job.id, JobStatus.DOWNLOADING, JobPhase.CONVERT, progress)
+                    writeStatus(job.id, JobStatus.DOWNLOADING, JobPhase.CONVERT, progress)
 
                     val key = ConversionKey.of(target)
                     val existingOutput = completedOutputs[key]
@@ -221,7 +273,9 @@ class JobProcessor(
                         // Identical conversion already done — just copy
                         File(target.path.parent).mkdirs()
                         File(existingOutput.value).copyTo(File(target.path.value), overwrite = true)
-                        logger.info { "Copied from identical output '${existingOutput.fileName}' → '${target.path.value}'" }
+                        logger.info {
+                            "Copied from identical output '${existingOutput.fileName}' → '${target.path.value}'"
+                        }
                         producedOutputs.add(target to target.path)
                     } else {
                         processAdditionalOutput(job, resolvedPath, target)
@@ -234,7 +288,7 @@ class JobProcessor(
             }
 
             // 7. Persist job outputs to DB
-            val now = Clock.System.now()
+            val now = clock.now()
             val outputRecords = producedOutputs.map { (target, path) ->
                 JobOutput(
                     jobId = job.id,
@@ -244,20 +298,22 @@ class JobProcessor(
                     createdAt = now,
                 )
             }
-            jobOutputRepository.saveAll(outputRecords)
+            txRunner.inRwTransaction { jobOutputRepository.saveAll(outputRecords) }
 
             // 8. Mark completed
-            jobRepository.updateStatus(job.id, JobStatus.COMPLETED, progress = 100)
+            writeStatus(job.id, JobStatus.COMPLETED, progress = 100)
 
-            logger.info { "Job ${job.id.value} completed: ${resolvedPath.value}" +
-                if (job.storagePlan.additional.isNotEmpty()) " (+${job.storagePlan.additional.size} additional outputs)" else ""
+            logger.info {
+                val additional = job.storagePlan.additional.size
+                "Job ${job.id.value} completed: ${resolvedPath.value}" +
+                    if (additional > 0) " (+$additional additional outputs)" else ""
             }
         } catch (e: CancellationException) {
-            jobRepository.updateStatus(job.id, JobStatus.CANCELLED)
+            writeStatus(job.id, JobStatus.CANCELLED)
             throw e
         } catch (e: Exception) {
             logger.error(e) { "Job ${job.id.value} failed" }
-            jobRepository.updateStatus(
+            writeStatus(
                 id = job.id,
                 status = JobStatus.FAILED,
                 errorMessage = e.message ?: "Unknown error",
@@ -265,13 +321,23 @@ class JobProcessor(
         }
     }
 
+    /** One status write = one short read-write transaction. */
+    private suspend fun writeStatus(
+        id: JobId,
+        status: JobStatus,
+        phase: JobPhase? = null,
+        progress: Int? = null,
+        errorMessage: String? = null,
+    ) = txRunner.inRwTransaction { jobRepository.updateStatus(id, status, phase, progress, errorMessage) }
+
+    private suspend fun cachedVideoInfo(job: DomainJob): VideoInfo? =
+        txRunner.inRoTransaction { videoInfoCache.get(job.source.url.value) }
+
     @OptIn(ExperimentalUuidApi::class)
-    private suspend fun processAdditionalOutput(
-        job: DomainJob,
-        originalPath: FilePath,
-        target: OutputTarget,
-    ) {
-        logger.info { "Processing additional output for job ${job.id.value}: ${target.path.value} (${target.format.serialized})" }
+    private suspend fun processAdditionalOutput(job: DomainJob, originalPath: FilePath, target: OutputTarget) {
+        logger.info {
+            "Processing additional output for job ${job.id.value}: ${target.path.value} (${target.format.serialized})"
+        }
 
         // Ensure target directory exists
         File(target.path.parent).mkdirs()
@@ -286,10 +352,19 @@ class JobProcessor(
             }
             is OutputFormat.ConvertedVideo -> {
                 val maxResolution = target.maxQuality?.toMaxResolution()
-                ffmpegRunner.convertVideo(originalPath, target.path, format.container, maxResolution?.first, maxResolution?.second, target.encodeSettings)
+                ffmpegRunner.convertVideo(
+                    originalPath,
+                    target.path,
+                    format.container,
+                    maxResolution?.first,
+                    maxResolution?.second,
+                    target.encodeSettings,
+                )
                     .fold(
                         { error ->
-                            throw RuntimeException("Conversion to ${format.container.extension} failed for ${target.path.value}: $error")
+                            throw RuntimeException(
+                                "Conversion to ${format.container.extension} failed for ${target.path.value}: $error",
+                            )
                         },
                         { path ->
                             logger.info { "Converted to ${format.container.extension}: ${target.path.value}" }
@@ -301,7 +376,9 @@ class JobProcessor(
                 ffmpegRunner.extractAudio(originalPath, target.path, format.format)
                     .fold(
                         { error ->
-                            throw RuntimeException("Audio extraction (${format.format.extension}) failed for ${target.path.value}: $error")
+                            throw RuntimeException(
+                                "Audio extraction (${format.format.extension}) failed for ${target.path.value}: $error",
+                            )
                         },
                         { path ->
                             logger.info { "Extracted audio as ${format.format.extension}: ${target.path.value}" }
@@ -321,7 +398,7 @@ class JobProcessor(
             if (metadataMap.isNotEmpty()) {
                 val ext = convertedPath.value.substringAfterLast('.', "")
                 val base = convertedPath.value.substringBeforeLast('.')
-                val tempPath = FilePath("${base}.tmp_meta.${ext}")
+                val tempPath = FilePath("$base.tmp_meta.$ext")
                 ffmpegRunner.embedMetadata(convertedPath, tempPath, metadataMap)
                     .fold(
                         { error ->
@@ -347,7 +424,7 @@ class JobProcessor(
             if (thumbnailFile != null) {
                 val ext = convertedPath.value.substringAfterLast('.', "")
                 val base = convertedPath.value.substringBeforeLast('.')
-                val tempPath = FilePath("${base}.tmp_thumb.${ext}")
+                val tempPath = FilePath("$base.tmp_thumb.$ext")
                 ffmpegRunner.embedThumbnail(convertedPath, FilePath(thumbnailFile.absolutePath), tempPath)
                     .fold(
                         { error ->
@@ -401,12 +478,13 @@ class JobProcessor(
         val dir = expectedFile.parentFile ?: return null
         if (!dir.exists()) return null
 
-        val expectedName = expectedFile.nameWithoutExtension  // e.g. "East To West (Live at The Ryman)"
-        val expectedExt = expectedFile.extension               // e.g. "webm"
+        val expectedName = expectedFile.nameWithoutExtension // e.g. "East To West (Live at The Ryman)"
+        val expectedExt = expectedFile.extension // e.g. "webm"
 
         // Look for files matching: "Title.f<N>.ext" or "Title.<something>.ext"
         val candidates = dir.listFiles()?.filter { f ->
-            f.isFile && f.name != expectedFile.name &&
+            f.isFile &&
+                f.name != expectedFile.name &&
                 f.name.startsWith(expectedName) &&
                 f.name.endsWith(".$expectedExt")
         } ?: emptyList()
@@ -418,23 +496,33 @@ class JobProcessor(
 
         // Also check for any file with the same base name but different extension
         val anyCandidates = dir.listFiles()?.filter { f ->
-            f.isFile && f.nameWithoutExtension.startsWith(expectedName) &&
+            f.isFile &&
+                f.nameWithoutExtension.startsWith(expectedName) &&
                 f.extension in listOf("webm", "mkv", "mp4", "avi", "mov", "flv")
         } ?: emptyList()
 
         if (anyCandidates.size == 1) {
-            logger.info { "Resolved yt-dlp output (different ext): '${anyCandidates[0].name}' (expected: '${expectedFile.name}')" }
+            logger.info {
+                "Resolved yt-dlp output (different ext): '${anyCandidates[0].name}' (expected: '${expectedFile.name}')"
+            }
             return anyCandidates[0]
         }
 
         if (anyCandidates.isNotEmpty()) {
             // Pick the largest file (most likely the merged result)
             val best = anyCandidates.maxByOrNull { it.length() }!!
-            logger.warn { "Multiple candidates found, picking largest: '${best.name}' (${best.length()} bytes) from ${anyCandidates.map { it.name }}" }
+            logger.warn {
+                "Multiple candidates found, picking largest: '${best.name}' (${best.length()} bytes) " +
+                    "from ${anyCandidates.map { it.name }}"
+            }
             return best
         }
 
-        logger.error { "Could not resolve downloaded file. Expected: '${expectedFile.name}', dir contents: ${dir.listFiles()?.map { it.name }}" }
+        logger.error {
+            "Could not resolve downloaded file. Expected: '${expectedFile.name}', dir contents: ${dir.listFiles()?.map {
+                it.name
+            }}"
+        }
         return null
     }
 
@@ -456,7 +544,8 @@ class JobProcessor(
         if (!dir.exists()) return null
         val baseName = File(originalPath.value).nameWithoutExtension
         return dir.listFiles()?.firstOrNull { f ->
-            f.isFile && f.nameWithoutExtension.startsWith(baseName) &&
+            f.isFile &&
+                f.nameWithoutExtension.startsWith(baseName) &&
                 f.extension.lowercase() in extensions
         }
     }
@@ -464,7 +553,7 @@ class JobProcessor(
 
 /** Map VideoQuality to maximum resolution (width x height) for ffmpeg scaling. */
 private fun DownloadPolicy.VideoQuality.toMaxResolution(): Pair<Int, Int>? = when (this) {
-    DownloadPolicy.VideoQuality.BEST -> null  // no scaling
+    DownloadPolicy.VideoQuality.BEST -> null // no scaling
     DownloadPolicy.VideoQuality.HD_1080 -> 1920 to 1080
     DownloadPolicy.VideoQuality.HD_720 -> 1280 to 720
     DownloadPolicy.VideoQuality.SD_480 -> 854 to 480

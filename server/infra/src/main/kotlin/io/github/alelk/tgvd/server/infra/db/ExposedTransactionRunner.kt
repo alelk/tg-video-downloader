@@ -20,25 +20,27 @@ private object RwScopeImpl : RwTransactionScope
  *   and enables potential use of read replicas in the future.
  * - The [dispatcher] defaults to [Dispatchers.IO] so that blocking JDBC calls do not consume
  *   threads from the main coroutine pool. Can be overridden in tests.
+ * - The only production code that opens a transaction (the readiness probe's `SELECT 1` aside).
+ *   Repositories run in the transaction bound to the coroutine and never open one.
+ * - Nested calls join the outer transaction (no savepoint): the inner block's writes commit or roll
+ *   back with the outer one (`ExposedTransactionRunnerTest`).
+ * - It COMMITS whatever the block returns — a `Left` included. Rollback comes only from an exception
+ *   or from `catchingDb`, which rolls back before it turns a `SQLException` into a `Left`.
  */
 class ExposedTransactionRunner(
     private val db: Database,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : TransactionRunner {
 
-    override suspend fun <T> inRoTransaction(block: suspend RoTransactionScope.() -> T): T =
-        withContext(dispatcher) {
-            suspendTransaction(db, readOnly = true) {
-                block.invoke(RoScopeImpl)
-            }
+    override suspend fun <T> inRoTransaction(block: suspend RoTransactionScope.() -> T): T = withContext(dispatcher) {
+        suspendTransaction(db, readOnly = true) {
+            block.invoke(RoScopeImpl)
         }
+    }
 
-    override suspend fun <T> inRwTransaction(block: suspend RwTransactionScope.() -> T): T =
-        withContext(dispatcher) {
-            suspendTransaction(db, readOnly = false) {
-                block.invoke(RwScopeImpl)
-            }
+    override suspend fun <T> inRwTransaction(block: suspend RwTransactionScope.() -> T): T = withContext(dispatcher) {
+        suspendTransaction(db, readOnly = false) {
+            block.invoke(RwScopeImpl)
         }
+    }
 }
-
-

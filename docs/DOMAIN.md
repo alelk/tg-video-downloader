@@ -289,6 +289,11 @@ sealed interface DomainError {
     data class WorkspaceSlugConflict(val slug: WorkspaceSlug, override val message: String = "Workspace with slug '${slug.value}' already exists") : DomainError
     data class WorkspaceAccessDenied(val workspaceId: WorkspaceId, val userId: TelegramUserId, override val message: String = "User ${userId.value} is not a member of workspace ${workspaceId.value}") : DomainError
 
+    // === Infrastructure ===
+    // A database statement failed; the repository (catchingDb) has rolled the transaction back.
+    // `detail` is for the log only; HTTP: 500 INTERNAL_ERROR "Internal server error".
+    data class DatabaseFailed(val detail: String, override val message: String = "Database operation failed") : DomainError
+
     // === LLM ===
     data class LlmError(val provider: String, override val message: String, val statusCode: Int? = null) : DomainError
 }
@@ -1751,6 +1756,9 @@ interface RwTransactionScope : RoTransactionScope  // marker: read-write
 - In tests → `NoopTransactionRunner` from `domain-test-fixtures` (executes the block inline, no DB required)
 
 **Implementation**: `ExposedTransactionRunner` in `server:infra/db/` wraps `suspendTransaction` with the appropriate `readOnly` flag.
+It is the only code that opens a transaction; repositories run in the one bound to the coroutine. A runner
+called inside another joins the outer transaction. **A `Left` commits** — the runner commits whatever the
+block returns, so every check comes before the first write (see [DATABASE.md §7](./DATABASE.md)).
 
 ---
 

@@ -3,10 +3,12 @@ package io.github.alelk.tgvd.server.transport.util
 import arrow.core.Either
 import io.github.alelk.tgvd.domain.common.DomainError
 import io.github.alelk.tgvd.server.transport.error.toHttpResponse
-import io.ktor.http.*
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
+import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.response.respond
+import io.ktor.server.routing.RoutingCall
 
+private val logger = KotlinLogging.logger {}
 
 /**
  * Responds with an [Either] result:
@@ -21,10 +23,7 @@ suspend inline fun <reified T : Any, R> RoutingCall.respondEither(
     transform: (R) -> T,
 ) {
     result.fold(
-        ifLeft = { error ->
-            val (status, body) = error.toHttpResponse(correlationId)
-            respond(status, body)
-        },
+        ifLeft = { error -> respondDomainError(error) },
         ifRight = { value ->
             respond(successStatus, transform(value))
         },
@@ -42,3 +41,15 @@ suspend inline fun <reified T : Any> RoutingCall.respondEither(
     respondEither(result, successStatus) { it }
 }
 
+/**
+ * Responds with the HTTP form of [error]. A [DomainError.DatabaseFailed] is a server fault: it is logged
+ * with the correlation id (as `StatusPages` logs an unhandled exception), its detail never reaches the client.
+ */
+@PublishedApi
+internal suspend fun RoutingCall.respondDomainError(error: DomainError) {
+    if (error is DomainError.DatabaseFailed) {
+        logger.error { "Database failure [correlationId=$correlationId]: ${error.detail}" }
+    }
+    val (status, body) = error.toHttpResponse(correlationId)
+    respond(status, body)
+}

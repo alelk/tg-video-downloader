@@ -22,16 +22,17 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlin.time.Clock
 
 /** Round-trips of [RuleRepositoryImpl] on PostgreSQL, every call under [ExposedTransactionRunner]. */
 class RuleRepositoryImplTest :
     FunSpec({
         val db = PostgresTestContainer.newMigratedDatabase().database
         val tx = ExposedTransactionRunner(db)
-        val workspaces = WorkspaceRepositoryImpl(db)
-        val repository = RuleRepositoryImpl(db)
+        val workspaces = WorkspaceRepositoryImpl()
+        val repository = RuleRepositoryImpl(Clock.System)
 
-        // created_at / updated_at are written by the database (insert) or by the repository (update).
+        // Insert stores the rule's own timestamps; an update stamps updated_at from the repository clock.
         fun Rule.withoutTimestamps() = copy(createdAt = T0, updatedAt = T0)
 
         test("save -> find -> update -> find") {

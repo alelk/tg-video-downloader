@@ -233,6 +233,14 @@ class CreateJobUseCaseTest :
                 env.jobs.all shouldBe listOf(result.job)
             }
 
+            test("a database failure while saving the rule fails the whole call") {
+                val env = Env()
+                val failure = DomainError.DatabaseFailed("SQLSTATE 08006: connection lost")
+                env.rules.refuseSaveWith = failure
+
+                env.create(aCreateJobRequest(saveAsRule = SaveAsRule())).shouldBeLeft() shouldBe failure
+            }
+
             test("a video without a channel name cannot be matched by name; the job is still created") {
                 val env = Env()
                 val request =

@@ -16,8 +16,5 @@
     <ID>WildcardImport:TelegramAuthPlugin.kt$import io.ktor.server.response.*</ID>
     <ID>WildcardImport:TelegramAuthPlugin.kt$import io.ktor.server.routing.*</ID>
     <ID>WildcardImport:TelegramAuthPlugin.kt$import io.ktor.util.*</ID>
-    <ID>WildcardImport:respondEither.kt$import io.ktor.http.*</ID>
-    <ID>WildcardImport:respondEither.kt$import io.ktor.server.response.*</ID>
-    <ID>WildcardImport:respondEither.kt$import io.ktor.server.routing.*</ID>
   </CurrentIssues>
 </SmellBaseline>

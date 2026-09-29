@@ -107,6 +107,16 @@ sealed interface DomainError {
     // === System ===
     data class YtDlpUpdateDisabled(override val message: String = "Update is disabled by administrator") : DomainError
 
+    // === Infrastructure ===
+
+    /**
+     * A database statement failed (anything but a conflict the domain names, such as
+     * [WorkspaceSlugConflict]); the transaction has been rolled back. [detail] is for the server log
+     * only — the client gets a generic `500 INTERNAL_ERROR`.
+     */
+    data class DatabaseFailed(val detail: String, override val message: String = "Database operation failed") :
+        DomainError
+
     // === LLM ===
     data class LlmError(val provider: String, override val message: String, val statusCode: Int? = null) : DomainError
 }

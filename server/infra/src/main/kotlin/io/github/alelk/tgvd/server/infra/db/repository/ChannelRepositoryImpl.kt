@@ -10,122 +10,107 @@ import io.github.alelk.tgvd.domain.common.DomainError
 import io.github.alelk.tgvd.domain.common.Extractor
 import io.github.alelk.tgvd.domain.common.Tag
 import io.github.alelk.tgvd.domain.common.WorkspaceId
-import io.github.alelk.tgvd.server.infra.db.dbQuery
-import io.github.alelk.tgvd.server.infra.db.mapping.now
+import io.github.alelk.tgvd.server.infra.db.catchingDb
 import io.github.alelk.tgvd.server.infra.db.mapping.toChannel
 import io.github.alelk.tgvd.server.infra.db.mapping.toPm
 import io.github.alelk.tgvd.server.infra.db.table.ChannelsTable
-import io.github.oshai.kotlinlogging.KotlinLogging
 import org.jetbrains.exposed.v1.core.Column
-import org.jetbrains.exposed.v1.core.ComparisonOp
-import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.QueryBuilder
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.stringParam
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
+import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
 
-private val logger = KotlinLogging.logger {}
-
 /** PostgreSQL: column @> ARRAY[values]::text[] */
-private fun Column<List<String>>.pgArrayContains(values: List<String>): Op<Boolean> =
-    object : Op<Boolean>() {
-        override fun toQueryBuilder(queryBuilder: QueryBuilder) {
-            queryBuilder {
-                append(this@pgArrayContains)
-                append(" @> ARRAY[")
-                values.forEachIndexed { i, v ->
-                    if (i > 0) append(",")
-                    append(stringParam(v))
-                }
-                append("]::text[]")
+private fun Column<List<String>>.pgArrayContains(values: List<String>): Op<Boolean> = object : Op<Boolean>() {
+    override fun toQueryBuilder(queryBuilder: QueryBuilder) {
+        queryBuilder {
+            append(this@pgArrayContains)
+            append(" @> ARRAY[")
+            values.forEachIndexed { i, v ->
+                if (i > 0) append(",")
+                append(stringParam(v))
             }
+            append("]::text[]")
         }
     }
+}
 
 /** PostgreSQL: column && ARRAY[values]::text[] */
-private fun Column<List<String>>.pgArrayOverlaps(values: List<String>): Op<Boolean> =
-    object : Op<Boolean>() {
-        override fun toQueryBuilder(queryBuilder: QueryBuilder) {
-            queryBuilder {
-                append(this@pgArrayOverlaps)
-                append(" && ARRAY[")
-                values.forEachIndexed { i, v ->
-                    if (i > 0) append(",")
-                    append(stringParam(v))
-                }
-                append("]::text[]")
+private fun Column<List<String>>.pgArrayOverlaps(values: List<String>): Op<Boolean> = object : Op<Boolean>() {
+    override fun toQueryBuilder(queryBuilder: QueryBuilder) {
+        queryBuilder {
+            append(this@pgArrayOverlaps)
+            append(" && ARRAY[")
+            values.forEachIndexed { i, v ->
+                if (i > 0) append(",")
+                append(stringParam(v))
             }
+            append("]::text[]")
         }
     }
+}
 
+/**
+ * Runs in the transaction of the caller (`TransactionRunner`); never opens one.
+ * An insert stores the timestamps of the [Channel]; an update stamps `updated_at` with [clock].
+ */
 @OptIn(ExperimentalUuidApi::class)
-class ChannelRepositoryImpl(
-    private val database: Database,
-) : ChannelRepository {
+class ChannelRepositoryImpl(private val clock: Clock) : ChannelRepository {
 
-    override suspend fun findById(id: ChannelDirectoryEntryId): Channel? = dbQuery(database) {
-        ChannelsTable.selectAll()
-            .where { ChannelsTable.id eq id.value }
-            .singleOrNull()
-            ?.toChannel()
-    }
+    override suspend fun findById(id: ChannelDirectoryEntryId): Channel? = ChannelsTable.selectAll()
+        .where { ChannelsTable.id eq id.value }
+        .singleOrNull()
+        ?.toChannel()
 
-    override suspend fun findByWorkspace(workspaceId: WorkspaceId): List<Channel> = dbQuery(database) {
-        ChannelsTable.selectAll()
-            .where { ChannelsTable.workspaceId eq workspaceId.value }
-            .orderBy(ChannelsTable.name, SortOrder.ASC)
-            .map { it.toChannel() }
-    }
+    override suspend fun findByWorkspace(workspaceId: WorkspaceId): List<Channel> = ChannelsTable.selectAll()
+        .where { ChannelsTable.workspaceId eq workspaceId.value }
+        .orderBy(ChannelsTable.name, SortOrder.ASC)
+        .map { it.toChannel() }
 
     override suspend fun findByChannelId(
         workspaceId: WorkspaceId,
         channelId: ChannelId,
         extractor: Extractor,
-    ): Channel? = dbQuery(database) {
-        ChannelsTable.selectAll()
-            .where {
-                (ChannelsTable.workspaceId eq workspaceId.value) and
-                    (ChannelsTable.channelId eq channelId.value) and
-                    (ChannelsTable.extractor eq extractor.value)
-            }
-            .singleOrNull()
-            ?.toChannel()
-    }
+    ): Channel? = ChannelsTable.selectAll()
+        .where {
+            (ChannelsTable.workspaceId eq workspaceId.value) and
+                (ChannelsTable.channelId eq channelId.value) and
+                (ChannelsTable.extractor eq extractor.value)
+        }
+        .singleOrNull()
+        ?.toChannel()
 
-    override suspend fun findByTag(workspaceId: WorkspaceId, tag: Tag): List<Channel> = dbQuery(database) {
-        ChannelsTable.selectAll()
-            .where {
-                (ChannelsTable.workspaceId eq workspaceId.value) and
-                    ChannelsTable.tags.pgArrayContains(listOf(tag.value))
-            }
-            .map { it.toChannel() }
-    }
+    override suspend fun findByTag(workspaceId: WorkspaceId, tag: Tag): List<Channel> = ChannelsTable.selectAll()
+        .where {
+            (ChannelsTable.workspaceId eq workspaceId.value) and
+                ChannelsTable.tags.pgArrayContains(listOf(tag.value))
+        }
+        .map { it.toChannel() }
 
-    override suspend fun findByTags(
-        workspaceId: WorkspaceId,
-        tags: Set<Tag>,
-        matchAll: Boolean,
-    ): List<Channel> = dbQuery(database) {
-        if (tags.isEmpty()) return@dbQuery emptyList()
+    override suspend fun findByTags(workspaceId: WorkspaceId, tags: Set<Tag>, matchAll: Boolean): List<Channel> {
+        if (tags.isEmpty()) return emptyList()
         val tagValues = tags.map { it.value }
-        ChannelsTable.selectAll()
+        return ChannelsTable.selectAll()
             .where {
                 (ChannelsTable.workspaceId eq workspaceId.value) and
-                    if (matchAll) ChannelsTable.tags.pgArrayContains(tagValues)
-                    else ChannelsTable.tags.pgArrayOverlaps(tagValues)
+                    if (matchAll) {
+                        ChannelsTable.tags.pgArrayContains(tagValues)
+                    } else {
+                        ChannelsTable.tags.pgArrayOverlaps(tagValues)
+                    }
             }
             .map { it.toChannel() }
     }
 
-    override suspend fun save(channel: Channel): Either<DomainError, Channel> = dbQuery(database) {
+    override suspend fun save(channel: Channel): Either<DomainError, Channel> = catchingDb {
         val exists = ChannelsTable.selectAll()
             .where { ChannelsTable.id eq channel.id.value }
             .count() > 0
@@ -140,7 +125,7 @@ class ChannelRepositoryImpl(
                 it[metadataOverrides] = channel.metadataOverrides?.toPm()
                 it[notes] = channel.notes
                 it[trackPreferences] = channel.trackPreferences?.toPm()
-                it[updatedAt] = now()
+                it[updatedAt] = clock.now()
             }
         } else {
             ChannelsTable.insert {
@@ -153,16 +138,17 @@ class ChannelRepositoryImpl(
                 it[metadataOverrides] = channel.metadataOverrides?.toPm()
                 it[notes] = channel.notes
                 it[trackPreferences] = channel.trackPreferences?.toPm()
+                it[createdAt] = channel.createdAt
+                it[updatedAt] = channel.updatedAt
             }
         }
         channel.right()
     }
 
-    override suspend fun delete(id: ChannelDirectoryEntryId): Boolean = dbQuery(database) {
+    override suspend fun delete(id: ChannelDirectoryEntryId): Boolean =
         ChannelsTable.deleteWhere { ChannelsTable.id eq id.value } > 0
-    }
 
-    override suspend fun findAllTags(workspaceId: WorkspaceId): Set<Tag> = dbQuery(database) {
+    override suspend fun findAllTags(workspaceId: WorkspaceId): Set<Tag> =
         // SELECT DISTINCT unnest(tags) FROM channels WHERE workspace_id = ?
         ChannelsTable.selectAll()
             .where { ChannelsTable.workspaceId eq workspaceId.value }
@@ -170,10 +156,4 @@ class ChannelRepositoryImpl(
             .toSet()
             .map { Tag(it) }
             .toSet()
-    }
 }
-
-
-
-
-

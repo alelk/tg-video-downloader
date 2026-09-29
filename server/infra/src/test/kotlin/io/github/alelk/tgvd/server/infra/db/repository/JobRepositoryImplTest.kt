@@ -27,18 +27,19 @@ import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import kotlin.time.Clock
 
 /** Round-trips of [JobRepositoryImpl] and [JobOutputRepositoryImpl] on PostgreSQL, under [ExposedTransactionRunner]. */
 class JobRepositoryImplTest :
     FunSpec({
         val db = PostgresTestContainer.newMigratedDatabase().database
         val tx = ExposedTransactionRunner(db)
-        val workspaces = WorkspaceRepositoryImpl(db)
-        val rules = RuleRepositoryImpl(db)
-        val repository = JobRepositoryImpl(db)
-        val outputs = JobOutputRepositoryImpl(db)
+        val workspaces = WorkspaceRepositoryImpl()
+        val rules = RuleRepositoryImpl(Clock.System)
+        val repository = JobRepositoryImpl(Clock.System)
+        val outputs = JobOutputRepositoryImpl()
 
-        // Insert leaves created_at/updated_at to the database defaults.
+        // Insert stores the job's own created_at/updated_at (T0 in the mothers).
         fun Job.withInsertTimestamps() = copy(createdAt = T0, updatedAt = T0)
 
         test("save -> find -> update -> find") {

@@ -3,92 +3,101 @@ package io.github.alelk.tgvd.server.infra.db.repository
 import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
-import io.github.alelk.tgvd.domain.common.*
-import io.github.alelk.tgvd.domain.job.*
-import io.github.alelk.tgvd.domain.video.VideoSource
+import io.github.alelk.tgvd.domain.common.DomainError
+import io.github.alelk.tgvd.domain.common.Extractor
+import io.github.alelk.tgvd.domain.common.JobId
+import io.github.alelk.tgvd.domain.common.RuleId
+import io.github.alelk.tgvd.domain.common.TelegramUserId
+import io.github.alelk.tgvd.domain.common.Url
+import io.github.alelk.tgvd.domain.common.VideoId
+import io.github.alelk.tgvd.domain.common.WorkspaceId
+import io.github.alelk.tgvd.domain.job.Job
+import io.github.alelk.tgvd.domain.job.JobPhase
+import io.github.alelk.tgvd.domain.job.JobRepository
+import io.github.alelk.tgvd.domain.job.JobStatus
 import io.github.alelk.tgvd.domain.video.MediaSelection
-import io.github.alelk.tgvd.server.infra.db.dbQuery
-import io.github.alelk.tgvd.server.infra.db.mapping.*
+import io.github.alelk.tgvd.domain.video.VideoSource
+import io.github.alelk.tgvd.server.infra.db.catchingDb
+import io.github.alelk.tgvd.server.infra.db.mapping.categoryDbString
+import io.github.alelk.tgvd.server.infra.db.mapping.toDbString
+import io.github.alelk.tgvd.server.infra.db.mapping.toDomain
+import io.github.alelk.tgvd.server.infra.db.mapping.toJobPhase
+import io.github.alelk.tgvd.server.infra.db.mapping.toJobStatus
+import io.github.alelk.tgvd.server.infra.db.mapping.toMetadataSource
+import io.github.alelk.tgvd.server.infra.db.mapping.toPm
+import io.github.alelk.tgvd.server.infra.db.mapping.toVideoInfoPm
 import io.github.alelk.tgvd.server.infra.db.model.JobErrorPm
 import io.github.alelk.tgvd.server.infra.db.model.JobProgressPm
 import io.github.alelk.tgvd.server.infra.db.model.MediaSelectionPm
 import io.github.alelk.tgvd.server.infra.db.table.JobsTable
-import io.github.oshai.kotlinlogging.KotlinLogging
+import io.github.alelk.tgvd.server.infra.db.violatesUnique
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
+import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
 
-private val logger = KotlinLogging.logger {}
+/** Partial unique index: one active job per video (V3). */
+private const val ACTIVE_VIDEO_UNIQUE_INDEX = "idx_jobs_active_video"
 
+/** Stored values of the non-terminal statuses — through the status mapping, never as literals. */
+private val ACTIVE_STATUSES: List<String> = JobStatus.entries.filterNot { it.isTerminal }.map { it.toDbString() }
+
+/**
+ * Runs in the transaction of the caller (`TransactionRunner`); never opens one.
+ * An insert stores the timestamps of the [Job]; status updates are stamped with [clock].
+ */
 @OptIn(ExperimentalUuidApi::class)
-class JobRepositoryImpl(
-    private val database: Database,
-) : JobRepository {
+class JobRepositoryImpl(private val clock: Clock) : JobRepository {
+    override suspend fun findById(id: JobId): Job? = JobsTable.selectAll()
+        .where { JobsTable.id eq id.value }
+        .singleOrNull()
+        ?.toJob()
 
-    override suspend fun findById(id: JobId): Job? = dbQuery(database) {
-        JobsTable.selectAll()
-            .where { JobsTable.id eq id.value }
-            .singleOrNull()
-            ?.toJob()
-    }
+    override suspend fun findByWorkspace(workspaceId: WorkspaceId): List<Job> = JobsTable.selectAll()
+        .where { JobsTable.workspaceId eq workspaceId.value }
+        .orderBy(JobsTable.createdAt, SortOrder.DESC)
+        .map { it.toJob() }
 
-    override suspend fun findByWorkspace(workspaceId: WorkspaceId): List<Job> = dbQuery(database) {
-        JobsTable.selectAll()
-            .where { JobsTable.workspaceId eq workspaceId.value }
-            .orderBy(JobsTable.createdAt, SortOrder.DESC)
-            .map { it.toJob() }
-    }
+    override suspend fun findByVideoId(videoId: String, workspaceId: WorkspaceId): List<Job> = JobsTable.selectAll()
+        .where { (JobsTable.videoId eq videoId) and (JobsTable.workspaceId eq workspaceId.value) }
+        .orderBy(JobsTable.createdAt, SortOrder.DESC)
+        .map { it.toJob() }
 
-    override suspend fun findByVideoId(videoId: String, workspaceId: WorkspaceId): List<Job> = dbQuery(database) {
-        JobsTable.selectAll()
-            .where { (JobsTable.videoId eq videoId) and (JobsTable.workspaceId eq workspaceId.value) }
-            .orderBy(JobsTable.createdAt, SortOrder.DESC)
-            .map { it.toJob() }
-    }
+    override suspend fun findActive(): List<Job> = JobsTable.selectAll()
+        .where { JobsTable.status inList ACTIVE_STATUSES }
+        .orderBy(JobsTable.createdAt, SortOrder.ASC)
+        .map { it.toJob() }
 
-    override suspend fun findActive(): List<Job> = dbQuery(database) {
-        JobsTable.selectAll()
-            .where { JobsTable.status inList listOf("pending", "downloading", "post-processing") }
-            .orderBy(JobsTable.createdAt, SortOrder.ASC)
-            .map { it.toJob() }
-    }
-
-    override suspend fun save(job: Job): Either<DomainError, Job> = dbQuery(database) {
+    /**
+     * Inserts or updates [job]. A second active job for the same video — possible only when a concurrent
+     * transaction inserted one after the caller's check — hits the partial unique index and is
+     * [DomainError.JobAlreadyExists], as the check in the use-case would have reported it.
+     */
+    override suspend fun save(job: Job): Either<DomainError, Job> = catchingDb(
+        onUniqueViolation = { e ->
+            if (e.violatesUnique(ACTIVE_VIDEO_UNIQUE_INDEX)) activeJobConflict(job) else null
+        },
+    ) {
         val exists = JobsTable.selectAll()
             .where { JobsTable.id eq job.id.value }
             .count() > 0
 
         if (exists) {
             JobsTable.update({ JobsTable.id eq job.id.value }) {
-                it[workspaceId] = job.workspaceId.value
-                it[status] = job.status.toDbString()
-                it[videoId] = job.source.videoId.value
-                it[sourceUrl] = job.source.url.value
-                it[sourceExtractor] = job.source.extractor.value
-                it[ruleId] = job.ruleId?.value
-                it[category] = job.metadata.categoryDbString()
-                it[rawInfo] = job.videoInfo?.toPm() ?: job.source.toVideoInfoPm(job.metadata)
-                it[metadata] = job.metadata.toPm()
-                it[storagePlan] = job.storagePlan.toPm()
-                it[mediaSelection] = job.mediaSelection?.let { selection ->
-                    MediaSelectionPm(selection.audioFormatIds, selection.subtitleLanguages)
-                }
-                it[metadataSource] = job.metadataSource.toDbString()
+                it.writeContent(job)
                 it[progress] = job.phase?.let { phase ->
                     JobProgressPm(phase = phase.toDbString(), percent = job.progress ?: 0)
                 }
                 it[JobsTable.error] = job.errorMessage?.let { msg ->
                     JobErrorPm(code = "ERROR", message = msg)
                 }
-                it[attempt] = job.attempt
-                it[createdByTelegramUserId] = job.createdBy.value
                 it[updatedAt] = job.updatedAt
                 it[startedAt] = job.startedAt
                 it[finishedAt] = job.finishedAt
@@ -96,24 +105,11 @@ class JobRepositoryImpl(
         } else {
             JobsTable.insert {
                 it[id] = job.id.value
-                it[workspaceId] = job.workspaceId.value
-                it[status] = job.status.toDbString()
-                it[videoId] = job.source.videoId.value
-                it[sourceUrl] = job.source.url.value
-                it[sourceExtractor] = job.source.extractor.value
-                it[ruleId] = job.ruleId?.value
-                it[category] = job.metadata.categoryDbString()
-                it[rawInfo] = job.videoInfo?.toPm() ?: job.source.toVideoInfoPm(job.metadata)
-                it[metadata] = job.metadata.toPm()
-                it[storagePlan] = job.storagePlan.toPm()
-                it[mediaSelection] = job.mediaSelection?.let { selection ->
-                    MediaSelectionPm(selection.audioFormatIds, selection.subtitleLanguages)
-                }
-                it[metadataSource] = job.metadataSource.toDbString()
+                it.writeContent(job)
                 it[progress] = null
                 it[JobsTable.error] = null
-                it[attempt] = job.attempt
-                it[createdByTelegramUserId] = job.createdBy.value
+                it[createdAt] = job.createdAt
+                it[updatedAt] = job.updatedAt
             }
         }
         job.right()
@@ -125,8 +121,8 @@ class JobRepositoryImpl(
         phase: JobPhase?,
         progress: Int?,
         errorMessage: String?,
-    ): Either<DomainError, Job> = dbQuery(database) {
-        val timestamp = now()
+    ): Either<DomainError, Job> = catchingDb {
+        val timestamp = clock.now()
 
         // On retry (PENDING): increment attempt first, then update status
         if (status == JobStatus.PENDING) {
@@ -163,6 +159,32 @@ class JobRepositoryImpl(
         }
         findById(id)?.right() ?: DomainError.JobNotFound(id).left()
     }
+
+    /** Columns that insert and update write alike. */
+    private fun UpdateBuilder<*>.writeContent(job: Job) {
+        this[JobsTable.workspaceId] = job.workspaceId.value
+        this[JobsTable.status] = job.status.toDbString()
+        this[JobsTable.videoId] = job.source.videoId.value
+        this[JobsTable.sourceUrl] = job.source.url.value
+        this[JobsTable.sourceExtractor] = job.source.extractor.value
+        this[JobsTable.ruleId] = job.ruleId?.value
+        this[JobsTable.category] = job.metadata.categoryDbString()
+        this[JobsTable.rawInfo] = job.videoInfo?.toPm() ?: job.source.toVideoInfoPm(job.metadata)
+        this[JobsTable.metadata] = job.metadata.toPm()
+        this[JobsTable.storagePlan] = job.storagePlan.toPm()
+        this[JobsTable.mediaSelection] = job.mediaSelection?.let { selection ->
+            MediaSelectionPm(selection.audioFormatIds, selection.subtitleLanguages)
+        }
+        this[JobsTable.metadataSource] = job.metadataSource.toDbString()
+        this[JobsTable.attempt] = job.attempt
+        this[JobsTable.createdByTelegramUserId] = job.createdBy.value
+    }
+
+    /** Runs after the rollback of the failed insert: reads the active job that won the race. */
+    private fun activeJobConflict(job: Job): DomainError? = JobsTable.selectAll()
+        .where { (JobsTable.videoId eq job.source.videoId.value) and (JobsTable.status inList ACTIVE_STATUSES) }
+        .firstOrNull()
+        ?.let { DomainError.JobAlreadyExists(job.source.videoId, JobId(it[JobsTable.id].value)) }
 
     private fun ResultRow.toJob(): Job = Job(
         id = JobId(this[JobsTable.id].value),

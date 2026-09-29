@@ -8,6 +8,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 
 /** Round-trips of [VideoInfoCacheImpl] on PostgreSQL, every call under [ExposedTransactionRunner]. */
@@ -15,7 +16,7 @@ class VideoInfoCacheImplTest :
     FunSpec({
         val db = PostgresTestContainer.newMigratedDatabase().database
         val tx = ExposedTransactionRunner(db)
-        val cache = VideoInfoCacheImpl(db)
+        val cache = VideoInfoCacheImpl(Clock.System)
 
         test("put -> get -> updateActualFormat -> get; put again replaces") {
             val url = "https://youtu.be/cache-roundtrip"
@@ -40,7 +41,7 @@ class VideoInfoCacheImplTest :
         }
 
         test("an expired entry is not returned and is evicted") {
-            val expiring = VideoInfoCacheImpl(db, ttl = (-1).hours)
+            val expiring = VideoInfoCacheImpl(Clock.System, ttl = (-1).hours)
             val url = "https://youtu.be/cache-expired"
             tx.inRwTransaction { expiring.put(url, aFullVideoInfo("cache-expired")) }
 

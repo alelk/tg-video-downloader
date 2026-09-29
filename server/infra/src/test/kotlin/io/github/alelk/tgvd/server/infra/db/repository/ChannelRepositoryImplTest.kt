@@ -19,14 +19,15 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import kotlin.time.Clock
 
 /** Round-trips of [ChannelRepositoryImpl] on PostgreSQL, every call under [ExposedTransactionRunner]. */
 class ChannelRepositoryImplTest :
     FunSpec({
         val db = PostgresTestContainer.newMigratedDatabase().database
         val tx = ExposedTransactionRunner(db)
-        val workspaces = WorkspaceRepositoryImpl(db)
-        val repository = ChannelRepositoryImpl(db)
+        val workspaces = WorkspaceRepositoryImpl()
+        val repository = ChannelRepositoryImpl(Clock.System)
 
         fun Channel.withoutTimestamps() = copy(createdAt = T0, updatedAt = T0)
 

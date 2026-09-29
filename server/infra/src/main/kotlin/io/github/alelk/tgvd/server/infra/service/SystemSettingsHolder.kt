@@ -4,6 +4,7 @@ import io.github.alelk.tgvd.domain.system.SystemSettings
 import io.github.alelk.tgvd.domain.system.SystemSettingsStore
 import io.github.alelk.tgvd.domain.track.TrackSelectionSettings
 import io.github.alelk.tgvd.domain.track.TrackSelectionSettingsProvider
+import io.github.alelk.tgvd.domain.tx.TransactionRunner
 import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
 import io.github.alelk.tgvd.server.infra.config.toProxyConfig
@@ -11,18 +12,16 @@ import io.github.alelk.tgvd.server.infra.config.toProxySettings
 import io.github.alelk.tgvd.server.infra.config.toTrackSelectionSettings
 import io.github.alelk.tgvd.server.infra.config.toYtDlpSettings
 import io.github.alelk.tgvd.server.infra.config.withSettings
-import io.github.alelk.tgvd.server.infra.db.dbQuery
 import io.github.alelk.tgvd.server.infra.db.jsonb
-import io.github.alelk.tgvd.server.infra.db.mapping.now
 import io.github.alelk.tgvd.server.infra.db.table.SystemSettingsTable
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.upsert
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
 
@@ -37,18 +36,23 @@ private const val KEY_PROXY = "proxy"
  *
  * Implements the domain ports [SystemSettingsStore] (the editable settings) and
  * [TrackSelectionSettingsProvider]; the config ↔ domain mapping is in `config/SystemSettingsMapping.kt`.
+ *
+ * Transactions: loading at construction opens its own read-only transaction through [txRunner] (it runs
+ * outside any use-case). The updates write in the transaction of the caller, like a repository —
+ * [save] runs inside `UpdateSystemSettingsUseCase`'s read-write transaction.
  */
 class SystemSettingsHolder(
     initialYtDlpConfig: YtDlpConfig,
     initialProxyConfig: ProxyConfig,
-    private val database: Database,
+    txRunner: TransactionRunner,
+    private val clock: Clock,
 ) : SystemSettingsStore,
     TrackSelectionSettingsProvider {
     private val ytDlpRef: AtomicReference<YtDlpConfig>
     private val proxyRef: AtomicReference<ProxyConfig>
 
     init {
-        val (persistedYtDlp, persistedProxy) = runBlocking { loadFromDb() }
+        val (persistedYtDlp, persistedProxy) = runBlocking { txRunner.inRoTransaction { loadFromDb() } }
         if (persistedYtDlp != null) logger.info { "Loaded persisted yt-dlp settings from DB" }
         if (persistedProxy != null) logger.info { "Loaded persisted proxy settings from DB" }
         ytDlpRef = AtomicReference(persistedYtDlp ?: initialYtDlpConfig)
@@ -70,7 +74,7 @@ class SystemSettingsHolder(
         updateProxyConfig { settings.proxy.toProxyConfig() }
     }
 
-    suspend fun updateYtDlpConfig(update: (YtDlpConfig) -> YtDlpConfig) {
+    fun updateYtDlpConfig(update: (YtDlpConfig) -> YtDlpConfig) {
         val new = update(ytDlpRef.get())
         ytDlpRef.set(new)
         persist(KEY_YTDLP, jsonb.encodeToString(new))
@@ -80,14 +84,14 @@ class SystemSettingsHolder(
         }
     }
 
-    suspend fun updateProxyConfig(update: (ProxyConfig) -> ProxyConfig) {
+    fun updateProxyConfig(update: (ProxyConfig) -> ProxyConfig) {
         val new = update(proxyRef.get())
         proxyRef.set(new)
         persist(KEY_PROXY, jsonb.encodeToString(new))
         logger.info { "ProxyConfig updated: enabled=${new.enabled}, type=${new.type}, host=${new.host}:${new.port}" }
     }
 
-    private suspend fun loadFromDb(): Pair<YtDlpConfig?, ProxyConfig?> = dbQuery(database) {
+    private fun loadFromDb(): Pair<YtDlpConfig?, ProxyConfig?> {
         fun loadKey(key: String) = SystemSettingsTable.selectAll()
             .where { SystemSettingsTable.key eq key }
             .singleOrNull()
@@ -103,14 +107,15 @@ class SystemSettingsHolder(
                 .onFailure { e -> logger.warn(e) { "Failed to deserialize persisted ProxyConfig, using default" } }
                 .getOrNull()
         }
-        ytDlp to proxy
+        return ytDlp to proxy
     }
 
-    private suspend fun persist(key: String, value: String) = dbQuery(database) {
+    /** Writes in the transaction of the caller. */
+    private fun persist(key: String, value: String) {
         SystemSettingsTable.upsert {
             it[SystemSettingsTable.key] = key
             it[SystemSettingsTable.value] = value
-            it[SystemSettingsTable.updatedAt] = now()
+            it[SystemSettingsTable.updatedAt] = clock.now()
         }
     }
 }

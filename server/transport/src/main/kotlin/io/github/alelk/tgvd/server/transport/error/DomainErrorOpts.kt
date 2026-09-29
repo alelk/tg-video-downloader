@@ -70,4 +70,8 @@ fun DomainError.toHttpResponse(correlationId: String): Pair<HttpStatusCode, ApiE
 
     is DomainError.YtDlpUpdateDisabled ->
         HttpStatusCode.Forbidden to apiError("UPDATE_DISABLED", message, correlationId)
+
+    // Same wire as an unhandled exception (StatusPages): no infrastructure detail reaches the client.
+    is DomainError.DatabaseFailed ->
+        HttpStatusCode.InternalServerError to apiError("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, correlationId)
 }

@@ -1,3 +1,10 @@
+---
+status: stable
+owner: Alex (alelk)
+updated: 2026-09-29
+related: [ ARCHITECTURE.md, PROJECT_CONTEXT.md ]
+---
+
 # Database
 
 > **Purpose**: PostgreSQL schema, migrations, and indexes.
@@ -446,26 +453,68 @@ Implementations are located in `server/infra/src/main/kotlin/.../db/repository/`
 
 - **`WorkspaceRepositoryImpl`** — CRUD for workspaces and workspace_members
 - **`RuleRepositoryImpl`** — CRUD for rules, filtered by workspace
-- **`JobRepositoryImpl`** — CRUD for jobs, filtered by workspace, status updates
+- **`ChannelRepositoryImpl`** — channel directory, filtered by workspace and tags
+- **`JobRepositoryImpl`** / **`JobOutputRepositoryImpl`** — jobs (status updates) and their output files
 - **`VideoInfoCacheImpl`** — VideoInfo cache from yt-dlp (port `VideoInfoCache`)
 
-The utility function `dbQuery(database) { ... }` (in `db/dbQuery.kt`) wraps a block in `suspendTransaction` with `Dispatchers.IO`.
+Rules every repository follows (stage 01.8):
+
+- **No transaction of its own.** A repository runs its statements in the transaction already bound to
+  the coroutine; called outside one, Exposed throws ("No transaction in context") — a programming
+  error the tests catch.
+- **Time from `Clock`.** An insert stores the timestamps of the domain object (`created_at`,
+  `updated_at`, `joined_at` — set by the use-case from the injected `Clock`); a timestamp the
+  repository produces itself (`updated_at` of a rule/channel update, status stamps of a job, cache
+  expiry, `system_settings.updated_at`) comes from the injected `Clock`. The column defaults
+  (`DEFAULT now()`) stay in the schema but are no longer relied on.
+- **Enums through the mapping.** Stored strings (`jobs.status`, `workspace_members.role`, …) are
+  produced by `db/mapping/*` (`JobStatus.toDbString()`), never written as literals in queries. The
+  stored values are unchanged.
+- **Database errors through `catchingDb`** (`db/RepositorySupport.kt`) in every method whose port
+  returns `Either`: see §7.3.
 
 ---
 
 ## 7. Transactions
 
-### 7.1 Approach
+### 7.1 Who opens a transaction
 
-```kotlin
-// db/dbQuery.kt
-suspend fun <T> dbQuery(database: Database, block: suspend () -> T): T =
-    withContext(Dispatchers.IO) {
-        suspendTransaction(db = database) { block() }
-    }
-```
+Only `ExposedTransactionRunner` (`db/ExposedTransactionRunner.kt`, the `TransactionRunner` port):
+`withContext(Dispatchers.IO)` + `suspendTransaction(db, readOnly)`. The single exception is the
+readiness probe's `SELECT 1` (`DatabaseReadinessProbe`), which opens a plain `transaction(db)`.
 
-> `newSuspendedTransaction()` is deprecated in Exposed 1.0.0. Use `suspendTransaction()` instead.
+| Caller                                      | Transaction                                                        |
+|---------------------------------------------|--------------------------------------------------------------------|
+| Use-case (`domain`)                         | one `inRoTransaction` / `inRwTransaction` per command or query     |
+| `JobProcessor` (background, no use-case)    | every read a short RO transaction, every write a short RW one      |
+| `SystemSettingsHolder`                      | loading at start: own RO transaction; `save` joins the use-case's |
+
+yt-dlp, ffmpeg, LLM and HTTP calls never run inside a transaction.
+
+> `newSuspendedTransaction()` is deprecated in Exposed 1.0.0; `suspendTransaction()` is used.
+
+### 7.2 Nesting and the "`Left` commits" trap
+
+Pinned by `ExposedTransactionRunnerTest`:
+
+- A runner called inside another **joins the outer transaction** (no savepoint): the inner writes
+  commit or roll back together with the outer transaction.
+- The runner **commits whatever the block returns — a `Left` included.** Only an exception (or
+  `catchingDb`, below) rolls back. Use-cases therefore run every check before the first write.
+
+### 7.3 Database errors: `catchingDb`
+
+- Catches only `SQLException` (Exposed's `ExposedSQLException` is one); `CancellationException` and
+  everything else propagate.
+- **Rolls the whole transaction back** before returning the `Left` — earlier writes of the same
+  transaction are discarded, and the connection is usable again.
+- SQLSTATE `23505` on a known unique index becomes the existing conflict error:
+  `idx_workspaces_slug` → `WorkspaceSlugConflict` (409), `idx_jobs_active_video` → `JobAlreadyExists`
+  (409). Anything else → `DomainError.DatabaseFailed` → `500 INTERNAL_ERROR` "Internal server error"
+  (the same response an unhandled `SQLException` got before; the detail goes to the log only).
+- Methods whose port returns a plain value (finders, `delete`, `removeMember`, `saveAll`, cache
+  methods) let the exception propagate: the runner rolls back and `StatusPages` answers
+  `500 INTERNAL_ERROR`.
 
 ---
 

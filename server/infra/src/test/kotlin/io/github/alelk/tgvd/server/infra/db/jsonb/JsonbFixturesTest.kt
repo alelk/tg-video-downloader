@@ -46,6 +46,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import java.util.UUID
+import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.toKotlinUuid
 
@@ -73,10 +74,10 @@ class JsonbFixturesTest :
         val sql = RawRows(connection)
         val workspaceId = sql.insertWorkspace("jsonb-fixtures")
 
-        val rules = RuleRepositoryImpl(db)
-        val channels = ChannelRepositoryImpl(db)
-        val jobs = JobRepositoryImpl(db)
-        val cache = VideoInfoCacheImpl(db)
+        val rules = RuleRepositoryImpl(Clock.System)
+        val channels = ChannelRepositoryImpl(Clock.System)
+        val jobs = JobRepositoryImpl(Clock.System)
+        val cache = VideoInfoCacheImpl(Clock.System)
 
         suspend fun readRule(id: UUID) = tx.inRoTransaction {
             rules.findById(RuleId(id.toKotlinUuid()))
@@ -162,7 +163,7 @@ class JsonbFixturesTest :
                 ) {
                     sql.upsertSystemSetting("ytdlp", it)
                     // The config value differs from every fixture, so a silent fallback to it fails the comparison.
-                    tx.inRwTransaction { SystemSettingsHolder(CONFIG_YT_DLP, CONFIG_PROXY, db) }.ytDlpConfig
+                    SystemSettingsHolder(CONFIG_YT_DLP, CONFIG_PROXY, tx, Clock.System).ytDlpConfig
                 },
                 FixtureColumn(
                     "system_settings.proxy",
@@ -170,7 +171,7 @@ class JsonbFixturesTest :
                     JsonbFixtureCases.systemSettingsProxy,
                 ) {
                     sql.upsertSystemSetting("proxy", it)
-                    tx.inRwTransaction { SystemSettingsHolder(CONFIG_YT_DLP, CONFIG_PROXY, db) }.proxyConfig
+                    SystemSettingsHolder(CONFIG_YT_DLP, CONFIG_PROXY, tx, Clock.System).proxyConfig
                 },
             )
 
@@ -228,7 +229,7 @@ class JsonbFixturesTest :
             }
 
             val roles = mapOf("owner" to WorkspaceRole.OWNER, "member" to WorkspaceRole.MEMBER)
-            val workspaces = WorkspaceRepositoryImpl(db)
+            val workspaces = WorkspaceRepositoryImpl()
             roles.forEach { (stored, expected) ->
                 val userId = sql.insertMember(workspaceId, stored)
                 withClue("workspace_members.role = '$stored'") {

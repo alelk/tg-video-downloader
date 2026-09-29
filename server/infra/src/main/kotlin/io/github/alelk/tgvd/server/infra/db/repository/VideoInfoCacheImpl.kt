@@ -2,44 +2,41 @@ package io.github.alelk.tgvd.server.infra.db.repository
 
 import io.github.alelk.tgvd.domain.video.VideoInfo
 import io.github.alelk.tgvd.domain.video.VideoInfoCache
-import io.github.alelk.tgvd.server.infra.db.dbQuery
-import io.github.alelk.tgvd.server.infra.db.mapping.now
 import io.github.alelk.tgvd.server.infra.db.mapping.toDomain
 import io.github.alelk.tgvd.server.infra.db.mapping.toPm
 import io.github.alelk.tgvd.server.infra.db.table.VideoInfoCacheTable
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.jetbrains.exposed.v1.core.LessEqOp
-import org.jetbrains.exposed.v1.core.GreaterEqOp
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.or
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.upsert
+import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
-import kotlin.time.Instant
 
 private val logger = KotlinLogging.logger {}
 
+/**
+ * Cache of yt-dlp extraction results by URL. Runs in the transaction of the caller (`TransactionRunner`);
+ * never opens one. "Now" (entry creation, expiry) comes from [clock].
+ */
 class VideoInfoCacheImpl(
-    private val database: Database,
-    /** How long cached entries are valid. Null means entries never expire. */
+    private val clock: Clock,
+    /** How long cached entries are valid. */
     private val ttl: Duration = 24.hours,
 ) : VideoInfoCache {
-
-    override suspend fun get(url: String): VideoInfo? = dbQuery(database) {
-        val now = now()
-        VideoInfoCacheTable.selectAll()
+    override suspend fun get(url: String): VideoInfo? {
+        val now = clock.now()
+        return VideoInfoCacheTable.selectAll()
             .where {
                 (VideoInfoCacheTable.url eq url) and
-                    (VideoInfoCacheTable.expiresAt.isNull() or
-                        VideoInfoCacheTable.expiresAt.isNotNull().and(
-                            GreaterEqOp(VideoInfoCacheTable.expiresAt, org.jetbrains.exposed.v1.core.QueryParameter(now, VideoInfoCacheTable.expiresAt.columnType))
-                        ))
+                    (VideoInfoCacheTable.expiresAt.isNull() or (VideoInfoCacheTable.expiresAt greaterEq now))
             }
             .singleOrNull()
             ?.let {
@@ -48,7 +45,7 @@ class VideoInfoCacheImpl(
             }
     }
 
-    override suspend fun put(url: String, videoInfo: VideoInfo): Unit = dbQuery(database) {
+    override suspend fun put(url: String, videoInfo: VideoInfo) {
         logger.debug { "Caching VideoInfo for: $url, formats count=${videoInfo.availableFormats.size}" }
 
         val videoOnlyCount = videoInfo.availableFormats.count {
@@ -62,33 +59,32 @@ class VideoInfoCacheImpl(
         }
         logger.debug { "put: videoOnly=$videoOnlyCount, audioOnly=$audioOnlyCount, combined=$combinedCount" }
 
-        val expiresAt = now() + ttl
-        VideoInfoCacheTable.upsert {
+        val now = clock.now()
+        // A refreshed entry keeps its original created_at.
+        VideoInfoCacheTable.upsert(onUpdateExclude = listOf(VideoInfoCacheTable.createdAt)) {
             it[VideoInfoCacheTable.url] = url
             it[VideoInfoCacheTable.videoInfo] = videoInfo.toPm()
-            it[VideoInfoCacheTable.expiresAt] = expiresAt
+            it[VideoInfoCacheTable.createdAt] = now
+            it[VideoInfoCacheTable.expiresAt] = now + ttl
         }
     }
 
-    override suspend fun updateActualFormat(url: String, actualFormat: VideoInfo.Format): Unit = dbQuery(database) {
-        val entry = VideoInfoCacheTable.selectAll().where { VideoInfoCacheTable.url eq url }.singleOrNull()
-        if (entry != null) {
-            val videoInfo = entry[VideoInfoCacheTable.videoInfo].toDomain()
-            val updated = videoInfo.copy(actualFormat = actualFormat)
-            VideoInfoCacheTable.upsert {
-                it[VideoInfoCacheTable.url] = url
-                it[VideoInfoCacheTable.videoInfo] = updated.toPm()
-                it[VideoInfoCacheTable.expiresAt] = entry[VideoInfoCacheTable.expiresAt]
-            }
+    override suspend fun updateActualFormat(url: String, actualFormat: VideoInfo.Format) {
+        val entry = VideoInfoCacheTable.selectAll().where { VideoInfoCacheTable.url eq url }.singleOrNull() ?: return
+        val updated = entry[VideoInfoCacheTable.videoInfo].toDomain().copy(actualFormat = actualFormat)
+        VideoInfoCacheTable.upsert {
+            it[VideoInfoCacheTable.url] = url
+            it[VideoInfoCacheTable.videoInfo] = updated.toPm()
+            it[VideoInfoCacheTable.expiresAt] = entry[VideoInfoCacheTable.expiresAt]
         }
     }
 
-    /** Deletes all expired cache entries. Call periodically (e.g. from a scheduled job). */
-    suspend fun evictExpired(): Int = dbQuery(database) {
-        val now = now()
-        VideoInfoCacheTable.deleteWhere {
-            expiresAt.isNotNull() and
-                LessEqOp(expiresAt, org.jetbrains.exposed.v1.core.QueryParameter(now, expiresAt.columnType))
-        }
+    /**
+     * Deletes all expired cache entries. Not called anywhere yet (a known issue, see
+     * `docs/project-status.md`); the caller must open the transaction.
+     */
+    suspend fun evictExpired(): Int {
+        val now = clock.now()
+        return VideoInfoCacheTable.deleteWhere { expiresAt.isNotNull() and (expiresAt lessEq now) }
     }
 }

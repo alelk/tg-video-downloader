@@ -34,9 +34,15 @@ data class CreateJobResult(val job: Job, val saveAsRuleError: DomainError? = nul
  * for this video".
  *
  * A rule that cannot be built or that the repository refuses (a `Left`) does not fail the job: the
- * job is created and the refusal is returned in [CreateJobResult.saveAsRuleError]. An *exception* while saving the rule
- * (a database failure) rolls the whole transaction back — the job included. Before stage 01.6 the
- * rule was created in a separate transaction after the job had been committed.
+ * job is created and the refusal is returned in [CreateJobResult.saveAsRuleError]. A database failure
+ * while saving the rule ([DomainError.DatabaseFailed]; the repository has already rolled the
+ * transaction back — the job included) fails the whole call, so a job that was never stored is never
+ * reported as created. Before stage 01.6 the rule was created in a separate transaction after the job
+ * had been committed.
+ *
+ * "A `Left` commits": the transaction commits whatever the block returns, so every check above runs
+ * before the first write, and the only `Left` after the job write is the database failure that has
+ * already rolled back.
  */
 class CreateJobUseCase(
     private val workspaceAccess: WorkspaceAccess,
@@ -77,6 +83,7 @@ class CreateJobUseCase(
 
             val saved = jobRepository.save(job).bind()
             val ruleError = rule?.fold({ it }, { ruleRepository.save(it).leftOrNull() })
+            if (ruleError is DomainError.DatabaseFailed) raise(ruleError)
             CreateJobResult(saved, ruleError)
         }
     }

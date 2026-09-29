@@ -9,6 +9,11 @@ package io.github.alelk.tgvd.domain.tx
  *
  * Two scopes are intentionally separate so that static analysis or future tooling
  * can distinguish read-only from read-write access patterns.
+ *
+ * - Only a runner opens a transaction; repositories run in the one that is open.
+ * - A runner called inside another joins the outer transaction.
+ * - **A `Left` commits**: the transaction commits whatever the block returns. Put every check before the
+ *   first write; a repository that maps a database failure to a `Left` has rolled the transaction back.
  */
 interface TransactionRunner {
     /** Execute [block] in a read-only transaction; return its result or propagate exception. */

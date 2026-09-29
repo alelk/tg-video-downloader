@@ -41,6 +41,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.dsl.module
+import kotlin.time.Clock
 
 internal fun infraModule(database: Database?) = module {
     // Database: opened (pool + Flyway) by the application before Koin starts; absent when the server
@@ -50,17 +51,18 @@ internal fun infraModule(database: Database?) = module {
     single<TransactionRunner> { ExposedTransactionRunner(db = get<Database>()) }
 
     // Mutable settings holder (initial values from config or DB, overridable via API; persisted across restarts)
-    single { SystemSettingsHolder(get<YtDlpConfig>(), get<ProxyConfig>(), get<Database>()) }
+    single { SystemSettingsHolder(get<YtDlpConfig>(), get<ProxyConfig>(), get<TransactionRunner>(), get<Clock>()) }
     single<SystemSettingsStore> { get<SystemSettingsHolder>() }
     single<TrackSelectionSettingsProvider> { get<SystemSettingsHolder>() }
 
-    // Repositories (domain port → infra adapter)
-    single<WorkspaceRepository> { WorkspaceRepositoryImpl(get<Database>()) }
-    single<RuleRepository> { RuleRepositoryImpl(get<Database>()) }
-    single<ChannelRepository> { ChannelRepositoryImpl(get<Database>()) }
-    single<JobRepository> { JobRepositoryImpl(get<Database>()) }
-    single<JobOutputRepository> { JobOutputRepositoryImpl(get<Database>()) }
-    single<VideoInfoCache> { VideoInfoCacheImpl(get<Database>()) }
+    // Repositories (domain port → infra adapter). They run in the transaction opened by the
+    // TransactionRunner and never open one themselves.
+    single<WorkspaceRepository> { WorkspaceRepositoryImpl() }
+    single<RuleRepository> { RuleRepositoryImpl(get<Clock>()) }
+    single<ChannelRepository> { ChannelRepositoryImpl(get<Clock>()) }
+    single<JobRepository> { JobRepositoryImpl(get<Clock>()) }
+    single<JobOutputRepository> { JobOutputRepositoryImpl() }
+    single<VideoInfoCache> { VideoInfoCacheImpl(get<Clock>()) }
 
     // External process runners
     single { YtDlpRunner(get<SystemSettingsHolder>()) }
@@ -99,6 +101,8 @@ internal fun infraModule(database: Database?) = module {
             videoInfoCache = get<VideoInfoCache>(),
             ffmpegRunner = get<FfmpegRunner>(),
             config = get<JobsConfig>(),
+            txRunner = get<TransactionRunner>(),
+            clock = get<Clock>(),
         )
     }
 }

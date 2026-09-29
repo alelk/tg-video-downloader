@@ -108,7 +108,7 @@ data class ApiErrorDto(
 | `UPDATE_DISABLED`         | 403         | yt-dlp update is disabled in configuration           |
 | `VIDEO_UNAVAILABLE`       | 422         | Video is unavailable                                 |
 | `LLM_ERROR`               | 502         | Error calling the LLM provider                       |
-| `INTERNAL_ERROR`          | 500         | Internal server error                                |
+| `INTERNAL_ERROR`          | 500         | Internal server error (also a database failure — `DomainError.DatabaseFailed`, same body since 01.8) |
 
 ---
 

@@ -302,14 +302,31 @@ See [ADR/004-error-handling.md](./ADR/004-error-handling.md).
 - `kotlinx-coroutines` is used in all KMP modules
 - Job execution uses a `CoroutineDispatcher` from DI
 
-### 3.3 Configuration
+### 3.3 Transactions
+
+- **Only `TransactionRunner` opens a transaction** (`ExposedTransactionRunner` in `server:infra`).
+  Use-cases wrap each command/query in one `inRwTransaction {}` / `inRoTransaction {}`; background
+  code outside a use-case (`JobProcessor`, the start-up load of `SystemSettingsHolder`) opens short
+  transactions through the same runner. Repositories run in the transaction bound to the coroutine and
+  never open one; without a transaction they fail.
+- A runner called inside another joins the outer transaction.
+- **A `Left` commits**: the runner commits whatever the block returns. Every check comes before the
+  first write; a use-case never swallows a `DatabaseFailed` after a write (`CreateJobUseCase` fails the
+  whole call when saving the "save as rule" rule hits a database error).
+- Database failures: `catchingDb` rolls the transaction back and maps SQLSTATE to `DomainError`
+  (`23505` on a known unique index → the existing conflict error, else `DatabaseFailed` → `500`).
+- yt-dlp, ffmpeg, LLM and HTTP never run inside a transaction.
+
+Details: [DATABASE.md §6–7](./DATABASE.md).
+
+### 3.4 Configuration
 
 - Hoplite for loading YAML/env (only in `server:app`, JVM)
 - Data classes for config
 
 See [CONFIGURATION.md](./CONFIGURATION.md).
 
-### 3.4 KMP Source Set Conventions
+### 3.5 KMP Source Set Conventions
 
 All reusable code goes in `commonMain`. Platform services are `commonMain` interfaces implemented in the shell and bound in its Koin module (e.g. `PreferencesStorage` → `LocalStoragePreferences`); the project has no hand-written `expect/actual`.
 
@@ -498,6 +515,9 @@ JobProcessor
        │
        └──▶ JobRepository.updateStatus(COMPLETED)
 ```
+
+Every repository call of `JobProcessor` is its own short transaction through `TransactionRunner`
+(reads RO, writes RW); the download and ffmpeg run between them, outside any transaction.
 
 > **Optimizations**:
 > - **ConversionKey deduplication**: if multiple outputs share identical conversion parameters

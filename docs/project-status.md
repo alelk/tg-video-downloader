@@ -48,6 +48,12 @@ anything a user, client or deployed installation sees (except G10 and Fork 5,
   (`single<Clock> { Clock.System }`); `UnconfiguredLlmPort` instead of `LlmPort?`; `NoopTransactionRunner`
   moved to `domain-test-fixtures`; fitness tests `TransportSourceGuardTest`, `DomainPurityTest`;
   G10: broken tags/regex/blank ids/non-positive user ids in rule, channel and member input → 400.
+- 2026-09-29 — 01.8 done: only `TransactionRunner` opens transactions (`dbQuery` removed; repositories run
+  in the current one; `JobProcessor` and `SystemSettingsHolder` use short runner transactions); nested runner
+  joins the outer transaction and "a `Left` commits" pinned by tests; `catchingDb` (rollback, `23505` →
+  `WorkspaceSlugConflict`/`JobAlreadyExists`, else `DatabaseFailed` → same `500 INTERNAL_ERROR`); repositories
+  take time from `Clock` (inserts store the use-case's timestamps) and statuses via the mapping; `JobProcessor`
+  smoke test on Testcontainers; 659 JVM tests.
 
 ## Known issues
 

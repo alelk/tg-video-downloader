@@ -11,6 +11,7 @@ import io.github.alelk.tgvd.server.infra.db.ExposedTransactionRunner
 import io.github.alelk.tgvd.server.infra.testing.PostgresTestContainer
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import io.github.alelk.tgvd.domain.system.YtDlpExtractorOverride as ExtractorOverride
 
@@ -26,7 +27,7 @@ class SystemSettingsHolderTest :
         val configProxy = ProxyConfig()
 
         test("config values -> update -> restart reads the persisted values -> update again") {
-            val holder = tx.inRwTransaction { SystemSettingsHolder(configYtDlp, configProxy, db) }
+            val holder = SystemSettingsHolder(configYtDlp, configProxy, tx, Clock.System)
             holder.ytDlpConfig shouldBe configYtDlp
             holder.proxyConfig shouldBe configProxy
 
@@ -48,12 +49,12 @@ class SystemSettingsHolderTest :
             holder.ytDlpConfig shouldBe ytDlp
             holder.proxyConfig shouldBe proxy
 
-            val restarted = tx.inRwTransaction { SystemSettingsHolder(configYtDlp, configProxy, db) }
+            val restarted = SystemSettingsHolder(configYtDlp, configProxy, tx, Clock.System)
             restarted.ytDlpConfig shouldBe ytDlp
             restarted.proxyConfig shouldBe proxy
 
             tx.inRwTransaction { restarted.updateProxyConfig { it.copy(username = "u", password = "p") } }
-            tx.inRwTransaction { SystemSettingsHolder(configYtDlp, configProxy, db) }.proxyConfig shouldBe
+            SystemSettingsHolder(configYtDlp, configProxy, tx, Clock.System).proxyConfig shouldBe
                 proxy.copy(username = "u", password = "p")
         }
 
@@ -61,7 +62,7 @@ class SystemSettingsHolderTest :
             val deployment = configYtDlp.copy(allowUpdate = false, retries = 9, timeout = 5.minutes)
             val fresh = PostgresTestContainer.newMigratedDatabase().database
             val freshTx = ExposedTransactionRunner(fresh)
-            val holder = freshTx.inRwTransaction { SystemSettingsHolder(deployment, configProxy, fresh) }
+            val holder = SystemSettingsHolder(deployment, configProxy, freshTx, Clock.System)
             holder.current() shouldBe SystemSettings(YtDlpSettings(), ProxySettings())
             holder.isYtDlpUpdateAllowed() shouldBe false
 
@@ -86,7 +87,7 @@ class SystemSettingsHolderTest :
             holder.proxyConfig shouldBe
                 ProxyConfig(true, ProxyConfig.ProxyType.SOCKS5, "10.0.0.2", 1081, "u", "p")
 
-            val restarted = freshTx.inRwTransaction { SystemSettingsHolder(configYtDlp, configProxy, fresh) }
+            val restarted = SystemSettingsHolder(configYtDlp, configProxy, freshTx, Clock.System)
             restarted.current() shouldBe settings
         }
     })

@@ -16,6 +16,9 @@ import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
+/** The message of every `500 INTERNAL_ERROR`: a server fault never shows its detail to the client. */
+internal const val INTERNAL_ERROR_MESSAGE = "Internal server error"
+
 /**
  * Exceptions that escaped a route. Expected failures never get here — routes fold `Either`.
  *
@@ -34,7 +37,7 @@ fun StatusPagesConfig.configureDomainErrorHandling() {
         logger.error(cause) { "Unhandled exception [correlationId=$correlationId]" }
         call.respond(
             HttpStatusCode.InternalServerError,
-            apiError("INTERNAL_ERROR", "Internal server error", correlationId),
+            apiError("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, correlationId),
         )
     }
 }

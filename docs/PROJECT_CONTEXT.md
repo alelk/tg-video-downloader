@@ -70,8 +70,9 @@ command.
 - **Errors:** business errors are `Either<DomainError, T>` (`domain/common/DomainError`);
   transport maps them to HTTP + `ApiErrorDto`.
 - **Transactions:** use-cases wrap work in `TransactionRunner.inRwTransaction {}` /
-  `inRoTransaction {}`; no yt-dlp/ffmpeg/LLM/HTTP inside a transaction. Current state: each
-  repository method also opens its own transaction through `dbQuery` — removed in stage 01.8.
+  `inRoTransaction {}`; no yt-dlp/ffmpeg/LLM/HTTP inside a transaction. Only the runner opens a
+  transaction (repositories run in the current one); a `Left` returned from the block commits, so
+  checks come before writes; database errors go through `catchingDb` (`DATABASE.md` §7).
 - **Isolation:** every resource belongs to a workspace; the API path carries the workspace id
   (`/api/v1/workspaces/{workspaceId}/…`); membership must be checked before access.
 - **Ids and values:** value classes (`JobId`, `RuleId`, `WorkspaceId`, `ChannelDirectoryEntryId`,
