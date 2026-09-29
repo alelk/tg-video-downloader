@@ -1,0 +1,712 @@
+<?xml version="1.0" encoding="utf-8"?>
+<baseline version="1.0">
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/channel/Channel.kt">
+        <error line="37" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/channel/ChannelRepository.kt">
+        <error line="22" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/channel/CreateChannelRequest.kt">
+        <error line="27" column="98" source="standard:function-signature" />
+        <error line="42" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/channel/CreateChannelUseCase.kt">
+        <error line="22" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/channel/DeleteChannelUseCase.kt">
+        <error line="10" column="5" source="standard:class-signature" />
+        <error line="11" column="5" source="standard:class-signature" />
+        <error line="11" column="45" source="standard:class-signature" />
+        <error line="21" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/channel/UpdateChannelRequest.kt">
+        <error line="19" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/channel/UpdateChannelUseCase.kt">
+        <error line="18" column="38" source="standard:function-signature" />
+        <error line="41" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/Category.kt">
+        <error line="6" column="10" source="standard:trailing-comma-on-declaration-site" />
+        <error line="9" column="51" source="standard:function-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/ChannelDirectoryEntryId.kt">
+        <error line="11" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/ChannelId.kt">
+        <error line="10" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/DomainError.kt">
+        <error line="17" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="18" column="32" source="standard:parameter-list-wrapping" />
+        <error line="18" column="32" source="standard:class-signature" />
+        <error line="18" column="65" source="standard:parameter-list-wrapping" />
+        <error line="18" column="65" source="standard:class-signature" />
+        <error line="18" column="121" source="standard:max-line-length" />
+        <error line="18" column="128" source="standard:parameter-list-wrapping" />
+        <error line="18" column="128" source="standard:class-signature" />
+        <error line="19" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="23" column="33" source="standard:parameter-list-wrapping" />
+        <error line="23" column="33" source="standard:class-signature" />
+        <error line="23" column="55" source="standard:parameter-list-wrapping" />
+        <error line="23" column="55" source="standard:class-signature" />
+        <error line="23" column="75" source="standard:parameter-list-wrapping" />
+        <error line="23" column="75" source="standard:class-signature" />
+        <error line="23" column="121" source="standard:max-line-length" />
+        <error line="23" column="153" source="standard:parameter-list-wrapping" />
+        <error line="23" column="153" source="standard:class-signature" />
+        <error line="24" column="38" source="standard:parameter-list-wrapping" />
+        <error line="24" column="38" source="standard:class-signature" />
+        <error line="24" column="52" source="standard:parameter-list-wrapping" />
+        <error line="24" column="52" source="standard:class-signature" />
+        <error line="24" column="71" source="standard:parameter-list-wrapping" />
+        <error line="24" column="71" source="standard:class-signature" />
+        <error line="24" column="121" source="standard:max-line-length" />
+        <error line="24" column="140" source="standard:parameter-list-wrapping" />
+        <error line="24" column="140" source="standard:class-signature" />
+        <error line="27" column="33" source="standard:parameter-list-wrapping" />
+        <error line="27" column="33" source="standard:class-signature" />
+        <error line="27" column="55" source="standard:parameter-list-wrapping" />
+        <error line="27" column="55" source="standard:class-signature" />
+        <error line="27" column="81" source="standard:parameter-list-wrapping" />
+        <error line="27" column="81" source="standard:class-signature" />
+        <error line="27" column="121" source="standard:max-line-length" />
+        <error line="27" column="159" source="standard:parameter-list-wrapping" />
+        <error line="27" column="159" source="standard:class-signature" />
+        <error line="28" column="37" source="standard:parameter-list-wrapping" />
+        <error line="28" column="37" source="standard:class-signature" />
+        <error line="28" column="52" source="standard:parameter-list-wrapping" />
+        <error line="28" column="52" source="standard:class-signature" />
+        <error line="28" column="82" source="standard:parameter-list-wrapping" />
+        <error line="28" column="82" source="standard:class-signature" />
+        <error line="28" column="121" source="standard:max-line-length" />
+        <error line="28" column="157" source="standard:parameter-list-wrapping" />
+        <error line="28" column="157" source="standard:class-signature" />
+        <error line="29" column="35" source="standard:parameter-list-wrapping" />
+        <error line="29" column="35" source="standard:class-signature" />
+        <error line="29" column="50" source="standard:parameter-list-wrapping" />
+        <error line="29" column="50" source="standard:class-signature" />
+        <error line="29" column="80" source="standard:parameter-list-wrapping" />
+        <error line="29" column="80" source="standard:class-signature" />
+        <error line="29" column="121" source="standard:max-line-length" />
+        <error line="29" column="154" source="standard:parameter-list-wrapping" />
+        <error line="29" column="154" source="standard:class-signature" />
+        <error line="30" column="31" source="standard:parameter-list-wrapping" />
+        <error line="30" column="31" source="standard:class-signature" />
+        <error line="30" column="49" source="standard:parameter-list-wrapping" />
+        <error line="30" column="49" source="standard:class-signature" />
+        <error line="30" column="68" source="standard:parameter-list-wrapping" />
+        <error line="30" column="68" source="standard:class-signature" />
+        <error line="30" column="121" source="standard:max-line-length" />
+        <error line="30" column="124" source="standard:parameter-list-wrapping" />
+        <error line="30" column="124" source="standard:class-signature" />
+        <error line="31" column="37" source="standard:parameter-list-wrapping" />
+        <error line="31" column="37" source="standard:class-signature" />
+        <error line="31" column="55" source="standard:parameter-list-wrapping" />
+        <error line="31" column="55" source="standard:class-signature" />
+        <error line="31" column="76" source="standard:parameter-list-wrapping" />
+        <error line="31" column="76" source="standard:class-signature" />
+        <error line="31" column="95" source="standard:parameter-list-wrapping" />
+        <error line="31" column="95" source="standard:class-signature" />
+        <error line="31" column="121" source="standard:max-line-length" />
+        <error line="31" column="168" source="standard:parameter-list-wrapping" />
+        <error line="31" column="168" source="standard:class-signature" />
+        <error line="34" column="37" source="standard:parameter-list-wrapping" />
+        <error line="34" column="37" source="standard:class-signature" />
+        <error line="34" column="57" source="standard:parameter-list-wrapping" />
+        <error line="34" column="57" source="standard:class-signature" />
+        <error line="34" column="121" source="standard:max-line-length" />
+        <error line="34" column="127" source="standard:parameter-list-wrapping" />
+        <error line="34" column="127" source="standard:class-signature" />
+        <error line="35" column="30" source="standard:parameter-list-wrapping" />
+        <error line="35" column="30" source="standard:class-signature" />
+        <error line="35" column="50" source="standard:parameter-list-wrapping" />
+        <error line="35" column="50" source="standard:class-signature" />
+        <error line="35" column="69" source="standard:parameter-list-wrapping" />
+        <error line="35" column="69" source="standard:class-signature" />
+        <error line="35" column="121" source="standard:max-line-length" />
+        <error line="35" column="142" source="standard:parameter-list-wrapping" />
+        <error line="35" column="142" source="standard:class-signature" />
+        <error line="39" column="26" source="standard:parameter-list-wrapping" />
+        <error line="39" column="26" source="standard:class-signature" />
+        <error line="39" column="54" source="standard:parameter-list-wrapping" />
+        <error line="39" column="54" source="standard:class-signature" />
+        <error line="39" column="119" source="standard:parameter-list-wrapping" />
+        <error line="39" column="119" source="standard:class-signature" />
+        <error line="39" column="121" source="standard:max-line-length" />
+        <error line="43" column="34" source="standard:parameter-list-wrapping" />
+        <error line="43" column="34" source="standard:class-signature" />
+        <error line="43" column="55" source="standard:parameter-list-wrapping" />
+        <error line="43" column="55" source="standard:class-signature" />
+        <error line="43" column="120" source="standard:parameter-list-wrapping" />
+        <error line="43" column="120" source="standard:class-signature" />
+        <error line="43" column="121" source="standard:max-line-length" />
+        <error line="44" column="40" source="standard:parameter-list-wrapping" />
+        <error line="44" column="40" source="standard:class-signature" />
+        <error line="44" column="65" source="standard:parameter-list-wrapping" />
+        <error line="44" column="65" source="standard:class-signature" />
+        <error line="44" column="121" source="standard:max-line-length" />
+        <error line="44" column="132" source="standard:parameter-list-wrapping" />
+        <error line="44" column="132" source="standard:class-signature" />
+        <error line="45" column="38" source="standard:parameter-list-wrapping" />
+        <error line="45" column="38" source="standard:class-signature" />
+        <error line="45" column="63" source="standard:parameter-list-wrapping" />
+        <error line="45" column="63" source="standard:class-signature" />
+        <error line="45" column="121" source="standard:max-line-length" />
+        <error line="45" column="146" source="standard:parameter-list-wrapping" />
+        <error line="45" column="146" source="standard:class-signature" />
+        <error line="46" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="47" column="38" source="standard:parameter-list-wrapping" />
+        <error line="47" column="38" source="standard:class-signature" />
+        <error line="47" column="68" source="standard:parameter-list-wrapping" />
+        <error line="47" column="68" source="standard:class-signature" />
+        <error line="47" column="96" source="standard:parameter-list-wrapping" />
+        <error line="47" column="96" source="standard:class-signature" />
+        <error line="47" column="121" source="standard:max-line-length" />
+        <error line="47" column="199" source="standard:parameter-list-wrapping" />
+        <error line="47" column="199" source="standard:class-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/Extractor.kt">
+        <error line="17" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/FileNameValidator.kt">
+        <error line="51" column="69" source="standard:function-signature" />
+        <error line="54" column="58" source="standard:function-signature" />
+        <error line="58" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/JobId.kt">
+        <error line="9" column="34" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/LocalDate.kt">
+        <error line="18" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/RuleId.kt">
+        <error line="9" column="35" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/Tag.kt">
+        <error line="23" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/TelegramUserId.kt">
+        <error line="10" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/Url.kt">
+        <error line="13" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/VideoId.kt">
+        <error line="11" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/WorkspaceId.kt">
+        <error line="11" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/common/WorkspaceSlug.kt">
+        <error line="31" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/CancelJobUseCase.kt">
+        <error line="11" column="5" source="standard:class-signature" />
+        <error line="12" column="5" source="standard:class-signature" />
+        <error line="12" column="45" source="standard:class-signature" />
+        <error line="14" column="74" source="standard:function-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/CreateJobRequest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="31" column="86" source="standard:function-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/CreateJobUseCase.kt">
+        <error line="15" column="87" source="standard:function-signature" />
+        <error line="33" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/Job.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/JobOutput.kt">
+        <error line="15" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/JobOutputRepository.kt">
+        <error line="8" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/JobPhase.kt">
+        <error line="10" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/JobRepository.kt">
+        <error line="14" column="30" source="standard:parameter-list-wrapping" />
+        <error line="14" column="30" source="standard:function-signature" />
+        <error line="14" column="41" source="standard:parameter-list-wrapping" />
+        <error line="14" column="41" source="standard:function-signature" />
+        <error line="14" column="60" source="standard:parameter-list-wrapping" />
+        <error line="14" column="60" source="standard:function-signature" />
+        <error line="14" column="85" source="standard:parameter-list-wrapping" />
+        <error line="14" column="85" source="standard:function-signature" />
+        <error line="14" column="108" source="standard:parameter-list-wrapping" />
+        <error line="14" column="108" source="standard:function-signature" />
+        <error line="14" column="121" source="standard:max-line-length" />
+        <error line="14" column="136" source="standard:parameter-list-wrapping" />
+        <error line="14" column="136" source="standard:function-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/JobStatus.kt">
+        <error line="9" column="14" source="standard:trailing-comma-on-declaration-site" />
+        <error line="16" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/RetryJobUseCase.kt">
+        <error line="11" column="5" source="standard:class-signature" />
+        <error line="12" column="5" source="standard:class-signature" />
+        <error line="12" column="45" source="standard:class-signature" />
+        <error line="14" column="74" source="standard:function-signature" />
+        <error line="24" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/buildSaveAsRuleRequest.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="57" column="100" source="standard:function-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/metadata/LlmPort.kt">
+        <error line="11" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/metadata/LlmSuggestion.kt">
+        <error line="6" column="5" source="standard:class-signature" />
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="8" column="28" source="standard:class-signature" />
+        <error line="9" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/metadata/MetadataResolver.kt">
+        <error line="7" column="82" source="standard:function-signature" />
+        <error line="15" column="27" source="standard:parameter-list-wrapping" />
+        <error line="15" column="27" source="standard:function-signature" />
+        <error line="36" column="27" source="standard:parameter-list-wrapping" />
+        <error line="36" column="27" source="standard:function-signature" />
+        <error line="53" column="9" source="standard:function-signature" />
+        <error line="53" column="27" source="standard:parameter-list-wrapping" />
+        <error line="53" column="60" source="standard:function-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/metadata/MetadataTemplate.kt">
+        <error line="41" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/metadata/mergeTemplates.kt">
+        <error line="1" column="1" source="standard:filename" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/preview/PreviewResult.kt">
+        <error line="15" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/preview/PreviewUseCase.kt">
+        <error line="81" column="9" source="standard:function-signature" />
+        <error line="82" column="9" source="standard:function-signature" />
+        <error line="82" column="35" source="standard:function-signature" />
+        <error line="119" column="27" source="standard:parameter-list-wrapping" />
+        <error line="119" column="27" source="standard:function-signature" />
+        <error line="120" column="47" source="standard:function-expression-body" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/preview/UserOverrides.kt">
+        <error line="8" column="9" source="standard:class-signature" />
+        <error line="9" column="9" source="standard:class-signature" />
+        <error line="10" column="9" source="standard:class-signature" />
+        <error line="10" column="35" source="standard:class-signature" />
+        <error line="11" column="9" source="standard:class-signature" />
+        <error line="21" column="9" source="standard:class-signature" />
+        <error line="21" column="35" source="standard:class-signature" />
+        <error line="32" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/rule/CreateRuleRequest.kt">
+        <error line="25" column="89" source="standard:function-signature" />
+        <error line="40" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/rule/CreateRuleUseCase.kt">
+        <error line="14" column="89" source="standard:function-signature" />
+        <error line="22" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/rule/DeleteRuleUseCase.kt">
+        <error line="10" column="5" source="standard:class-signature" />
+        <error line="11" column="5" source="standard:class-signature" />
+        <error line="11" column="45" source="standard:class-signature" />
+        <error line="13" column="77" source="standard:function-signature" />
+        <error line="21" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/rule/MatchContext.kt">
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="9" column="5" source="standard:class-signature" />
+        <error line="10" column="5" source="standard:class-signature" />
+        <error line="10" column="34" source="standard:class-signature" />
+        <error line="13" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/rule/MatchResult.kt">
+        <error line="10" column="5" source="standard:class-signature" />
+        <error line="11" column="5" source="standard:class-signature" />
+        <error line="11" column="27" source="standard:class-signature" />
+        <error line="14" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/rule/UpdateRuleRequest.kt">
+        <error line="21" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/rule/UpdateRuleUseCase.kt">
+        <error line="35" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/rule/matchSpecificity.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="12" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/rule/matches.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="14" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/storage/MediaContainer.kt">
+        <error line="8" column="15" source="standard:trailing-comma-on-declaration-site" />
+        <error line="11" column="58" source="standard:function-signature" />
+        <error line="21" column="15" source="standard:no-semi" />
+        <error line="21" column="15" source="standard:trailing-comma-on-declaration-site" />
+        <error line="27" column="17" source="standard:no-semi" />
+        <error line="27" column="17" source="standard:trailing-comma-on-declaration-site" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/storage/OutputDefaults.kt">
+        <error line="54" column="59" source="standard:function-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/storage/OutputRule.kt">
+        <error line="36" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/storage/OutputTarget.kt">
+        <error line="14" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/storage/PathTemplateEngine.kt">
+        <error line="11" column="9" source="standard:function-signature" />
+        <error line="12" column="9" source="standard:function-signature" />
+        <error line="13" column="9" source="standard:function-signature" />
+        <error line="14" column="9" source="standard:function-signature" />
+        <error line="14" column="30" source="standard:function-signature" />
+        <error line="15" column="19" source="standard:function-signature" />
+        <error line="20" column="50" source="standard:function-signature" />
+        <error line="50" column="9" source="standard:function-signature" />
+        <error line="51" column="9" source="standard:function-signature" />
+        <error line="52" column="9" source="standard:function-signature" />
+        <error line="52" column="26" source="standard:function-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/storage/StoragePlan.kt">
+        <error line="4" column="5" source="standard:class-signature" />
+        <error line="5" column="5" source="standard:class-signature" />
+        <error line="5" column="54" source="standard:class-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/storage/TrackPreferences.kt">
+        <error line="26" column="70" source="standard:function-signature" />
+        <error line="27" column="31" source="standard:multiline-if-else" />
+        <error line="28" column="14" source="standard:multiline-if-else" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/storage/VideoEncodeSettings.kt">
+        <error line="29" column="15" source="standard:enum-wrapping" />
+        <error line="29" column="21" source="standard:enum-wrapping" />
+        <error line="29" column="26" source="standard:enum-wrapping" />
+        <error line="42" column="23" source="standard:no-multi-spaces" />
+        <error line="43" column="16" source="standard:no-multi-spaces" />
+        <error line="44" column="14" source="standard:no-multi-spaces" />
+        <error line="45" column="16" source="standard:no-multi-spaces" />
+        <error line="46" column="14" source="standard:no-multi-spaces" />
+        <error line="83" column="20" source="standard:enum-wrapping" />
+        <error line="83" column="31" source="standard:enum-wrapping" />
+        <error line="83" column="41" source="standard:enum-wrapping" />
+        <error line="83" column="49" source="standard:enum-wrapping" />
+        <error line="83" column="55" source="standard:enum-wrapping" />
+        <error line="83" column="63" source="standard:enum-wrapping" />
+        <error line="83" column="69" source="standard:enum-wrapping" />
+        <error line="83" column="77" source="standard:enum-wrapping" />
+        <error line="91" column="35" source="standard:function-signature" />
+        <error line="97" column="63" source="standard:function-signature" />
+        <error line="124" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/storage/effectiveDownloadPolicy.kt">
+        <error line="1" column="1" source="standard:filename" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/storage/validateStoragePaths.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="23" column="24" source="standard:argument-list-wrapping" />
+        <error line="23" column="74" source="standard:trailing-comma-on-call-site" />
+        <error line="32" column="96" source="standard:trailing-comma-on-call-site" />
+        <error line="40" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/system/YtDlpVersion.kt">
+        <error line="4" column="5" source="standard:class-signature" />
+        <error line="5" column="5" source="standard:class-signature" />
+        <error line="5" column="33" source="standard:class-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/tx/TransactionRunner.kt">
+        <error line="39" column="93" source="standard:function-signature" />
+        <error line="42" column="93" source="standard:function-signature" />
+        <error line="46" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/video/MediaSelection.kt">
+        <error line="5" column="5" source="standard:class-signature" />
+        <error line="6" column="5" source="standard:class-signature" />
+        <error line="6" column="49" source="standard:class-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/video/VideoInfoCache.kt">
+        <error line="9" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/video/VideoSource.kt">
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="9" column="5" source="standard:class-signature" />
+        <error line="10" column="5" source="standard:class-signature" />
+        <error line="10" column="30" source="standard:class-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/workspace/AddWorkspaceMemberUseCase.kt">
+        <error line="23" column="46" source="standard:function-signature" />
+        <error line="38" column="22" source="standard:trailing-comma-on-call-site" />
+        <error line="44" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/workspace/CreateWorkspaceUseCase.kt">
+        <error line="19" column="5" source="standard:class-signature" />
+        <error line="20" column="5" source="standard:class-signature" />
+        <error line="21" column="5" source="standard:class-signature" />
+        <error line="21" column="26" source="standard:class-signature" />
+        <error line="41" column="52" source="standard:function-signature" />
+        <error line="56" column="34" source="standard:trailing-comma-on-call-site" />
+        <error line="80" column="26" source="standard:trailing-comma-on-call-site" />
+        <error line="88" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/workspace/RemoveWorkspaceMemberUseCase.kt">
+        <error line="20" column="35" source="standard:function-signature" />
+        <error line="35" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/workspace/Workspace.kt">
+        <error line="15" column="5" source="standard:class-signature" />
+        <error line="16" column="5" source="standard:class-signature" />
+        <error line="17" column="5" source="standard:class-signature" />
+        <error line="18" column="5" source="standard:class-signature" />
+        <error line="18" column="28" source="standard:class-signature" />
+        <error line="25" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/workspace/WorkspaceMember.kt">
+        <error line="17" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/workspace/WorkspaceRepository.kt">
+        <error line="20" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/workspace/WorkspaceRole.kt">
+        <error line="14" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/channel/ChannelTest.kt">
+        <error line="3" column="1" source="standard:no-wildcard-imports" />
+        <error line="13" column="21" source="standard:class-signature" />
+        <error line="61" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/common/TagTest.kt">
+        <error line="7" column="17" source="standard:class-signature" />
+        <error line="72" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/common/ValueClassValidationTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="10" column="34" source="standard:class-signature" />
+        <error line="156" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/job/JobStatusTest.kt">
+        <error line="8" column="23" source="standard:class-signature" />
+        <error line="63" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/job/SaveAsRuleBuilderTest.kt">
+        <error line="3" column="1" source="standard:no-wildcard-imports" />
+        <error line="7" column="1" source="standard:no-wildcard-imports" />
+        <error line="17" column="31" source="standard:class-signature" />
+        <error line="51" column="22" source="standard:property-wrapping" />
+        <error line="51" column="36" source="standard:argument-list-wrapping" />
+        <error line="51" column="64" source="standard:argument-list-wrapping" />
+        <error line="51" column="88" source="standard:argument-list-wrapping" />
+        <error line="51" column="121" source="standard:argument-list-wrapping" />
+        <error line="51" column="121" source="standard:max-line-length" />
+        <error line="51" column="122" source="standard:argument-list-wrapping" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/metadata/MetadataResolverTest.kt">
+        <error line="3" column="1" source="standard:no-wildcard-imports" />
+        <error line="9" column="30" source="standard:class-signature" />
+        <error line="14" column="9" source="standard:function-signature" />
+        <error line="15" column="9" source="standard:function-signature" />
+        <error line="16" column="9" source="standard:function-signature" />
+        <error line="16" column="39" source="standard:function-signature" />
+        <error line="17" column="9" source="standard:function-signature" />
+        <error line="194" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/metadata/MetadataTemplateMergerTest.kt">
+        <error line="6" column="36" source="standard:class-signature" />
+        <error line="86" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/metadata/ResolvedMetadataTest.kt">
+        <error line="10" column="30" source="standard:class-signature" />
+        <error line="78" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/preview/PreviewUseCaseTest.kt">
+        <error line="7" column="1" source="standard:no-wildcard-imports" />
+        <error line="26" column="28" source="standard:class-signature" />
+        <error line="177" column="37" source="standard:parameter-list-wrapping" />
+        <error line="177" column="63" source="standard:parameter-list-wrapping" />
+        <error line="177" column="79" source="standard:parameter-list-wrapping" />
+        <error line="177" column="96" source="standard:parameter-list-wrapping" />
+        <error line="177" column="115" source="standard:function-signature" />
+        <error line="177" column="121" source="standard:max-line-length" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/rule/RuleMatchTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="4" column="1" source="standard:no-wildcard-imports" />
+        <error line="17" column="23" source="standard:class-signature" />
+        <error line="125" column="18" source="standard:trailing-comma-on-call-site" />
+        <error line="137" column="18" source="standard:trailing-comma-on-call-site" />
+        <error line="157" column="18" source="standard:trailing-comma-on-call-site" />
+        <error line="169" column="18" source="standard:trailing-comma-on-call-site" />
+        <error line="246" column="48" source="standard:no-multi-spaces" />
+        <error line="247" column="47" source="standard:no-multi-spaces" />
+        <error line="248" column="18" source="standard:trailing-comma-on-call-site" />
+        <error line="256" column="48" source="standard:no-multi-spaces" />
+        <error line="257" column="47" source="standard:no-multi-spaces" />
+        <error line="258" column="18" source="standard:trailing-comma-on-call-site" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/rule/RuleMatchingServiceTest.kt">
+        <error line="6" column="1" source="standard:no-wildcard-imports" />
+        <error line="20" column="33" source="standard:class-signature" />
+        <error line="60" column="83" source="standard:function-expression-body" />
+        <error line="63" column="50" source="standard:parameter-list-wrapping" />
+        <error line="63" column="74" source="standard:parameter-list-wrapping" />
+        <error line="63" column="78" source="standard:function-signature" />
+        <error line="63" column="94" source="standard:function-literal" />
+        <error line="63" column="113" source="standard:binary-expression-wrapping" />
+        <error line="63" column="121" source="standard:max-line-length" />
+        <error line="63" column="126" source="standard:function-literal" />
+        <error line="65" column="31" source="standard:function-literal" />
+        <error line="65" column="121" source="standard:function-literal" />
+        <error line="65" column="121" source="standard:max-line-length" />
+        <error line="69" column="33" source="standard:function-literal" />
+        <error line="69" column="34" source="standard:wrapping" />
+        <error line="69" column="67" source="standard:binary-expression-wrapping" />
+        <error line="69" column="102" source="standard:argument-list-wrapping" />
+        <error line="69" column="106" source="standard:argument-list-wrapping" />
+        <error line="69" column="121" source="standard:max-line-length" />
+        <error line="69" column="127" source="standard:function-literal" />
+        <error line="69" column="129" source="standard:function-literal" />
+        <error line="69" column="130" source="standard:function-literal" />
+        <error line="69" column="136" source="standard:binary-expression-wrapping" />
+        <error line="69" column="142" source="standard:function-literal" />
+        <error line="69" column="144" source="standard:function-literal" />
+        <error line="72" column="46" source="standard:parameter-list-wrapping" />
+        <error line="72" column="70" source="standard:parameter-list-wrapping" />
+        <error line="72" column="74" source="standard:function-signature" />
+        <error line="72" column="90" source="standard:function-literal" />
+        <error line="72" column="91" source="standard:wrapping" />
+        <error line="72" column="121" source="standard:max-line-length" />
+        <error line="72" column="122" source="standard:function-literal" />
+        <error line="72" column="132" source="standard:function-literal" />
+        <error line="72" column="133" source="standard:wrapping" />
+        <error line="72" column="142" source="standard:function-literal" />
+        <error line="79" column="50" source="standard:parameter-list-wrapping" />
+        <error line="79" column="74" source="standard:parameter-list-wrapping" />
+        <error line="79" column="78" source="standard:function-signature" />
+        <error line="79" column="91" source="standard:function-literal" />
+        <error line="79" column="110" source="standard:binary-expression-wrapping" />
+        <error line="79" column="121" source="standard:max-line-length" />
+        <error line="79" column="123" source="standard:function-literal" />
+        <error line="81" column="57" source="standard:parameter-list-wrapping" />
+        <error line="81" column="81" source="standard:parameter-list-wrapping" />
+        <error line="81" column="85" source="standard:function-signature" />
+        <error line="81" column="98" source="standard:function-literal" />
+        <error line="81" column="99" source="standard:wrapping" />
+        <error line="81" column="113" source="standard:binary-expression-wrapping" />
+        <error line="81" column="121" source="standard:max-line-length" />
+        <error line="81" column="131" source="standard:binary-expression-wrapping" />
+        <error line="81" column="144" source="standard:function-literal" />
+        <error line="113" column="23" source="standard:property-wrapping" />
+        <error line="113" column="29" source="standard:argument-list-wrapping" />
+        <error line="113" column="44" source="standard:argument-list-wrapping" />
+        <error line="113" column="59" source="standard:argument-list-wrapping" />
+        <error line="113" column="89" source="standard:argument-list-wrapping" />
+        <error line="113" column="103" source="standard:argument-list-wrapping" />
+        <error line="113" column="106" source="standard:argument-list-wrapping" />
+        <error line="113" column="121" source="standard:max-line-length" />
+        <error line="113" column="124" source="standard:argument-list-wrapping" />
+        <error line="123" column="29" source="standard:property-wrapping" />
+        <error line="123" column="35" source="standard:argument-list-wrapping" />
+        <error line="123" column="56" source="standard:argument-list-wrapping" />
+        <error line="123" column="70" source="standard:argument-list-wrapping" />
+        <error line="123" column="99" source="standard:argument-list-wrapping" />
+        <error line="123" column="109" source="standard:argument-list-wrapping" />
+        <error line="123" column="112" source="standard:argument-list-wrapping" />
+        <error line="123" column="121" source="standard:max-line-length" />
+        <error line="123" column="130" source="standard:argument-list-wrapping" />
+        <error line="124" column="31" source="standard:property-wrapping" />
+        <error line="124" column="37" source="standard:argument-list-wrapping" />
+        <error line="124" column="60" source="standard:argument-list-wrapping" />
+        <error line="124" column="74" source="standard:argument-list-wrapping" />
+        <error line="124" column="102" source="standard:argument-list-wrapping" />
+        <error line="124" column="112" source="standard:argument-list-wrapping" />
+        <error line="124" column="115" source="standard:argument-list-wrapping" />
+        <error line="124" column="121" source="standard:max-line-length" />
+        <error line="124" column="133" source="standard:argument-list-wrapping" />
+        <error line="164" column="27" source="standard:property-wrapping" />
+        <error line="164" column="33" source="standard:argument-list-wrapping" />
+        <error line="164" column="52" source="standard:argument-list-wrapping" />
+        <error line="164" column="68" source="standard:argument-list-wrapping" />
+        <error line="164" column="96" source="standard:argument-list-wrapping" />
+        <error line="164" column="106" source="standard:argument-list-wrapping" />
+        <error line="164" column="109" source="standard:argument-list-wrapping" />
+        <error line="164" column="121" source="standard:max-line-length" />
+        <error line="164" column="129" source="standard:argument-list-wrapping" />
+        <error line="164" column="144" source="standard:argument-list-wrapping" />
+        <error line="165" column="26" source="standard:property-wrapping" />
+        <error line="165" column="32" source="standard:argument-list-wrapping" />
+        <error line="165" column="50" source="standard:argument-list-wrapping" />
+        <error line="165" column="64" source="standard:argument-list-wrapping" />
+        <error line="165" column="92" source="standard:argument-list-wrapping" />
+        <error line="165" column="102" source="standard:argument-list-wrapping" />
+        <error line="165" column="105" source="standard:argument-list-wrapping" />
+        <error line="165" column="121" source="standard:max-line-length" />
+        <error line="165" column="125" source="standard:argument-list-wrapping" />
+        <error line="165" column="139" source="standard:argument-list-wrapping" />
+        <error line="176" column="24" source="standard:property-wrapping" />
+        <error line="176" column="30" source="standard:argument-list-wrapping" />
+        <error line="176" column="46" source="standard:argument-list-wrapping" />
+        <error line="176" column="62" source="standard:argument-list-wrapping" />
+        <error line="176" column="90" source="standard:argument-list-wrapping" />
+        <error line="176" column="100" source="standard:argument-list-wrapping" />
+        <error line="176" column="103" source="standard:argument-list-wrapping" />
+        <error line="176" column="121" source="standard:max-line-length" />
+        <error line="176" column="124" source="standard:argument-list-wrapping" />
+        <error line="240" column="41" source="standard:wrapping" />
+        <error line="243" column="17" source="standard:wrapping" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/storage/OutputFormatTest.kt">
+        <error line="9" column="26" source="standard:class-signature" />
+        <error line="86" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/storage/PathTemplateEngineTest.kt">
+        <error line="3" column="1" source="standard:no-wildcard-imports" />
+        <error line="11" column="32" source="standard:class-signature" />
+        <error line="55" column="59" source="standard:argument-list-wrapping" />
+        <error line="55" column="88" source="standard:argument-list-wrapping" />
+        <error line="55" column="103" source="standard:argument-list-wrapping" />
+        <error line="55" column="119" source="standard:argument-list-wrapping" />
+        <error line="55" column="121" source="standard:max-line-length" />
+        <error line="55" column="137" source="standard:argument-list-wrapping" />
+        <error line="142" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/storage/TrackPreferencesTest.kt">
+        <error line="8" column="30" source="standard:class-signature" />
+        <error line="24" column="23" source="standard:property-wrapping" />
+        <error line="24" column="41" source="standard:argument-list-wrapping" />
+        <error line="24" column="65" source="standard:argument-list-wrapping" />
+        <error line="24" column="69" source="standard:argument-list-wrapping" />
+        <error line="24" column="72" source="standard:argument-list-wrapping" />
+        <error line="24" column="98" source="standard:argument-list-wrapping" />
+        <error line="24" column="121" source="standard:max-line-length" />
+        <error line="24" column="125" source="standard:argument-list-wrapping" />
+        <error line="24" column="129" source="standard:argument-list-wrapping" />
+        <error line="24" column="130" source="standard:argument-list-wrapping" />
+        <error line="27" column="34" source="standard:argument-list-wrapping" />
+        <error line="27" column="64" source="standard:argument-list-wrapping" />
+        <error line="27" column="90" source="standard:argument-list-wrapping" />
+        <error line="27" column="117" source="standard:argument-list-wrapping" />
+        <error line="27" column="121" source="standard:argument-list-wrapping" />
+        <error line="27" column="121" source="standard:max-line-length" />
+        <error line="27" column="122" source="standard:argument-list-wrapping" />
+        <error line="45" column="32" source="standard:argument-list-wrapping" />
+        <error line="45" column="39" source="standard:argument-list-wrapping" />
+        <error line="45" column="49" source="standard:binary-expression-wrapping" />
+        <error line="45" column="60" source="standard:argument-list-wrapping" />
+        <error line="45" column="87" source="standard:argument-list-wrapping" />
+        <error line="45" column="111" source="standard:argument-list-wrapping" />
+        <error line="45" column="117" source="standard:argument-list-wrapping" />
+        <error line="45" column="121" source="standard:argument-list-wrapping" />
+        <error line="45" column="121" source="standard:max-line-length" />
+        <error line="45" column="122" source="standard:argument-list-wrapping" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/system/YtDlpVersionTest.kt">
+        <error line="6" column="26" source="standard:class-signature" />
+    </file>
+</baseline>

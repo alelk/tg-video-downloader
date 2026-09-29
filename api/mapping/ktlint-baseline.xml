@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<baseline version="1.0">
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/channel/toDomain.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="33" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/channel/toDto.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="24" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/common/toDomain.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="10" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/common/toDto.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="10" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/job/toDto.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="46" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/metadata/toDomain.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="20" column="40" source="standard:argument-list-wrapping" />
+        <error line="20" column="60" source="standard:argument-list-wrapping" />
+        <error line="20" column="75" source="standard:argument-list-wrapping" />
+        <error line="20" column="91" source="standard:argument-list-wrapping" />
+        <error line="20" column="106" source="standard:argument-list-wrapping" />
+        <error line="20" column="120" source="standard:argument-list-wrapping" />
+        <error line="20" column="121" source="standard:max-line-length" />
+        <error line="20" column="131" source="standard:argument-list-wrapping" />
+        <error line="25" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="34" column="30" source="standard:argument-list-wrapping" />
+        <error line="34" column="45" source="standard:argument-list-wrapping" />
+        <error line="34" column="60" source="standard:argument-list-wrapping" />
+        <error line="35" column="26" source="standard:argument-list-wrapping" />
+        <error line="46" column="38" source="standard:argument-list-wrapping" />
+        <error line="46" column="55" source="standard:argument-list-wrapping" />
+        <error line="47" column="28" source="standard:argument-list-wrapping" />
+        <error line="48" column="26" source="standard:argument-list-wrapping" />
+        <error line="55" column="28" source="standard:argument-list-wrapping" />
+        <error line="56" column="26" source="standard:argument-list-wrapping" />
+        <error line="67" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/metadata/toDto.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="14" column="43" source="standard:argument-list-wrapping" />
+        <error line="14" column="63" source="standard:argument-list-wrapping" />
+        <error line="14" column="78" source="standard:argument-list-wrapping" />
+        <error line="14" column="94" source="standard:argument-list-wrapping" />
+        <error line="14" column="109" source="standard:argument-list-wrapping" />
+        <error line="14" column="121" source="standard:max-line-length" />
+        <error line="14" column="123" source="standard:argument-list-wrapping" />
+        <error line="14" column="134" source="standard:argument-list-wrapping" />
+        <error line="21" column="26" source="standard:argument-list-wrapping" />
+        <error line="21" column="41" source="standard:argument-list-wrapping" />
+        <error line="21" column="56" source="standard:argument-list-wrapping" />
+        <error line="21" column="90" source="standard:argument-list-wrapping" />
+        <error line="21" column="103" source="standard:argument-list-wrapping" />
+        <error line="24" column="34" source="standard:argument-list-wrapping" />
+        <error line="24" column="51" source="standard:argument-list-wrapping" />
+        <error line="25" column="24" source="standard:argument-list-wrapping" />
+        <error line="25" column="58" source="standard:argument-list-wrapping" />
+        <error line="25" column="71" source="standard:argument-list-wrapping" />
+        <error line="28" column="24" source="standard:argument-list-wrapping" />
+        <error line="28" column="58" source="standard:argument-list-wrapping" />
+        <error line="28" column="71" source="standard:argument-list-wrapping" />
+        <error line="41" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/preview/toDomain.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="21" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/preview/toDto.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="21" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/rule/buildSaveAsRuleRequest.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="21" column="23" source="standard:function-signature" />
+        <error line="29" column="5" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/rule/toDomain.kt">
+        <error line="1" column="1" source="standard:filename" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/rule/toDomainRequest.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="13" column="42" source="standard:function-signature" />
+        <error line="13" column="66" source="standard:function-signature" />
+        <error line="13" column="120" source="standard:max-line-length" />
+        <error line="13" column="125" source="standard:function-signature" />
+        <error line="27" column="100" source="standard:function-signature" />
+        <error line="40" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/rule/toDto.kt">
+        <error line="1" column="1" source="standard:filename" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/storage/toDomain.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="3" column="1" source="standard:no-wildcard-imports" />
+        <error line="5" column="1" source="standard:no-wildcard-imports" />
+        <error line="43" column="51" source="standard:function-signature" />
+        <error line="52" column="55" source="standard:function-signature" />
+        <error line="61" column="43" source="standard:function-signature" />
+        <error line="73" column="47" source="standard:function-signature" />
+        <error line="88" column="61" source="standard:function-signature" />
+        <error line="125" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/storage/toDto.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="3" column="1" source="standard:no-wildcard-imports" />
+        <error line="4" column="1" source="standard:no-wildcard-imports" />
+        <error line="42" column="48" source="standard:function-signature" />
+        <error line="51" column="52" source="standard:function-signature" />
+        <error line="58" column="40" source="standard:function-signature" />
+        <error line="70" column="44" source="standard:function-signature" />
+        <error line="85" column="58" source="standard:function-signature" />
+        <error line="122" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/video/toDomain.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="17" column="41" source="standard:function-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/video/toDto.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="14" column="38" source="standard:function-signature" />
+        <error line="66" column="10" source="standard:trailing-comma-on-call-site" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/workspace/toDto.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="40" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+</baseline>

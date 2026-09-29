@@ -38,6 +38,8 @@ tgMiniApp = "1.0.0"
 
 # Gradle plugins
 shadow = "9.3.1"
+detekt = "1.23.8"
+ktlint-gradle = "13.1.0"
 
 # Telegram Bot API
 tgBotApi = "30.0.2"
@@ -188,3 +190,6 @@ composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMul
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+# Static analysis: applied only by the tgvd.kmp / tgvd.compose.js / tgvd.jvm conventions.
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-gradle" }

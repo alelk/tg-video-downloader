@@ -39,7 +39,7 @@ Web target is `js(IR)` (no wasm). LLM adapters don't exist yet: `LlmPort` is dec
 
 ```bash
 docker compose up -d postgres              # local PostgreSQL 16 on localhost:5433
-./gradlew build                            # THE gate: compiles all targets, runs all tests
+./gradlew build                            # THE gate: compiles all targets, all tests, Detekt, ktlint
 ./gradlew :server:app:run                  # run the server
 ./gradlew :tgminiapp:jsBrowserDevelopmentRun   # run the Mini App UI (dev)
 ```
@@ -63,6 +63,9 @@ aggregate test task to run.
 - Writes in `txRunner.inRwTransaction {}`, reads in `inRoTransaction {}`; never yt-dlp, ffmpeg,
   LLM or HTTP inside a transaction block — skill `exposed-postgres`.
 - No UI in `tgminiapp` — screens and components live in `features` — skill `telegram-miniapp`.
+- Detekt/ktlint findings are fixed, not baselined: per-module `detekt-baseline.xml` /
+  `ktlint-baseline.xml` only shrink; no repo-wide `ktlintFormat`; a `@Suppress` carries a one-line
+  reason ([`ARCHITECTURE.md` §4.2](docs/ARCHITECTURE.md#42-convention-plugins)).
 - Never log `initData`, the bot token or other secrets.
 - Bug → failing test first. Never weaken, skip or delete a test to get green. A red fitness test
   (API surface, conventions, schema) means: fix the code; `KNOWN_*` lists only shrink.

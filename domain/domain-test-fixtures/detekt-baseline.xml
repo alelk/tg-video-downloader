@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MaxLineLength:outputRule.kt$maxQuality: Arb&lt;DownloadPolicy.VideoQuality?> = Arb.element(null, *DownloadPolicy.VideoQuality.entries.toTypedArray())</ID>
+    <ID>NewLineAtEndOfFile:jobPhase.kt$io.github.alelk.tgvd.domain.job.jobPhase.kt</ID>
+    <ID>NewLineAtEndOfFile:thumbnail.kt$io.github.alelk.tgvd.domain.video.thumbnail.kt</ID>
+    <ID>NewLineAtEndOfFile:workspaceMember.kt$io.github.alelk.tgvd.domain.workspace.workspaceMember.kt</ID>
+    <ID>NewLineAtEndOfFile:workspaceRole.kt$io.github.alelk.tgvd.domain.workspace.workspaceRole.kt</ID>
+    <ID>SpreadOperator:outputRule.kt$(null, *DownloadPolicy.VideoQuality.entries.toTypedArray())</ID>
+    <ID>WildcardImport:FilePath.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:ResolvedMetadataArbs.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:ResolvedMetadataArbs.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:RuleMatchArbs.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:Url.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:VideoInfo.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:VideoInfo.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:VideoSource.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:downloadPolicy.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:job.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:job.kt$import io.github.alelk.tgvd.domain.metadata.*</ID>
+    <ID>WildcardImport:job.kt$import io.github.alelk.tgvd.domain.storage.*</ID>
+    <ID>WildcardImport:job.kt$import io.github.alelk.tgvd.domain.video.*</ID>
+    <ID>WildcardImport:job.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:metadataTemplate.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:outputFormat.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:outputRule.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:rule.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:rule.kt$import io.github.alelk.tgvd.domain.storage.*</ID>
+    <ID>WildcardImport:rule.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:storagePlan.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:storagePlan.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:trackPreferences.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:workspace.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:workspace.kt$import io.kotest.property.arbitrary.*</ID>
+    <ID>WildcardImport:workspaceMember.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:workspaceMember.kt$import io.kotest.property.arbitrary.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

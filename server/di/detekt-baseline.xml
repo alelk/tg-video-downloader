@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ForbiddenComment:domainModule.kt$// TODO: implement GeminiLlmAdapter / OpenAiLlmAdapter based on config.provider</ID>
+    <ID>WildcardImport:configModule.kt$import io.github.alelk.tgvd.server.infra.config.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>LongMethod:Main.kt$@Composable private fun WorkspaceInitializer(content: @Composable () -> Unit)</ID>
+    <ID>ReturnCount:Main.kt$private fun decodePrefilledUrl(raw: String): String?</ID>
+    <ID>ReturnCount:Main.kt$private fun readClipboardText(callback: (String?) -> Unit)</ID>
+    <ID>TooGenericExceptionCaught:Main.kt$e: Exception</ID>
+    <ID>UnusedPrivateProperty:Main.kt$val urlSearch = try { js("window.location.search") as? String } catch (_: Throwable) { null }</ID>
+    <ID>WildcardImport:Main.kt$import io.ktor.client.*</ID>
+    <ID>WildcardImport:Main.kt$import io.ktor.client.engine.js.*</ID>
+    <ID>WildcardImport:Main.kt$import io.ktor.client.plugins.contentnegotiation.*</ID>
+    <ID>WildcardImport:Main.kt$import io.ktor.serialization.kotlinx.json.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

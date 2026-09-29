@@ -1,0 +1,15 @@
+# ktlint reads its configuration from here (the Gradle plugin runs ktlintCheck in ./gradlew build).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+# Same limit as Detekt's MaxLineLength default and IntelliJ's right margin.
+max_line_length = 120
+# intellij_idea, not ktlint_official: see docs/plans/step-01/01.3-static-analysis.md, Executor notes.
+ktlint_code_style = intellij_idea

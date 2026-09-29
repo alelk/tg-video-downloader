@@ -10,10 +10,15 @@ plugins {
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("io.gitlab.arturbosch.detekt")
+    id("org.jlleitschuh.gradle.ktlint")
 }
 
 // Node.js/Yarn for the js target come from the repositories declared in settings.gradle.kts.
 resolveJsToolingFromSettingsRepositories()
+
+// Detekt + ktlint, same wiring as tgvd.kmp; the shell has only jsMain (StaticAnalysis.kt).
+configureStaticAnalysis(JS_SHELL_DETEKT_SOURCES)
 
 val composeDeps = extensions.getByType<ComposeExtension>().dependencies
 

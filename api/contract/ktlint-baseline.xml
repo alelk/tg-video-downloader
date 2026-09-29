@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="utf-8"?>
+<baseline version="1.0">
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/channel/ChannelDto.kt">
+        <error line="23" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/channel/ChannelListResponseDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="7" column="33" source="standard:class-signature" />
+        <error line="10" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/channel/CreateChannelDto.kt">
+        <error line="19" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/channel/TagListResponseDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="7" column="28" source="standard:class-signature" />
+        <error line="10" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/channel/UpdateChannelDto.kt">
+        <error line="17" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/common/ApiErrorDto.kt">
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="8" column="28" source="standard:class-signature" />
+        <error line="19" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/common/CategoryDto.kt">
+        <error line="9" column="31" source="standard:annotation" />
+        <error line="10" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="10" column="34" source="standard:annotation" />
+        <error line="11" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="11" column="25" source="standard:annotation" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/common/apiJson.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="12" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/job/CreateJobRequestDto.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/job/JobDto.kt">
+        <error line="30" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/job/JobErrorDto.kt">
+        <error line="13" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/job/JobListResponseDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="9" column="5" source="standard:class-signature" />
+        <error line="10" column="5" source="standard:class-signature" />
+        <error line="10" column="21" source="standard:class-signature" />
+        <error line="13" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/job/JobProgressDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="9" column="5" source="standard:class-signature" />
+        <error line="9" column="33" source="standard:class-signature" />
+        <error line="12" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/job/SaveAsRuleDto.kt">
+        <error line="14" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/metadata/MetadataSourceDto.kt">
+        <error line="8" column="24" source="standard:annotation" />
+        <error line="9" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="9" column="23" source="standard:annotation" />
+        <error line="10" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="10" column="28" source="standard:annotation" />
+        <error line="13" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/metadata/MetadataTemplateDto.kt">
+        <error line="46" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/metadata/ResolvedMetadataDto.kt">
+        <error line="50" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/preview/DownloadHistoryEntryDto.kt">
+        <error line="24" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/preview/PreviewRequestDto.kt">
+        <error line="16" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/preview/PreviewResponseDto.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/preview/UserOverridesDto.kt">
+        <error line="16" column="9" source="standard:class-signature" />
+        <error line="17" column="9" source="standard:class-signature" />
+        <error line="18" column="9" source="standard:class-signature" />
+        <error line="18" column="35" source="standard:class-signature" />
+        <error line="19" column="9" source="standard:class-signature" />
+        <error line="33" column="9" source="standard:class-signature" />
+        <error line="33" column="35" source="standard:class-signature" />
+        <error line="37" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/resource/ApiV1.kt">
+        <error line="3" column="1" source="standard:no-wildcard-imports" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/rule/RuleListResponseDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="7" column="30" source="standard:class-signature" />
+        <error line="10" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/rule/RuleMatchDto.kt">
+        <error line="17" column="9" source="standard:class-signature" />
+        <error line="17" column="41" source="standard:class-signature" />
+        <error line="23" column="9" source="standard:class-signature" />
+        <error line="23" column="41" source="standard:class-signature" />
+        <error line="29" column="9" source="standard:class-signature" />
+        <error line="29" column="27" source="standard:class-signature" />
+        <error line="35" column="9" source="standard:class-signature" />
+        <error line="36" column="9" source="standard:class-signature" />
+        <error line="36" column="40" source="standard:class-signature" />
+        <error line="42" column="9" source="standard:class-signature" />
+        <error line="42" column="29" source="standard:class-signature" />
+        <error line="48" column="9" source="standard:class-signature" />
+        <error line="48" column="29" source="standard:class-signature" />
+        <error line="54" column="9" source="standard:class-signature" />
+        <error line="54" column="35" source="standard:class-signature" />
+        <error line="60" column="9" source="standard:class-signature" />
+        <error line="60" column="25" source="standard:class-signature" />
+        <error line="64" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/rule/RuleSummaryDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="8" column="23" source="standard:class-signature" />
+        <error line="11" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/storage/AudioFormatDto.kt">
+        <error line="9" column="23" source="standard:annotation" />
+        <error line="10" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="10" column="23" source="standard:annotation" />
+        <error line="11" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="11" column="24" source="standard:annotation" />
+        <error line="12" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="12" column="24" source="standard:annotation" />
+        <error line="13" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="13" column="23" source="standard:annotation" />
+        <error line="13" column="34" source="standard:trailing-comma-on-declaration-site" />
+        <error line="16" column="58" source="standard:function-signature" />
+        <error line="21" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/storage/ImageFormatDto.kt">
+        <error line="9" column="23" source="standard:annotation" />
+        <error line="10" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="10" column="23" source="standard:annotation" />
+        <error line="11" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="11" column="24" source="standard:annotation" />
+        <error line="11" column="37" source="standard:trailing-comma-on-declaration-site" />
+        <error line="14" column="58" source="standard:function-signature" />
+        <error line="19" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/storage/MediaContainerDto.kt">
+        <error line="9" column="23" source="standard:annotation" />
+        <error line="10" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="10" column="23" source="standard:annotation" />
+        <error line="11" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="11" column="24" source="standard:annotation" />
+        <error line="12" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="12" column="23" source="standard:annotation" />
+        <error line="13" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="13" column="23" source="standard:annotation" />
+        <error line="13" column="34" source="standard:trailing-comma-on-declaration-site" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/storage/OutputFormatDto.kt">
+        <error line="49" column="93" source="standard:trailing-comma-on-call-site" />
+        <error line="52" column="93" source="standard:trailing-comma-on-call-site" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/storage/OutputRuleDto.kt">
+        <error line="21" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/storage/OutputTargetDto.kt">
+        <error line="17" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/storage/StoragePlanDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="8" column="57" source="standard:class-signature" />
+        <error line="11" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/storage/VideoEncodeSettingsDto.kt">
+        <error line="22" column="24" source="standard:annotation" />
+        <error line="23" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="23" column="24" source="standard:annotation" />
+        <error line="24" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="24" column="23" source="standard:annotation" />
+        <error line="25" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="25" column="23" source="standard:annotation" />
+        <error line="30" column="32" source="standard:annotation" />
+        <error line="31" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="31" column="25" source="standard:annotation" />
+        <error line="32" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="32" column="23" source="standard:annotation" />
+        <error line="33" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="33" column="25" source="standard:annotation" />
+        <error line="34" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="34" column="23" source="standard:annotation" />
+        <error line="39" column="29" source="standard:annotation" />
+        <error line="40" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="40" column="29" source="standard:annotation" />
+        <error line="41" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="41" column="28" source="standard:annotation" />
+        <error line="42" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="42" column="26" source="standard:annotation" />
+        <error line="43" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="43" column="24" source="standard:annotation" />
+        <error line="44" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="44" column="26" source="standard:annotation" />
+        <error line="45" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="45" column="24" source="standard:annotation" />
+        <error line="46" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="46" column="26" source="standard:annotation" />
+        <error line="47" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="47" column="28" source="standard:annotation" />
+        <error line="50" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/storage/VideoQualityDto.kt">
+        <error line="9" column="24" source="standard:annotation" />
+        <error line="10" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="10" column="27" source="standard:annotation" />
+        <error line="11" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="11" column="26" source="standard:annotation" />
+        <error line="12" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="12" column="26" source="standard:annotation" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/system/ProxySettingsDto.kt">
+        <error line="13" column="1" source="standard:final-newline" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/system/SystemSettingsDto.kt">
+        <error line="11" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/system/YtDlpExtractorOverrideDto.kt">
+        <error line="39" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/system/YtDlpStatusDto.kt">
+        <error line="13" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/system/YtDlpUpdateResponseDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="8" column="25" source="standard:class-signature" />
+        <error line="11" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/video/MediaSelectionDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="8" column="49" source="standard:class-signature" />
+        <error line="13" column="5" source="standard:class-signature" />
+        <error line="14" column="5" source="standard:class-signature" />
+        <error line="15" column="5" source="standard:class-signature" />
+        <error line="15" column="30" source="standard:class-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/video/ThumbnailDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="9" column="5" source="standard:class-signature" />
+        <error line="9" column="29" source="standard:class-signature" />
+        <error line="12" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/video/VideoSourceDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="9" column="5" source="standard:class-signature" />
+        <error line="9" column="27" source="standard:class-signature" />
+        <error line="12" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/workspace/AddMemberRequestDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="8" column="33" source="standard:class-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/workspace/CreateWorkspaceRequestDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="8" column="22" source="standard:class-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/workspace/WorkspaceDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="9" column="5" source="standard:class-signature" />
+        <error line="10" column="5" source="standard:class-signature" />
+        <error line="11" column="5" source="standard:class-signature" />
+        <error line="11" column="27" source="standard:class-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/workspace/WorkspaceListResponseDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="7" column="35" source="standard:class-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/workspace/WorkspaceMemberDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="8" column="5" source="standard:class-signature" />
+        <error line="9" column="5" source="standard:class-signature" />
+        <error line="9" column="26" source="standard:class-signature" />
+    </file>
+    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/contract/workspace/WorkspaceMemberListResponseDto.kt">
+        <error line="7" column="5" source="standard:class-signature" />
+        <error line="7" column="41" source="standard:class-signature" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/api/contract/common/ApiErrorDtoTest.kt">
+        <error line="9" column="25" source="standard:class-signature" />
+        <error line="92" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/api/contract/job/CreateJobRequestDtoTest.kt">
+        <error line="16" column="33" source="standard:class-signature" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/api/contract/metadata/MetadataTemplateDtoTest.kt">
+        <error line="8" column="33" source="standard:class-signature" />
+        <error line="68" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/api/contract/metadata/ResolvedMetadataDtoTest.kt">
+        <error line="8" column="33" source="standard:class-signature" />
+        <error line="172" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/api/contract/preview/PreviewResponseDtoTest.kt">
+        <error line="18" column="32" source="standard:class-signature" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/api/contract/rule/RuleMatchDtoTest.kt">
+        <error line="9" column="26" source="standard:class-signature" />
+        <error line="91" column="18" source="standard:trailing-comma-on-call-site" />
+        <error line="136" column="18" source="standard:trailing-comma-on-call-site" />
+        <error line="171" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/api/contract/storage/OutputFormatDtoTest.kt">
+        <error line="9" column="29" source="standard:class-signature" />
+        <error line="135" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/api/contract/storage/StorageDtoTest.kt">
+        <error line="8" column="24" source="standard:class-signature" />
+        <error line="102" column="34" source="standard:binary-expression-wrapping" />
+        <error line="102" column="51" source="standard:argument-list-wrapping" />
+        <error line="102" column="70" source="standard:argument-list-wrapping" />
+        <error line="102" column="100" source="standard:argument-list-wrapping" />
+        <error line="102" column="121" source="standard:max-line-length" />
+        <error line="102" column="122" source="standard:argument-list-wrapping" />
+        <error line="102" column="123" source="standard:argument-list-wrapping" />
+        <error line="216" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+</baseline>

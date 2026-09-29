@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>LongMethod:TelegramMiniAppAutoReplyBot.kt$TelegramMiniAppAutoReplyBot$fun start()</ID>
+    <ID>MaxLineLength:MiniAppDeepLink.kt$MiniAppDeepLink$return candidate.takeIf { it.startsWith("http://", ignoreCase = true) || it.startsWith("https://", ignoreCase = true) }</ID>
+    <ID>MaxLineLength:TelegramMiniAppAutoReplyBot.kt$TelegramMiniAppAutoReplyBot$logger.debug { "Received message: chat=${chat.id.chatId} chatType=${chat::class.simpleName} contentType=${content::class.simpleName}" }</ID>
+    <ID>MaxLineLength:TelegramMiniAppAutoReplyBot.kt$TelegramMiniAppAutoReplyBot$logger.info { "Replying to chat=${chat.id.chatId} (${chat::class.simpleName}) with Mini App button for url=$url" }</ID>
+    <ID>MaxLineLength:TelegramMiniAppAutoReplyBot.kt$TelegramMiniAppAutoReplyBot$logger.warn { "Telegram Mini App auto-reply bot: botUsername or appShortName is missing — bot will not start" }</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.http.*</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.serialization.kotlinx.json.*</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.server.application.*</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.server.engine.*</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.server.netty.*</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.server.plugins.callid.*</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.server.plugins.calllogging.*</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.server.plugins.contentnegotiation.*</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.server.plugins.cors.routing.*</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.server.plugins.defaultheaders.*</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.server.plugins.statuspages.*</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.server.resources.*</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.server.response.*</ID>
+    <ID>WildcardImport:Application.kt$import io.ktor.server.routing.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -25,6 +25,9 @@ anything a user, client or deployed installation sees (except G10 and Fork 5,
   settings (`FAIL_ON_PROJECT_REPOS`), typesafe project accessors, no Kotest Gradle plugin/KSP (JS
   test runner off, `compileTestKotlinJs` stays), Testcontainers 2.0.3 throughout, `shadowJar` out
   of `build` (CI builds it explicitly); 278 JVM tests before and after.
+- 2026-09-29 — 01.3 done: Detekt 1.23.8 + ktlint (Gradle plugin 13.1.0, `intellij_idea`, 120 cols) in
+  `tgvd.kmp` / `tgvd.compose.js` / `tgvd.jvm`, main + test sources, run by `./gradlew build` in all 11
+  modules; per-module baselines (Detekt 496, ktlint 3211 findings) only shrink.
 
 ## Known issues
 

@@ -17,6 +17,9 @@ dependencies {
     // Kotlin plugin is loaded twice. On this classpath they are applied by id, without a version.
     implementation(libs.plugins.ktor.toDep())
     implementation(libs.plugins.shadow.toDep())
+    // Static analysis, applied by tgvd.kmp, tgvd.compose.js and tgvd.jvm (see StaticAnalysis.kt).
+    implementation(libs.plugins.detekt.toDep())
+    implementation(libs.plugins.ktlint.toDep())
 }
 
 fun Provider<PluginDependency>.toDep() = map {

@@ -355,11 +355,11 @@ include(":features", ":tgminiapp")
 
 | Plugin id                | Applies                                                        | Used by                                   |
 |--------------------------|----------------------------------------------------------------|-------------------------------------------|
-| `tgvd.kmp`               | Kotlin Multiplatform: `jvm()` + `js(IR) { browser() }`, JDK 21 toolchain, JUnit Platform for tests, JS test runner disabled | `domain`, `domain-test-fixtures`, `api:mapping` |
+| `tgvd.kmp`               | Kotlin Multiplatform: `jvm()` + `js(IR) { browser() }`, JDK 21 toolchain, JUnit Platform for tests, JS test runner disabled, Detekt + ktlint | `domain`, `domain-test-fixtures`, `api:mapping` |
 | `tgvd.kmp.serialization` | `tgvd.kmp` + kotlinx.serialization                             | `api:contract`, `api:client`              |
 | `tgvd.compose`           | `tgvd.kmp` + Compose Multiplatform + Compose compiler + common Compose deps | `features`                     |
-| `tgvd.compose.js`        | `js(IR) { browser() }` only + Compose + Compose compiler + serialization | `tgminiapp`                       |
-| `tgvd.jvm`               | Kotlin/JVM, JDK 21 toolchain, JUnit Platform for tests         | `server:di`                               |
+| `tgvd.compose.js`        | `js(IR) { browser() }` only + Compose + Compose compiler + serialization, Detekt + ktlint | `tgminiapp`                       |
+| `tgvd.jvm`               | Kotlin/JVM, JDK 21 toolchain, JUnit Platform for tests, Detekt + ktlint | `server:di`                               |
 | `tgvd.jvm.serialization` | `tgvd.jvm` + kotlinx.serialization                             | `server:infra`, `server:transport`, `server:app` |
 
 - Kotlin-family and Compose plugins are applied **only** through these conventions (their markers
@@ -369,6 +369,12 @@ include(":features", ":tgminiapp")
   Gradle plugin and KSP are not used. The JS test runner is disabled; `compileTestKotlinJs` (part
   of `./gradlew build`) keeps `commonMain`/`commonTest` free of JVM-only APIs.
 - The JDK toolchain version is `JVM_TOOLCHAIN_VERSION` in `convention-plugins/src/main/kotlin/BuildConventions.kt`.
+- Detekt (profile `detekt.yml`) and ktlint (`.editorconfig`, `intellij_idea` style, 120 columns) run
+  in `./gradlew build` over main **and** test sources of every module; the wiring is in
+  `convention-plugins/src/main/kotlin/StaticAnalysis.kt`. Each module has `detekt-baseline.xml` and
+  `ktlint-baseline.xml` with the findings that pre-date the gate: baselines only shrink, never
+  regenerate one to absorb new findings. Generated sources are excluded from ktlint. A `@Suppress`
+  carries a one-line reason.
 - `:server:app:shadowJar` (→ `server/app/build/libs/tgvd-server.jar`) is **not** part of `build`;
   CI and the Dockerfiles call it explicitly.
 

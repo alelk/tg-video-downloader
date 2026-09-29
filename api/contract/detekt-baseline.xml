@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MaxLineLength:StorageDtoTest.kt$StorageDtoTest$dto.original shouldBe OutputTargetDto("/tmp/video.webm", OutputFormatDto.OriginalVideo(MediaContainerDto.WEBM))</ID>
+    <ID>NewLineAtEndOfFile:ProxySettingsDto.kt$io.github.alelk.tgvd.api.contract.system.ProxySettingsDto.kt</ID>
+    <ID>TooGenericExceptionCaught:OutputFormatDto.kt$OutputFormatDto.Serializer$e: Exception</ID>
+    <ID>WildcardImport:ApiV1.kt$import io.ktor.resources.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -1,13 +1,15 @@
 import org.gradle.api.tasks.testing.Test
 
 // Shared configuration for every Kotlin Multiplatform library module (domain, api:*, features):
-// jvm + js(IR) browser targets, pinned toolchain, Kotest on the JVM through JUnit 5.
+// jvm + js(IR) browser targets, pinned toolchain, Kotest on the JVM through JUnit 5, Detekt + ktlint.
 //
 // Web target: js(IR), not wasmJs — the Mini App must run in older Telegram WebViews without WasmGC
 // (ADR-009, G11). One web target only.
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
+    id("io.gitlab.arturbosch.detekt")
+    id("org.jlleitschuh.gradle.ktlint")
 }
 
 // The Kotest multiplatform Gradle plugin (and the KSP it needs) is deliberately NOT applied: its
@@ -36,6 +38,9 @@ kotlin {
 
 // Node.js/Yarn for the js target come from the repositories declared in settings.gradle.kts.
 resolveJsToolingFromSettingsRepositories()
+
+// Detekt + ktlint over main and test sources, with per-module baselines (StaticAnalysis.kt).
+configureStaticAnalysis(KMP_DETEKT_SOURCES)
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()

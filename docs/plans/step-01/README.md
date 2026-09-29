@@ -15,7 +15,7 @@ related: [ ../step-01-refactoring.md ]
 |-------|-------------------------------------------------------------------|-------------|
 | 01.1  | [Решения и вход для агентов](01.1-decisions-and-agent-entry.md)    | done        |
 | 01.2  | [Сборка: convention plugins](01.2-build-conventions.md)           | done        |
-| 01.3  | [Статический анализ](01.3-static-analysis.md)                     | not started |
+| 01.3  | [Статический анализ](01.3-static-analysis.md)                     | done        |
 | 01.4  | [Страховочная сетка](01.4-safety-net.md)                          | not started |
 | 01.5  | [Запуск и жизненный цикл](01.5-bootstrap-and-lifecycle.md)        | not started |
 | 01.6  | [Тонкий transport I](01.6-thin-transport-jobs-preview.md)         | not started |

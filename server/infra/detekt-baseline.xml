@@ -1,0 +1,87 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:JobProcessor.kt$JobProcessor$!File(outputPath.value).exists() || job.attempt > 0 || job.mediaSelection?.audioFormatIds != null || !job.mediaSelection?.subtitleLanguages.isNullOrEmpty()</ID>
+    <ID>ComplexCondition:YtDlpRunner.kt$YtDlpRunner$line.contains("[info]") || line.contains("[merger]") || line.contains("[download] Destination") || line.contains("Downloading format") || line.contains("[warning]") || line.contains("[error]")</ID>
+    <ID>CyclomaticComplexMethod:AudioTrackSelector.kt$AudioTrackSelector$fun select( formats: List&lt;VideoInfo.Format>, quality: DownloadPolicy.VideoQuality, preferredLanguages: List&lt;String>, maxAdditionalTracks: Int, assumedOriginalLanguage: String? = null, ): Selection</ID>
+    <ID>CyclomaticComplexMethod:FfmpegRunner.kt$FfmpegRunner$private fun buildScaleFilter( maxWidth: Int?, maxHeight: Int?, hwAccel: VideoEncodeSettings.HwAccel? = null, ): String</ID>
+    <ID>CyclomaticComplexMethod:FfmpegRunner.kt$FfmpegRunner$suspend fun convertVideo( input: FilePath, output: FilePath, container: MediaContainer, maxWidth: Int? = null, maxHeight: Int? = null, encodeSettings: VideoEncodeSettings? = null, ): Either&lt;DomainError, FilePath></ID>
+    <ID>CyclomaticComplexMethod:JobProcessor.kt$JobProcessor$@OptIn(ExperimentalUuidApi::class) private suspend fun processJob(job: DomainJob)</ID>
+    <ID>CyclomaticComplexMethod:YtDlpRunner.kt$YtDlpRunner$override fun downloadWithProgress( url: Url, outputPath: FilePath, policy: DownloadPolicy, videoInfo: VideoInfo?, mediaSelection: MediaSelection?, ): Flow&lt;DownloadEvent></ID>
+    <ID>CyclomaticComplexMethod:YtDlpRunner.kt$YtDlpRunner$override suspend fun extract(url: String): Either&lt;DomainError, VideoInfo></ID>
+    <ID>LongMethod:FfmpegRunner.kt$FfmpegRunner$private fun probeHwAccel(hwAccel: VideoEncodeSettings.HwAccel, codec: VideoEncodeSettings.VideoCodec): Boolean</ID>
+    <ID>LongMethod:FfmpegRunner.kt$FfmpegRunner$suspend fun convertVideo( input: FilePath, output: FilePath, container: MediaContainer, maxWidth: Int? = null, maxHeight: Int? = null, encodeSettings: VideoEncodeSettings? = null, ): Either&lt;DomainError, FilePath></ID>
+    <ID>LongMethod:JobProcessor.kt$JobProcessor$@OptIn(ExperimentalUuidApi::class) private suspend fun processAdditionalOutput( job: DomainJob, originalPath: FilePath, target: OutputTarget, )</ID>
+    <ID>LongMethod:JobProcessor.kt$JobProcessor$@OptIn(ExperimentalUuidApi::class) private suspend fun processJob(job: DomainJob)</ID>
+    <ID>LongMethod:YtDlpRunner.kt$YtDlpRunner$override fun downloadWithProgress( url: Url, outputPath: FilePath, policy: DownloadPolicy, videoInfo: VideoInfo?, mediaSelection: MediaSelection?, ): Flow&lt;DownloadEvent></ID>
+    <ID>LongMethod:YtDlpRunner.kt$YtDlpRunner$override suspend fun extract(url: String): Either&lt;DomainError, VideoInfo></ID>
+    <ID>LongParameterList:JobProcessor.kt$JobProcessor$( private val jobRepository: JobRepository, private val jobOutputRepository: JobOutputRepository, private val ruleRepository: RuleRepository, private val channelRepository: ChannelRepository, private val videoDownloader: VideoDownloader, private val videoInfoCache: VideoInfoCache, private val ffmpegRunner: FfmpegRunner, private val config: JobsConfig, )</ID>
+    <ID>MaxLineLength:AudioTrackSelector.kt$AudioTrackSelector$.</ID>
+    <ID>MaxLineLength:AudioTrackSelector.kt$AudioTrackSelector$audioOnly.filter { candidate -> candidate.language.normalizedLanguage()?.let { languageMatches(it, pinned) } == true }</ID>
+    <ID>MaxLineLength:AudioTrackSelector.kt$AudioTrackSelector$return Selection(bestVideo, original, additional, combined = if (bestVideo == null || original == null) bestCombined else null)</ID>
+    <ID>MaxLineLength:AudioTrackSelectorTest.kt$AudioTrackSelectorTest$listOf(video("v"), audio("de", "de", 96.0, original = true), audio("en", "en", 128.0), audio("ru", "ru", 128.0))</ID>
+    <ID>MaxLineLength:AudioTrackSelectorTest.kt$AudioTrackSelectorTest$listOf(video("v"), audio("de", "de", 96.0, original = true), audio("en-us", "en-US", 128.0), audio("en-gb", "en-GB", 96.0))</ID>
+    <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$"convert to ${container.extension} ($sizeDesc, ${fallbackSettings.resolveEncoder()}, crf=${fallbackSettings.crf}) [sw fallback]"</ID>
+    <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$"remux to ${container.extension}" + if (limits.isNotEmpty()) " (source ${sourceWidth}x${sourceHeight} within $limits)" else ""</ID>
+    <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$"scale='trunc(iw*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2':'trunc(ih*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2'"</ID>
+    <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$logger.info { "Probing HW accel $hwAccel (encoder=$encoder, device=$device, LIBVA_DRIVER_NAME=$libvaDriver)..." }</ID>
+    <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$logger.info { "Source resolution (${sourceWidth}x${sourceHeight}) within limits (${maxWidth ?: "any"}x${maxHeight ?: "any"}), will remux only" }</ID>
+    <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$logger.warn { "Hardware encoder (${settings.hwAccel}) failed, retrying with software encoder (${fallbackSettings.resolveEncoder()})" }</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$"Existing file has lower quality (${existingHeight}p &lt; ${requestedMaxHeight}p) for job ${job.id.value}, "</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$"File already exists at sufficient quality ($qualityDesc) for job ${job.id.value}, skipping download"</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$errorMessage = "Downloaded file not found: ${outputPath.value} (also checked for yt-dlp format suffixes)"</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$ffmpegRunner.convertVideo(originalPath, target.path, format.container, maxResolution?.first, maxResolution?.second, target.encodeSettings)</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$if (job.storagePlan.additional.isNotEmpty()) " (+${job.storagePlan.additional.size} additional outputs)" else ""</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$logger.error { "Could not resolve downloaded file. Expected: '${expectedFile.name}', dir contents: ${dir.listFiles()?.map { it.name }}" }</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$logger.info { "Copied from identical output '${existingOutput.fileName}' → '${target.path.value}'" }</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$logger.info { "Download completed for job ${job.id.value}. Actual format: ${format.formatId} (${format.width ?: "?"}x${format.height ?: "?"})" }</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$logger.info { "JobProcessor started (maxConcurrent=${config.maxConcurrentDownloads}, pollInterval=${config.pollIntervalMs}ms)" }</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$logger.info { "Processing additional output for job ${job.id.value}: ${target.path.value} (${target.format.serialized})" }</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$logger.info { "Resolved yt-dlp output (different ext): '${anyCandidates[0].name}' (expected: '${expectedFile.name}')" }</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$logger.warn { "Failed to rename '${actualFile.absolutePath}' → '${target.absolutePath}': ${e.message}, using actual path" }</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$logger.warn { "Multiple candidates found, picking largest: '${best.name}' (${best.length()} bytes) from ${anyCandidates.map { it.name }}" }</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$logger.warn { "VideoInfo not found in cache for ${job.source.url.value}. Download might use generic format selection." }</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$throw RuntimeException("Audio extraction (${format.format.extension}) failed for ${target.path.value}: $error")</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$throw RuntimeException("Conversion to ${format.container.extension} failed for ${target.path.value}: $error")</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$val channel = job.videoInfo?.let { channelRepository.findByChannelId(job.workspaceId, it.channelId, it.extractor) }</ID>
+    <ID>MaxLineLength:JobProcessor.kt$JobProcessor$videoDownloader.downloadWithProgress(job.source.url, outputPath, downloadPolicy, videoInfo, job.mediaSelection)</ID>
+    <ID>MaxLineLength:SubtitleSelectorTest.kt$SubtitleSelectorTest$SubtitleSelector.select(config, DownloadPolicy(downloadSubtitles = false).withOverrides(TrackPreferences(downloadSubtitles = true)))</ID>
+    <ID>MaxLineLength:SystemSettingsHolder.kt$SystemSettingsHolder$logger.info { "YtDlpConfig updated: cookiesFromBrowser=${new.cookiesFromBrowser}, cookiesFile=${new.cookiesFile}, legacyServerConnect=${new.legacyServerConnect}, noCheckCertificate=${new.noCheckCertificate}" }</ID>
+    <ID>MaxLineLength:VideoInfoCacheImpl.kt$VideoInfoCacheImpl$GreaterEqOp(VideoInfoCacheTable.expiresAt, org.jetbrains.exposed.v1.core.QueryParameter(now, VideoInfoCacheTable.expiresAt.columnType))</ID>
+    <ID>MaxLineLength:YtDlpRunner.kt$YtDlpRunner$"additionalAudio=${selection.additionalAudio.joinToString { "${it.formatId}:${it.language ?: "unknown"}" }}"</ID>
+    <ID>MaxLineLength:YtDlpRunner.kt$YtDlpRunner$"originalAudio=${selection.originalAudio?.formatId}:${selection.originalAudio?.language ?: "unknown"}, "</ID>
+    <ID>MaxLineLength:YtDlpRunner.kt$YtDlpRunner$"rule/channel=${policy.downloadSubtitles ?: "inherit"}, selected=${mediaSelection?.subtitleLanguages}, "</ID>
+    <ID>MaxLineLength:YtDlpRunner.kt$YtDlpRunner$/** Append cookies arguments from config (--cookies-from-browser or --cookies). Priority: browser > content > file. */</ID>
+    <ID>MaxLineLength:YtDlpRunner.kt$YtDlpRunner$logger.error { "yt-dlp extract failed (exit=$exitCode):\nSTDERR: $stderr\nSTDOUT (last 500): ${stdout.takeLast(500)}" }</ID>
+    <ID>MaxLineLength:YtDlpRunner.kt$YtDlpRunner$val phase = if (output.contains("Postprocessing") || output.contains("[Merger]")) "postprocessing/merge" else "download"</ID>
+    <ID>MaxLineLength:YtDlpRunnerTest.kt$YtDlpRunnerTest$VideoInfo.Format("5", "m4a", vcodec = "none", acodec = "mp4a", tbr = 256.0, isOriginalAudio = true)</ID>
+    <ID>MaxLineLength:YtDlpServiceImpl.kt$YtDlpServiceImpl$DomainError.VideoExtractionFailed(Url("https://yt-dlp.org"), "Failed to get yt-dlp version: $output").left()</ID>
+    <ID>MaxLineLength:YtDlpServiceImpl.kt$YtDlpServiceImpl$DomainError.VideoExtractionFailed(Url("https://yt-dlp.org"), "Update failed: ${output.takeLast(500)}").left()</ID>
+    <ID>MaxLineLength:YtDlpServiceImpl.kt$YtDlpServiceImpl$DomainError.VideoExtractionFailed(Url("https://yt-dlp.org"), "yt-dlp not found or not executable: ${e.message}").left()</ID>
+    <ID>MaxLineLength:YtDlpServiceImpl.kt$YtDlpServiceImpl$return@withContext DomainError.ValidationError("ytDlp.allowUpdate", "yt-dlp update is disabled by configuration").left()</ID>
+    <ID>MaxLineLength:metadataTemplate.kt$MetadataTemplate.SeriesEpisode(seriesNameOverride, seasonPattern, episodePattern, titleOverride, titlePattern, defaultTags)</ID>
+    <ID>MaxLineLength:metadataTemplate.kt$MetadataTemplatePm.SeriesEpisode(seriesNameOverride, seasonPattern, episodePattern, titleOverride, titlePattern, defaultTags)</ID>
+    <ID>NestedBlockDepth:JobProcessor.kt$JobProcessor$@OptIn(ExperimentalUuidApi::class) private suspend fun processJob(job: DomainJob)</ID>
+    <ID>ReturnCount:FfmpegRunner.kt$FfmpegRunner$private fun probeHwAccel(hwAccel: VideoEncodeSettings.HwAccel, codec: VideoEncodeSettings.VideoCodec): Boolean</ID>
+    <ID>ReturnCount:FfmpegRunner.kt$FfmpegRunner$private fun resolveRenderDevice(): String?</ID>
+    <ID>ReturnCount:JobProcessor.kt$JobProcessor$private fun findThumbnailFile(originalPath: FilePath): File?</ID>
+    <ID>ReturnCount:JobProcessor.kt$JobProcessor$private fun resolveDownloadedFile(expectedPath: FilePath): File?</ID>
+    <ID>TooGenericExceptionCaught:FfmpegRunner.kt$FfmpegRunner$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:JobProcessor.kt$JobProcessor$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:YtDlpBootstrap.kt$YtDlpBootstrap$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:YtDlpRunner.kt$YtDlpRunner$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:YtDlpServiceImpl.kt$YtDlpServiceImpl$e: Exception</ID>
+    <ID>TooGenericExceptionThrown:JobProcessor.kt$JobProcessor$throw RuntimeException("Audio extraction (${format.format.extension}) failed for ${target.path.value}: $error")</ID>
+    <ID>TooGenericExceptionThrown:JobProcessor.kt$JobProcessor$throw RuntimeException("Conversion to ${format.container.extension} failed for ${target.path.value}: $error")</ID>
+    <ID>TooGenericExceptionThrown:YtDlpRunner.kt$YtDlpRunner$throw RuntimeException("yt-dlp $phase failed (exit=$exitCode): ${output.takeLast(4000)}")</ID>
+    <ID>TooManyFunctions:FfmpegRunner.kt$FfmpegRunner</ID>
+    <ID>TooManyFunctions:YtDlpRunner.kt$YtDlpRunner : VideoInfoExtractorVideoDownloader</ID>
+    <ID>WildcardImport:JobProcessor.kt$import kotlinx.coroutines.*</ID>
+    <ID>WildcardImport:JobRepositoryImpl.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:JobRepositoryImpl.kt$import io.github.alelk.tgvd.domain.job.*</ID>
+    <ID>WildcardImport:JobRepositoryImpl.kt$import io.github.alelk.tgvd.server.infra.db.mapping.*</ID>
+    <ID>WildcardImport:YtDlpRunner.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:YtDlpRunner.kt$import kotlinx.serialization.json.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

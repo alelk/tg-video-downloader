@@ -1,0 +1,67 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:VideoEncodeSettings.kt$VideoEncodeSettings.HwAccel$fun encoderFor(codec: VideoCodec): String?</ID>
+    <ID>CyclomaticComplexMethod:mergeTemplates.kt$fun mergeTemplates(base: MetadataTemplate, overlay: MetadataTemplate?): MetadataTemplate</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError$DownloadFailed : DomainError</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError$Forbidden : DomainError</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError$JobCannotBeCancelled : DomainError</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError$JobCannotBeRetried : DomainError</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError$PostProcessingFailed : DomainError</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError$StorageFailed : DomainError</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError$VideoExtractionFailed : DomainError</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError$WorkspaceNotFoundBySlug : DomainError</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError$WorkspaceSlugConflict : DomainError</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError.ChannelNotFound$data</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError.JobAlreadyExists$data</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError.PathTraversalAttempt$data</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError.VideoUnavailable$data</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError.WorkspaceAccessDenied$data</ID>
+    <ID>MaxLineLength:DomainError.kt$DomainError.WorkspaceNotFound$data</ID>
+    <ID>MaxLineLength:JobRepository.kt$JobRepository$suspend fun updateStatus(id: JobId, status: JobStatus, phase: JobPhase? = null, progress: Int? = null, errorMessage: String? = null): Either&lt;DomainError, Job></ID>
+    <ID>MaxLineLength:PathTemplateEngineTest.kt$PathTemplateEngineTest$val metadata = ResolvedMetadata.SeriesEpisode(seriesName = "Breaking Bad", season = "02", episode = "05", title = "Breakage")</ID>
+    <ID>MaxLineLength:PreviewUseCaseTest.kt$EmptyChannelRepository$override suspend fun findByTags(workspaceId: WorkspaceId, tags: Set&lt;Tag>, matchAll: Boolean): List&lt;Channel></ID>
+    <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest$val channelMatch = rule(name = "channelMatch", priority = 5, match = RuleMatch.ChannelId("UC_music"), workspaceId = wsId)</ID>
+    <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest$val disabled = rule(name = "disabled", priority = 100, match = RuleMatch.ChannelId("UC_music"), workspaceId = wsId, enabled = false)</ID>
+    <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest$val enabled = rule(name = "enabled", priority = 1, match = RuleMatch.ChannelId("UC_music"), workspaceId = wsId, enabled = true)</ID>
+    <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest$val high = rule(name = "high", priority = 10, match = RuleMatch.ChannelName("MusicChannel"), workspaceId = wsId)</ID>
+    <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest$val other = rule(name = "other", priority = 100, match = RuleMatch.ChannelId("UC_music"), workspaceId = otherWs)</ID>
+    <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest$val titleMatch = rule(name = "titleMatch", priority = 5, match = RuleMatch.TitleRegex(".*Song.*"), workspaceId = wsId)</ID>
+    <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest.&lt;no name provided>$channels.filter { it.workspaceId == workspaceId &amp;&amp; if (matchAll) it.tags.containsAll(tags) else it.tags.any { t -> t in tags } }</ID>
+    <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest.&lt;no name provided>$channels.find { it.workspaceId == workspaceId &amp;&amp; it.channelId == channelId &amp;&amp; it.extractor == extractor }</ID>
+    <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest.&lt;no name provided>$override suspend fun findAllTags(workspaceId: WorkspaceId)</ID>
+    <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest.&lt;no name provided>$override suspend fun findByWorkspace(workspaceId: WorkspaceId)</ID>
+    <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest.&lt;no name provided>$override suspend fun findEnabledByWorkspace(workspaceId: WorkspaceId)</ID>
+    <ID>MaxLineLength:SaveAsRuleBuilderTest.kt$SaveAsRuleBuilderTest$val job = buildTestJob(ResolvedMetadata.MusicVideo(artist = "Rick Astley", title = "Never Gonna Give You Up"))</ID>
+    <ID>MaxLineLength:TrackPreferencesTest.kt$TrackPreferencesTest$TrackPreferences(audioLanguages = emptyList(), downloadSubtitles = true, subtitleLanguages = listOf("ru"))</ID>
+    <ID>MaxLineLength:TrackPreferencesTest.kt$TrackPreferencesTest$rule.withOverrides(channel) shouldBe rule.copy(downloadSubtitles = false, audioLanguages = listOf("de", "fr"))</ID>
+    <ID>MaxLineLength:TrackPreferencesTest.kt$TrackPreferencesTest$val base = TrackPreferences(audioLanguages = listOf("en"), downloadSubtitles = true, subtitleLanguages = listOf("ru"))</ID>
+    <ID>NewLineAtEndOfFile:ChannelId.kt$io.github.alelk.tgvd.domain.common.ChannelId.kt</ID>
+    <ID>NewLineAtEndOfFile:Extractor.kt$io.github.alelk.tgvd.domain.common.Extractor.kt</ID>
+    <ID>NewLineAtEndOfFile:JobId.kt$io.github.alelk.tgvd.domain.common.JobId.kt</ID>
+    <ID>NewLineAtEndOfFile:JobOutputRepository.kt$io.github.alelk.tgvd.domain.job.JobOutputRepository.kt</ID>
+    <ID>NewLineAtEndOfFile:JobPhase.kt$io.github.alelk.tgvd.domain.job.JobPhase.kt</ID>
+    <ID>NewLineAtEndOfFile:LlmSuggestion.kt$io.github.alelk.tgvd.domain.metadata.LlmSuggestion.kt</ID>
+    <ID>NewLineAtEndOfFile:LocalDate.kt$io.github.alelk.tgvd.domain.common.LocalDate.kt</ID>
+    <ID>NewLineAtEndOfFile:OutputTarget.kt$io.github.alelk.tgvd.domain.storage.OutputTarget.kt</ID>
+    <ID>NewLineAtEndOfFile:PreviewResult.kt$io.github.alelk.tgvd.domain.preview.PreviewResult.kt</ID>
+    <ID>NewLineAtEndOfFile:RuleId.kt$io.github.alelk.tgvd.domain.common.RuleId.kt</ID>
+    <ID>NewLineAtEndOfFile:TelegramUserId.kt$io.github.alelk.tgvd.domain.common.TelegramUserId.kt</ID>
+    <ID>NewLineAtEndOfFile:Url.kt$io.github.alelk.tgvd.domain.common.Url.kt</ID>
+    <ID>NewLineAtEndOfFile:VideoId.kt$io.github.alelk.tgvd.domain.common.VideoId.kt</ID>
+    <ID>NewLineAtEndOfFile:matchSpecificity.kt$io.github.alelk.tgvd.domain.rule.matchSpecificity.kt</ID>
+    <ID>NewLineAtEndOfFile:matches.kt$io.github.alelk.tgvd.domain.rule.matches.kt</ID>
+    <ID>ReturnCount:FileNameValidator.kt$FileNameValidator$fun validate(field: String, value: String, allowEmpty: Boolean = false): DomainError.ValidationError?</ID>
+    <ID>ReturnCount:validateStoragePaths.kt$fun validateStoragePaths(paths: Map&lt;String, String>): Either&lt;DomainError.ValidationError, Unit></ID>
+    <ID>UnusedParameter:PathTemplateEngine.kt$PathTemplateEngine$video: VideoInfo</ID>
+    <ID>WildcardImport:ChannelTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:MetadataResolverTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:PathTemplateEngineTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:PreviewUseCaseTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:RuleMatchTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:RuleMatchingServiceTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:SaveAsRuleBuilderTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
+    <ID>WildcardImport:SaveAsRuleBuilderTest.kt$import io.github.alelk.tgvd.domain.storage.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

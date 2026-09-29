@@ -1,0 +1,71 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:DomainErrorOpts.kt$fun DomainError.toHttpResponse(correlationId: String): Pair&lt;HttpStatusCode, ApiErrorDto></ID>
+    <ID>CyclomaticComplexMethod:jobRoutes.kt$@OptIn(ExperimentalUuidApi::class) fun Route.jobRoutes()</ID>
+    <ID>EmptyKtFile:package-info.kt$.package-info.kt</ID>
+    <ID>ExplicitItLambdaParameter:jobRoutes.kt${ i, it -> "storagePlan.additional[$i]" to it.path }</ID>
+    <ID>LongMethod:channelRoutes.kt$@OptIn(ExperimentalUuidApi::class) fun Route.channelRoutes()</ID>
+    <ID>LongMethod:jobRoutes.kt$@OptIn(ExperimentalUuidApi::class) fun Route.jobRoutes()</ID>
+    <ID>LongMethod:previewRoutes.kt$@OptIn(ExperimentalUuidApi::class) fun Route.previewRoutes()</ID>
+    <ID>LongMethod:ruleRoutes.kt$@OptIn(ExperimentalUuidApi::class) fun Route.ruleRoutes()</ID>
+    <ID>LongMethod:systemRoutes.kt$fun Route.systemRoutes()</ID>
+    <ID>LongMethod:workspaceRoutes.kt$fun Route.workspaceRoutes()</ID>
+    <ID>MaxLineLength:TelegramAuthPlugin.kt$call.respond(HttpStatusCode.Unauthorized, apiError("UNAUTHORIZED", "Invalid initData: ${result.value}", correlationId))</ID>
+    <ID>MaxLineLength:TelegramAuthPlugin.kt$call.respond(HttpStatusCode.Unauthorized, apiError("UNAUTHORIZED", "Missing X-Telegram-Init-Data header", correlationId))</ID>
+    <ID>MaxLineLength:jobRoutes.kt$DomainError.ValidationError("mediaSelection.subtitleLanguages", "Select available subtitle languages")</ID>
+    <ID>MaxLineLength:parseId.kt$inline</ID>
+    <ID>MaxLineLength:previewRoutes.kt$val channel = channelRepository.findByChannelId(ws.id, preview.videoInfo.channelId, preview.videoInfo.extractor)</ID>
+    <ID>MaxLineLength:systemRoutes.kt$call.respond(HttpStatusCode.Forbidden, apiError("UPDATE_DISABLED", "Update is disabled by administrator", call.correlationId))</ID>
+    <ID>NewLineAtEndOfFile:apiError.kt$io.github.alelk.tgvd.server.transport.error.apiError.kt</ID>
+    <ID>NewLineAtEndOfFile:configureDomainErrorHandling.kt$io.github.alelk.tgvd.server.transport.error.configureDomainErrorHandling.kt</ID>
+    <ID>NewLineAtEndOfFile:correlationId.kt$io.github.alelk.tgvd.server.transport.util.correlationId.kt</ID>
+    <ID>ReturnCount:TelegramAuthValidator.kt$TelegramAuthValidator$fun validate(initData: String): Either&lt;AuthError, TelegramUser></ID>
+    <ID>SwallowedException:TelegramAuthValidator.kt$TelegramAuthValidator$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:TelegramAuthValidator.kt$TelegramAuthValidator$e: Exception</ID>
+    <ID>WildcardImport:DomainErrorOpts.kt$import io.ktor.http.*</ID>
+    <ID>WildcardImport:TelegramAuthPlugin.kt$import io.ktor.http.*</ID>
+    <ID>WildcardImport:TelegramAuthPlugin.kt$import io.ktor.server.plugins.callid.*</ID>
+    <ID>WildcardImport:TelegramAuthPlugin.kt$import io.ktor.server.response.*</ID>
+    <ID>WildcardImport:TelegramAuthPlugin.kt$import io.ktor.server.routing.*</ID>
+    <ID>WildcardImport:TelegramAuthPlugin.kt$import io.ktor.util.*</ID>
+    <ID>WildcardImport:channelRoutes.kt$import io.github.alelk.tgvd.domain.channel.*</ID>
+    <ID>WildcardImport:channelRoutes.kt$import io.ktor.http.*</ID>
+    <ID>WildcardImport:channelRoutes.kt$import io.ktor.server.request.*</ID>
+    <ID>WildcardImport:channelRoutes.kt$import io.ktor.server.resources.*</ID>
+    <ID>WildcardImport:channelRoutes.kt$import io.ktor.server.routing.*</ID>
+    <ID>WildcardImport:configureDomainErrorHandling.kt$import io.ktor.http.*</ID>
+    <ID>WildcardImport:configureDomainErrorHandling.kt$import io.ktor.server.plugins.callid.*</ID>
+    <ID>WildcardImport:configureDomainErrorHandling.kt$import io.ktor.server.plugins.statuspages.*</ID>
+    <ID>WildcardImport:configureDomainErrorHandling.kt$import io.ktor.server.response.*</ID>
+    <ID>WildcardImport:jobRoutes.kt$import io.github.alelk.tgvd.domain.job.*</ID>
+    <ID>WildcardImport:jobRoutes.kt$import io.ktor.http.*</ID>
+    <ID>WildcardImport:jobRoutes.kt$import io.ktor.server.request.*</ID>
+    <ID>WildcardImport:jobRoutes.kt$import io.ktor.server.resources.*</ID>
+    <ID>WildcardImport:jobRoutes.kt$import io.ktor.server.routing.*</ID>
+    <ID>WildcardImport:previewRoutes.kt$import io.ktor.server.request.*</ID>
+    <ID>WildcardImport:previewRoutes.kt$import io.ktor.server.routing.*</ID>
+    <ID>WildcardImport:respondEither.kt$import io.ktor.http.*</ID>
+    <ID>WildcardImport:respondEither.kt$import io.ktor.server.response.*</ID>
+    <ID>WildcardImport:respondEither.kt$import io.ktor.server.routing.*</ID>
+    <ID>WildcardImport:ruleRoutes.kt$import io.github.alelk.tgvd.domain.rule.*</ID>
+    <ID>WildcardImport:ruleRoutes.kt$import io.ktor.http.*</ID>
+    <ID>WildcardImport:ruleRoutes.kt$import io.ktor.server.request.*</ID>
+    <ID>WildcardImport:ruleRoutes.kt$import io.ktor.server.resources.*</ID>
+    <ID>WildcardImport:ruleRoutes.kt$import io.ktor.server.routing.*</ID>
+    <ID>WildcardImport:systemRoutes.kt$import io.github.alelk.tgvd.api.contract.system.*</ID>
+    <ID>WildcardImport:systemRoutes.kt$import io.ktor.http.*</ID>
+    <ID>WildcardImport:systemRoutes.kt$import io.ktor.server.request.*</ID>
+    <ID>WildcardImport:systemRoutes.kt$import io.ktor.server.resources.*</ID>
+    <ID>WildcardImport:systemRoutes.kt$import io.ktor.server.response.*</ID>
+    <ID>WildcardImport:systemRoutes.kt$import io.ktor.server.routing.*</ID>
+    <ID>WildcardImport:workspaceRoutes.kt$import io.github.alelk.tgvd.api.contract.workspace.*</ID>
+    <ID>WildcardImport:workspaceRoutes.kt$import io.github.alelk.tgvd.domain.workspace.*</ID>
+    <ID>WildcardImport:workspaceRoutes.kt$import io.ktor.http.*</ID>
+    <ID>WildcardImport:workspaceRoutes.kt$import io.ktor.server.request.*</ID>
+    <ID>WildcardImport:workspaceRoutes.kt$import io.ktor.server.resources.*</ID>
+    <ID>WildcardImport:workspaceRoutes.kt$import io.ktor.server.response.*</ID>
+    <ID>WildcardImport:workspaceRoutes.kt$import io.ktor.server.routing.*</ID>
+  </CurrentIssues>
+</SmellBaseline>
