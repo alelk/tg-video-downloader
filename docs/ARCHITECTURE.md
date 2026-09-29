@@ -101,26 +101,28 @@ Test support:
 
 **Contains**:
 - `common/` — `Category`, `DomainError`, `Tag`, value objects (`WorkspaceId`, `JobId`, etc.)
-- `workspace/` — `Workspace`, `WorkspaceMember`, `WorkspaceRole`, `WorkspaceRepository` port, `CreateWorkspaceUseCase`, `AddWorkspaceMemberUseCase`, `RemoveWorkspaceMemberUseCase`
+- `workspace/` — `Workspace`, `WorkspaceMember`, `WorkspaceRole`, `WorkspaceRepository` port, `CreateWorkspaceUseCase`, `AddWorkspaceMemberUseCase`, `RemoveWorkspaceMemberUseCase`, `WorkspaceAccess` (membership check)
 - `channel/` — `Channel`, `ChannelRepository` port, `CreateChannelUseCase`, `UpdateChannelUseCase`, `DeleteChannelUseCase`, request models
 - `video/` — `VideoSource`, `VideoInfo`, `VideoInfoExtractor` port, `VideoInfoCache` port, `VideoDownloader` port
 - `rule/` — `Rule`, `RuleMatch` (sealed, incl. `HasTag`, `CategoryEquals`), `MatchContext`, `MatchResult`, `RuleMatchingService`, `RuleRepository` port, `CreateRuleUseCase`, `UpdateRuleUseCase`, `DeleteRuleUseCase`, request models
 - `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `MetadataTemplateMerger`, `MetadataResolver`, `LlmPort`
 - `storage/` — `StoragePlan`, `OutputRule`, `OutputFormat` (sealed), `PathTemplateEngine`, `VideoDownloader` port, `validateStoragePaths()`
-- `job/` — `Job`, `JobStatus`, `CreateJobUseCase`, `CancelJobUseCase`, `RetryJobUseCase`, `JobRepository` port, `CreateJobRequest` + `toJob()`
-- `preview/` — `UserOverrides` (sealed), `PreviewUseCase` (orchestrator)
+- `job/` — `Job`, `JobStatus`, `CreateJobUseCase` (validation + `saveAsRule`), `ListJobsUseCase`, `GetJobUseCase`, `CancelJobUseCase`, `RetryJobUseCase`, `JobRepository` port, `CreateJobRequest` + `toJob()`
+- `preview/` — `UserOverrides` (sealed), `PreviewUseCase` (orchestrator), `PreviewVideoUseCase` (what `POST …/preview` returns)
+- `track/` — `AudioTrackSelector`, `SubtitleSelector`, `TrackSelectionSettings`, `TrackSelectionSettingsProvider` port
 - `tx/` — `TransactionRunner`, `RoTransactionScope`, `RwTransactionScope`, `NoopTransactionRunner`
 
 ```
 ├── common/         # Shared types: Category, DomainError, Tag, value objects
-├── workspace/      # Workspace, WorkspaceRepository port + CreateWorkspaceUseCase, AddWorkspaceMemberUseCase, RemoveWorkspaceMemberUseCase
+├── workspace/      # Workspace, WorkspaceRepository port, WorkspaceAccess + CreateWorkspaceUseCase, AddWorkspaceMemberUseCase, RemoveWorkspaceMemberUseCase
 ├── channel/        # Channel, ChannelRepository port + CreateChannelUseCase, UpdateChannelUseCase, DeleteChannelUseCase
 ├── video/          # VideoSource, VideoInfo, VideoInfoExtractor port, VideoInfoCache port, VideoDownloader port
 ├── rule/           # Rule, RuleMatch (sealed), RuleMatchingService, RuleRepository port + CreateRuleUseCase, UpdateRuleUseCase, DeleteRuleUseCase
 ├── metadata/       # ResolvedMetadata (sealed), MetadataTemplate (sealed), MetadataResolver, LlmPort
 ├── storage/        # StoragePlan, OutputRule, OutputFormat (sealed), PathTemplateEngine, validateStoragePaths()
-├── job/            # Job, JobStatus, JobRepository port + CreateJobUseCase, CancelJobUseCase, RetryJobUseCase
-├── preview/        # UserOverrides (sealed), PreviewUseCase
+├── job/            # Job, JobStatus, JobRepository port + CreateJobUseCase, ListJobsUseCase, GetJobUseCase, CancelJobUseCase, RetryJobUseCase
+├── preview/        # UserOverrides (sealed), PreviewUseCase, PreviewVideoUseCase
+├── track/          # AudioTrackSelector, SubtitleSelector, TrackSelectionSettings (+ provider port)
 └── tx/             # TransactionRunner, RoTransactionScope, RwTransactionScope, NoopTransactionRunner
 ```
 

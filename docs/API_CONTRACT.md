@@ -98,7 +98,7 @@ data class ApiErrorDto(
 
 | Code                      | HTTP Status | Description                                          |
 |---------------------------|-------------|------------------------------------------------------|
-| `VALIDATION_ERROR`        | 400         | Input validation error; also a malformed request — a body that is not valid JSON for the DTO, a path/query parameter that does not convert (G10) |
+| `VALIDATION_ERROR`        | 400         | Input validation error; also a malformed request — a body that is not valid JSON for the DTO, a path/query parameter that does not convert, a broken id or a value a domain type rejects in the `POST …/jobs` body (G10) |
 | `INVALID_URL`             | 400         | Invalid video URL                                    |
 | `UNAUTHORIZED`            | 401         | Invalid initData                                     |
 | `FORBIDDEN`               | 403         | User not in allowlist                                |

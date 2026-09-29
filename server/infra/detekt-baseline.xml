@@ -4,7 +4,6 @@
   <CurrentIssues>
     <ID>ComplexCondition:JobProcessor.kt$JobProcessor$!File(outputPath.value).exists() || job.attempt > 0 || job.mediaSelection?.audioFormatIds != null || !job.mediaSelection?.subtitleLanguages.isNullOrEmpty()</ID>
     <ID>ComplexCondition:YtDlpRunner.kt$YtDlpRunner$line.contains("[info]") || line.contains("[merger]") || line.contains("[download] Destination") || line.contains("Downloading format") || line.contains("[warning]") || line.contains("[error]")</ID>
-    <ID>CyclomaticComplexMethod:AudioTrackSelector.kt$AudioTrackSelector$fun select( formats: List&lt;VideoInfo.Format>, quality: DownloadPolicy.VideoQuality, preferredLanguages: List&lt;String>, maxAdditionalTracks: Int, assumedOriginalLanguage: String? = null, ): Selection</ID>
     <ID>CyclomaticComplexMethod:FfmpegRunner.kt$FfmpegRunner$private fun buildScaleFilter( maxWidth: Int?, maxHeight: Int?, hwAccel: VideoEncodeSettings.HwAccel? = null, ): String</ID>
     <ID>CyclomaticComplexMethod:FfmpegRunner.kt$FfmpegRunner$suspend fun convertVideo( input: FilePath, output: FilePath, container: MediaContainer, maxWidth: Int? = null, maxHeight: Int? = null, encodeSettings: VideoEncodeSettings? = null, ): Either&lt;DomainError, FilePath></ID>
     <ID>CyclomaticComplexMethod:JobProcessor.kt$JobProcessor$@OptIn(ExperimentalUuidApi::class) private suspend fun processJob(job: DomainJob)</ID>
@@ -17,11 +16,6 @@
     <ID>LongMethod:YtDlpRunner.kt$YtDlpRunner$override fun downloadWithProgress( url: Url, outputPath: FilePath, policy: DownloadPolicy, videoInfo: VideoInfo?, mediaSelection: MediaSelection?, ): Flow&lt;DownloadEvent></ID>
     <ID>LongMethod:YtDlpRunner.kt$YtDlpRunner$override suspend fun extract(url: String): Either&lt;DomainError, VideoInfo></ID>
     <ID>LongParameterList:JobProcessor.kt$JobProcessor$( private val jobRepository: JobRepository, private val jobOutputRepository: JobOutputRepository, private val ruleRepository: RuleRepository, private val channelRepository: ChannelRepository, private val videoDownloader: VideoDownloader, private val videoInfoCache: VideoInfoCache, private val ffmpegRunner: FfmpegRunner, private val config: JobsConfig, )</ID>
-    <ID>MaxLineLength:AudioTrackSelector.kt$AudioTrackSelector$.</ID>
-    <ID>MaxLineLength:AudioTrackSelector.kt$AudioTrackSelector$audioOnly.filter { candidate -> candidate.language.normalizedLanguage()?.let { languageMatches(it, pinned) } == true }</ID>
-    <ID>MaxLineLength:AudioTrackSelector.kt$AudioTrackSelector$return Selection(bestVideo, original, additional, combined = if (bestVideo == null || original == null) bestCombined else null)</ID>
-    <ID>MaxLineLength:AudioTrackSelectorTest.kt$AudioTrackSelectorTest$listOf(video("v"), audio("de", "de", 96.0, original = true), audio("en", "en", 128.0), audio("ru", "ru", 128.0))</ID>
-    <ID>MaxLineLength:AudioTrackSelectorTest.kt$AudioTrackSelectorTest$listOf(video("v"), audio("de", "de", 96.0, original = true), audio("en-us", "en-US", 128.0), audio("en-gb", "en-GB", 96.0))</ID>
     <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$"convert to ${container.extension} ($sizeDesc, ${fallbackSettings.resolveEncoder()}, crf=${fallbackSettings.crf}) [sw fallback]"</ID>
     <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$"remux to ${container.extension}" + if (limits.isNotEmpty()) " (source ${sourceWidth}x${sourceHeight} within $limits)" else ""</ID>
     <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$"scale='trunc(iw*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2':'trunc(ih*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2'"</ID>
@@ -46,15 +40,7 @@
     <ID>MaxLineLength:JobProcessor.kt$JobProcessor$throw RuntimeException("Conversion to ${format.container.extension} failed for ${target.path.value}: $error")</ID>
     <ID>MaxLineLength:JobProcessor.kt$JobProcessor$val channel = job.videoInfo?.let { channelRepository.findByChannelId(job.workspaceId, it.channelId, it.extractor) }</ID>
     <ID>MaxLineLength:JobProcessor.kt$JobProcessor$videoDownloader.downloadWithProgress(job.source.url, outputPath, downloadPolicy, videoInfo, job.mediaSelection)</ID>
-    <ID>MaxLineLength:SubtitleSelectorTest.kt$SubtitleSelectorTest$SubtitleSelector.select(config, DownloadPolicy(downloadSubtitles = false).withOverrides(TrackPreferences(downloadSubtitles = true)))</ID>
-    <ID>MaxLineLength:SystemSettingsHolder.kt$SystemSettingsHolder$logger.info { "YtDlpConfig updated: cookiesFromBrowser=${new.cookiesFromBrowser}, cookiesFile=${new.cookiesFile}, legacyServerConnect=${new.legacyServerConnect}, noCheckCertificate=${new.noCheckCertificate}" }</ID>
     <ID>MaxLineLength:VideoInfoCacheImpl.kt$VideoInfoCacheImpl$GreaterEqOp(VideoInfoCacheTable.expiresAt, org.jetbrains.exposed.v1.core.QueryParameter(now, VideoInfoCacheTable.expiresAt.columnType))</ID>
-    <ID>MaxLineLength:YtDlpRunner.kt$YtDlpRunner$"additionalAudio=${selection.additionalAudio.joinToString { "${it.formatId}:${it.language ?: "unknown"}" }}"</ID>
-    <ID>MaxLineLength:YtDlpRunner.kt$YtDlpRunner$"originalAudio=${selection.originalAudio?.formatId}:${selection.originalAudio?.language ?: "unknown"}, "</ID>
-    <ID>MaxLineLength:YtDlpRunner.kt$YtDlpRunner$"rule/channel=${policy.downloadSubtitles ?: "inherit"}, selected=${mediaSelection?.subtitleLanguages}, "</ID>
-    <ID>MaxLineLength:YtDlpRunner.kt$YtDlpRunner$/** Append cookies arguments from config (--cookies-from-browser or --cookies). Priority: browser > content > file. */</ID>
-    <ID>MaxLineLength:YtDlpRunner.kt$YtDlpRunner$logger.error { "yt-dlp extract failed (exit=$exitCode):\nSTDERR: $stderr\nSTDOUT (last 500): ${stdout.takeLast(500)}" }</ID>
-    <ID>MaxLineLength:YtDlpRunner.kt$YtDlpRunner$val phase = if (output.contains("Postprocessing") || output.contains("[Merger]")) "postprocessing/merge" else "download"</ID>
     <ID>MaxLineLength:YtDlpRunnerTest.kt$YtDlpRunnerTest$VideoInfo.Format("5", "m4a", vcodec = "none", acodec = "mp4a", tbr = 256.0, isOriginalAudio = true)</ID>
     <ID>MaxLineLength:YtDlpServiceImpl.kt$YtDlpServiceImpl$DomainError.VideoExtractionFailed(Url("https://yt-dlp.org"), "Failed to get yt-dlp version: $output").left()</ID>
     <ID>MaxLineLength:YtDlpServiceImpl.kt$YtDlpServiceImpl$DomainError.VideoExtractionFailed(Url("https://yt-dlp.org"), "Update failed: ${output.takeLast(500)}").left()</ID>
@@ -81,7 +67,5 @@
     <ID>WildcardImport:JobRepositoryImpl.kt$import io.github.alelk.tgvd.domain.common.*</ID>
     <ID>WildcardImport:JobRepositoryImpl.kt$import io.github.alelk.tgvd.domain.job.*</ID>
     <ID>WildcardImport:JobRepositoryImpl.kt$import io.github.alelk.tgvd.server.infra.db.mapping.*</ID>
-    <ID>WildcardImport:YtDlpRunner.kt$import io.github.alelk.tgvd.domain.common.*</ID>
-    <ID>WildcardImport:YtDlpRunner.kt$import kotlinx.serialization.json.*</ID>
   </CurrentIssues>
 </SmellBaseline>

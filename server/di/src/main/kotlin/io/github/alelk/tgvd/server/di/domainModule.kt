@@ -6,36 +6,54 @@ import io.github.alelk.tgvd.domain.channel.DeleteChannelUseCase
 import io.github.alelk.tgvd.domain.channel.UpdateChannelUseCase
 import io.github.alelk.tgvd.domain.job.CancelJobUseCase
 import io.github.alelk.tgvd.domain.job.CreateJobUseCase
+import io.github.alelk.tgvd.domain.job.GetJobUseCase
 import io.github.alelk.tgvd.domain.job.JobRepository
+import io.github.alelk.tgvd.domain.job.ListJobsUseCase
 import io.github.alelk.tgvd.domain.job.RetryJobUseCase
 import io.github.alelk.tgvd.domain.metadata.LlmPort
 import io.github.alelk.tgvd.domain.metadata.MetadataResolver
 import io.github.alelk.tgvd.domain.preview.PreviewUseCase
+import io.github.alelk.tgvd.domain.preview.PreviewVideoUseCase
 import io.github.alelk.tgvd.domain.rule.CreateRuleUseCase
 import io.github.alelk.tgvd.domain.rule.DeleteRuleUseCase
 import io.github.alelk.tgvd.domain.rule.RuleMatchingService
 import io.github.alelk.tgvd.domain.rule.RuleRepository
 import io.github.alelk.tgvd.domain.rule.UpdateRuleUseCase
 import io.github.alelk.tgvd.domain.storage.PathTemplateEngine
+import io.github.alelk.tgvd.domain.track.TrackSelectionSettingsProvider
 import io.github.alelk.tgvd.domain.tx.TransactionRunner
 import io.github.alelk.tgvd.domain.video.VideoInfoCache
 import io.github.alelk.tgvd.domain.video.VideoInfoExtractor
 import io.github.alelk.tgvd.domain.workspace.AddWorkspaceMemberUseCase
 import io.github.alelk.tgvd.domain.workspace.CreateWorkspaceUseCase
 import io.github.alelk.tgvd.domain.workspace.RemoveWorkspaceMemberUseCase
+import io.github.alelk.tgvd.domain.workspace.WorkspaceAccess
 import io.github.alelk.tgvd.domain.workspace.WorkspaceRepository
 import io.github.alelk.tgvd.server.infra.config.LlmConfig
 import org.koin.dsl.module
+import kotlin.time.Clock
 
 internal fun domainModule() = module {
     single { MetadataResolver() }
     single { PathTemplateEngine() }
     single { RuleMatchingService(get<RuleRepository>(), get<ChannelRepository>()) }
 
+    single { WorkspaceAccess(get<WorkspaceRepository>()) }
+
     // Job use cases
-    single { CreateJobUseCase(get<JobRepository>(), get<TransactionRunner>()) }
-    single { CancelJobUseCase(get<JobRepository>(), get<TransactionRunner>()) }
-    single { RetryJobUseCase(get<JobRepository>(), get<TransactionRunner>()) }
+    single {
+        CreateJobUseCase(
+            workspaceAccess = get<WorkspaceAccess>(),
+            jobRepository = get<JobRepository>(),
+            ruleRepository = get<RuleRepository>(),
+            txRunner = get<TransactionRunner>(),
+            clock = Clock.System,
+        )
+    }
+    single { ListJobsUseCase(get<WorkspaceAccess>(), get<JobRepository>(), get<TransactionRunner>()) }
+    single { GetJobUseCase(get<WorkspaceAccess>(), get<JobRepository>(), get<TransactionRunner>()) }
+    single { CancelJobUseCase(get<WorkspaceAccess>(), get<JobRepository>(), get<TransactionRunner>()) }
+    single { RetryJobUseCase(get<WorkspaceAccess>(), get<JobRepository>(), get<TransactionRunner>()) }
 
     // Rule use cases
     single { CreateRuleUseCase(get<RuleRepository>(), get<TransactionRunner>()) }
@@ -60,6 +78,17 @@ internal fun domainModule() = module {
             ruleMatchingService = get<RuleMatchingService>(),
             metadataResolver = get<MetadataResolver>(),
             llmPort = resolveLlmPort(get<LlmConfig>()),
+            txRunner = get<TransactionRunner>(),
+        )
+    }
+    single {
+        PreviewVideoUseCase(
+            workspaceAccess = get<WorkspaceAccess>(),
+            previewUseCase = get<PreviewUseCase>(),
+            pathTemplateEngine = get<PathTemplateEngine>(),
+            channelRepository = get<ChannelRepository>(),
+            jobRepository = get<JobRepository>(),
+            trackSelectionSettings = get<TrackSelectionSettingsProvider>(),
             txRunner = get<TransactionRunner>(),
         )
     }

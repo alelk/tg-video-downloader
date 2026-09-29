@@ -1,0 +1,184 @@
+package io.github.alelk.tgvd.domain.track
+
+import io.github.alelk.tgvd.domain.storage.DownloadPolicy
+import io.github.alelk.tgvd.domain.storage.TrackPreferences
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+
+class SubtitleSelectorTest :
+    FunSpec({
+        test("explicit empty subtitle selection disables subtitles") {
+            val selection = SubtitleSelector.select(
+                aTrackSelectionSettings(writeSubs = true, writeAutoSubs = true, embedSubs = true),
+                DownloadPolicy(downloadSubtitles = true, subtitleLanguages = listOf("ru")),
+                emptyList(),
+            )
+            selection.enabled shouldBe false
+            selection.arguments() shouldBe listOf("--no-write-subs", "--no-write-auto-subs", "--no-embed-subs")
+        }
+
+        test("explicit subtitle selection overrides rule and server languages") {
+            SubtitleSelector.select(
+                aTrackSelectionSettings(preferredSubtitleLanguages = listOf("ru", "en")),
+                DownloadPolicy(downloadSubtitles = true, subtitleLanguages = listOf("ru")),
+                listOf("en"),
+            ).languages shouldBe listOf("en")
+        }
+
+        test("checked subtitle language enables download even when settings disable subtitles") {
+            val selection = SubtitleSelector.select(
+                aTrackSelectionSettings(writeSubs = false, writeAutoSubs = false),
+                DownloadPolicy(),
+                listOf("en"),
+            )
+            selection.arguments().contains("--sub-langs") shouldBe true
+            selection.languages shouldBe listOf("en")
+        }
+
+        test("downloads regular and generated subtitles for configured languages by default") {
+            val selection = SubtitleSelector.select(
+                aTrackSelectionSettings(preferredSubtitleLanguages = listOf("RU", "en_US", "ru")),
+                DownloadPolicy(),
+            )
+
+            selection.writeRegular shouldBe true
+            selection.writeAutomatic shouldBe true
+            selection.languages shouldBe listOf("ru", "en-us")
+            selection.arguments() shouldBe listOf(
+                "--write-subs",
+                "--write-auto-subs",
+                "--no-embed-subs",
+                "--sub-langs",
+                "ru,en-us",
+                "--ignore-errors",
+                "--sleep-subtitles",
+                "3",
+            )
+        }
+
+        test("sleeps between subtitle requests when both regular and automatic captions are requested") {
+            val selection = SubtitleSelector.select(
+                aTrackSelectionSettings(sleepSubtitles = 4),
+                DownloadPolicy(downloadSubtitles = true, subtitleLanguages = listOf("en")),
+            )
+
+            selection.arguments() shouldBe listOf(
+                "--write-subs",
+                "--write-auto-subs",
+                "--no-embed-subs",
+                "--sub-langs",
+                "en",
+                "--ignore-errors",
+                "--sleep-subtitles",
+                "4",
+            )
+        }
+
+        test("does not add sleep-subtitles when only one subtitle kind is requested") {
+            val selection = SubtitleSelector.select(
+                aTrackSelectionSettings(writeSubs = true, writeAutoSubs = false, sleepSubtitles = 4),
+                DownloadPolicy(),
+            )
+
+            selection.arguments() shouldBe listOf(
+                "--write-subs",
+                "--no-write-auto-subs",
+                "--no-embed-subs",
+                "--sub-langs",
+                "ru,en",
+                "--ignore-errors",
+            )
+        }
+
+        test("rule languages override global languages") {
+            val selection = SubtitleSelector.select(
+                aTrackSelectionSettings(preferredSubtitleLanguages = listOf("ru", "en")),
+                DownloadPolicy(downloadSubtitles = true, subtitleLanguages = listOf("DE", "fr")),
+            )
+
+            selection.languages shouldBe listOf("de", "fr")
+        }
+
+        test("rule enables regular and generated subtitles when global switches are off") {
+            val selection = SubtitleSelector.select(
+                aTrackSelectionSettings(writeSubs = false, writeAutoSubs = false),
+                DownloadPolicy(downloadSubtitles = true, subtitleLanguages = listOf("ru")),
+            )
+
+            selection.writeRegular shouldBe true
+            selection.writeAutomatic shouldBe true
+        }
+
+        test("does not enable subtitles without either global or rule setting") {
+            val selection = SubtitleSelector.select(
+                aTrackSelectionSettings(writeSubs = false, writeAutoSubs = false),
+                DownloadPolicy(),
+            )
+
+            selection.enabled shouldBe false
+            selection.arguments() shouldBe listOf("--no-write-subs", "--no-write-auto-subs", "--no-embed-subs")
+        }
+
+        test("no configured languages disables subtitle downloads explicitly") {
+            SubtitleSelector.select(
+                aTrackSelectionSettings(preferredSubtitleLanguages = emptyList(), embedSubs = true),
+                DownloadPolicy(),
+            ).arguments() shouldBe listOf("--no-write-subs", "--no-write-auto-subs", "--no-embed-subs")
+        }
+
+        test("legacy comma-separated languages remain supported") {
+            val selection = SubtitleSelector.select(
+                aTrackSelectionSettings(subLangs = " uk, EN_us,uk "),
+                DownloadPolicy(),
+            )
+
+            selection.languages shouldBe listOf("uk", "en-us")
+        }
+
+        test("rule can explicitly disable subtitles even though global default is on") {
+            val selection = SubtitleSelector.select(
+                aTrackSelectionSettings(writeSubs = true, writeAutoSubs = true),
+                DownloadPolicy(downloadSubtitles = false, subtitleLanguages = listOf("ru")),
+            )
+
+            selection.writeRegular shouldBe false
+            selection.writeAutomatic shouldBe false
+            selection.enabled shouldBe false
+        }
+
+        test("rule with no override (null) inherits the global default") {
+            val onGlobal = SubtitleSelector.select(
+                aTrackSelectionSettings(writeSubs = true, writeAutoSubs = false),
+                DownloadPolicy(downloadSubtitles = null, subtitleLanguages = listOf("ru")),
+            )
+            onGlobal.writeRegular shouldBe true
+            onGlobal.writeAutomatic shouldBe false
+
+            val offGlobal = SubtitleSelector.select(
+                aTrackSelectionSettings(writeSubs = false, writeAutoSubs = false),
+                DownloadPolicy(downloadSubtitles = null, subtitleLanguages = listOf("ru")),
+            )
+            offGlobal.enabled shouldBe false
+        }
+
+        test("channel overrides win over rule, rule over global") {
+            val settings =
+                aTrackSelectionSettings(
+                    writeSubs = true,
+                    writeAutoSubs = true,
+                    preferredSubtitleLanguages = listOf("ru"),
+                )
+            val rule = DownloadPolicy(downloadSubtitles = true, subtitleLanguages = listOf("en"))
+
+            SubtitleSelector.select(settings, rule).languages shouldBe listOf("en")
+            SubtitleSelector.select(settings, rule.withOverrides(TrackPreferences(subtitleLanguages = listOf("de"))))
+                .languages shouldBe listOf("de")
+            SubtitleSelector.select(settings, rule.withOverrides(TrackPreferences(downloadSubtitles = false)))
+                .enabled shouldBe false
+            SubtitleSelector.select(
+                settings,
+                DownloadPolicy(downloadSubtitles = false).withOverrides(TrackPreferences(downloadSubtitles = true)),
+            )
+                .enabled shouldBe true
+        }
+    })

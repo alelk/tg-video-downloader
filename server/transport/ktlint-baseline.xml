@@ -63,59 +63,6 @@
         <error line="56" column="34" source="standard:trailing-comma-on-call-site" />
         <error line="132" column="1" source="standard:no-consecutive-blank-lines" />
     </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/transport/route/jobRoutes.kt">
-        <error line="1" column="1" source="standard:filename" />
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="17" column="1" source="standard:no-wildcard-imports" />
-        <error line="19" column="1" source="standard:no-unused-imports" />
-        <error line="29" column="1" source="standard:no-wildcard-imports" />
-        <error line="30" column="1" source="standard:no-wildcard-imports" />
-        <error line="31" column="1" source="standard:no-wildcard-imports" />
-        <error line="33" column="1" source="standard:no-wildcard-imports" />
-        <error line="66" column="28" source="standard:wrapping" />
-        <error line="66" column="28" source="standard:argument-list-wrapping" />
-        <error line="66" column="48" source="standard:condition-wrapping" />
-        <error line="67" column="39" source="standard:function-literal" />
-        <error line="67" column="39" source="standard:wrapping" />
-        <error line="67" column="41" source="standard:statement-wrapping" />
-        <error line="68" column="54" source="standard:condition-wrapping" />
-        <error line="70" column="26" source="standard:wrapping" />
-        <error line="70" column="27" source="standard:statement-wrapping" />
-        <error line="70" column="27" source="standard:function-literal" />
-        <error line="70" column="27" source="standard:wrapping" />
-        <error line="70" column="28" source="standard:argument-list-wrapping" />
-        <error line="75" column="28" source="standard:wrapping" />
-        <error line="75" column="75" source="standard:condition-wrapping" />
-        <error line="77" column="21" source="standard:wrapping" />
-        <error line="78" column="53" source="standard:argument-list-wrapping" />
-        <error line="78" column="89" source="standard:argument-list-wrapping" />
-        <error line="78" column="121" source="standard:max-line-length" />
-        <error line="78" column="126" source="standard:argument-list-wrapping" />
-        <error line="88" column="101" source="standard:trailing-comma-on-call-site" />
-        <error line="102" column="22" source="standard:trailing-comma-on-call-site" />
-        <error line="146" column="21" source="standard:multiline-if-else" />
-        <error line="147" column="22" source="standard:multiline-if-else" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/transport/route/previewRoutes.kt">
-        <error line="1" column="1" source="standard:filename" />
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="17" column="1" source="standard:no-unused-imports" />
-        <error line="34" column="1" source="standard:no-wildcard-imports" />
-        <error line="36" column="1" source="standard:no-wildcard-imports" />
-        <error line="60" column="61" source="standard:argument-list-wrapping" />
-        <error line="60" column="68" source="standard:argument-list-wrapping" />
-        <error line="60" column="97" source="standard:argument-list-wrapping" />
-        <error line="60" column="121" source="standard:max-line-length" />
-        <error line="60" column="124" source="standard:argument-list-wrapping" />
-        <error line="66" column="40" source="standard:multiline-if-else" />
-        <error line="67" column="42" source="standard:function-literal" />
-        <error line="67" column="42" source="standard:wrapping" />
-        <error line="67" column="44" source="standard:statement-wrapping" />
-        <error line="70" column="22" source="standard:wrapping" />
-        <error line="70" column="23" source="standard:statement-wrapping" />
-        <error line="70" column="23" source="standard:function-literal" />
-        <error line="71" column="22" source="standard:multiline-if-else" />
-    </file>
     <file name="src/main/kotlin/io/github/alelk/tgvd/server/transport/route/ruleRoutes.kt">
         <error line="1" column="1" source="standard:filename" />
         <error line="13" column="1" source="standard:no-wildcard-imports" />

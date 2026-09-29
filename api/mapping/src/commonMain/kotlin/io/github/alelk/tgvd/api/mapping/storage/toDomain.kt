@@ -1,8 +1,34 @@
 package io.github.alelk.tgvd.api.mapping.storage
 
-import io.github.alelk.tgvd.api.contract.storage.*
+import arrow.core.Either
+import arrow.core.raise.either
+import io.github.alelk.tgvd.api.contract.storage.AudioFormatDto
+import io.github.alelk.tgvd.api.contract.storage.DownloadPolicyDto
+import io.github.alelk.tgvd.api.contract.storage.EncodePresetDto
+import io.github.alelk.tgvd.api.contract.storage.HwAccelDto
+import io.github.alelk.tgvd.api.contract.storage.ImageFormatDto
+import io.github.alelk.tgvd.api.contract.storage.MediaContainerDto
+import io.github.alelk.tgvd.api.contract.storage.OutputFormatDto
+import io.github.alelk.tgvd.api.contract.storage.OutputRuleDto
+import io.github.alelk.tgvd.api.contract.storage.OutputTargetDto
+import io.github.alelk.tgvd.api.contract.storage.StoragePlanDto
+import io.github.alelk.tgvd.api.contract.storage.TrackPreferencesDto
+import io.github.alelk.tgvd.api.contract.storage.VideoCodecDto
+import io.github.alelk.tgvd.api.contract.storage.VideoEncodeSettingsDto
+import io.github.alelk.tgvd.api.contract.storage.VideoQualityDto
+import io.github.alelk.tgvd.api.mapping.common.parseValue
+import io.github.alelk.tgvd.domain.common.DomainError
 import io.github.alelk.tgvd.domain.common.FilePath
-import io.github.alelk.tgvd.domain.storage.*
+import io.github.alelk.tgvd.domain.storage.AudioFormat
+import io.github.alelk.tgvd.domain.storage.DownloadPolicy
+import io.github.alelk.tgvd.domain.storage.ImageFormat
+import io.github.alelk.tgvd.domain.storage.MediaContainer
+import io.github.alelk.tgvd.domain.storage.OutputFormat
+import io.github.alelk.tgvd.domain.storage.OutputRule
+import io.github.alelk.tgvd.domain.storage.OutputTarget
+import io.github.alelk.tgvd.domain.storage.StoragePlan
+import io.github.alelk.tgvd.domain.storage.TrackPreferences
+import io.github.alelk.tgvd.domain.storage.VideoEncodeSettings
 
 fun OutputFormatDto.toDomain(): OutputFormat = when (this) {
     is OutputFormatDto.OriginalVideo -> OutputFormat.OriginalVideo(container.toDomain())
@@ -40,39 +66,37 @@ fun VideoQualityDto.toDomain(): DownloadPolicy.VideoQuality = when (this) {
     VideoQualityDto.SD_480 -> DownloadPolicy.VideoQuality.SD_480
 }
 
-fun DownloadPolicyDto.toDomain(): DownloadPolicy =
-    DownloadPolicy(
-        maxQuality = maxQuality.toDomain(),
-        downloadSubtitles = downloadSubtitles,
-        subtitleLanguages = subtitleLanguages,
-        writeThumbnail = writeThumbnail,
-        audioLanguages = audioLanguages,
-    )
+fun DownloadPolicyDto.toDomain(): DownloadPolicy = DownloadPolicy(
+    maxQuality = maxQuality.toDomain(),
+    downloadSubtitles = downloadSubtitles,
+    subtitleLanguages = subtitleLanguages,
+    writeThumbnail = writeThumbnail,
+    audioLanguages = audioLanguages,
+)
 
-fun TrackPreferencesDto.toDomain(): TrackPreferences =
-    TrackPreferences(
-        audioLanguages = audioLanguages?.normalizedLanguages(),
-        downloadSubtitles = downloadSubtitles,
-        subtitleLanguages = subtitleLanguages?.normalizedLanguages()?.takeIf { it.isNotEmpty() },
-    )
+fun TrackPreferencesDto.toDomain(): TrackPreferences = TrackPreferences(
+    audioLanguages = audioLanguages?.normalizedLanguages(),
+    downloadSubtitles = downloadSubtitles,
+    subtitleLanguages = subtitleLanguages?.normalizedLanguages()?.takeIf { it.isNotEmpty() },
+)
 
 private fun List<String>.normalizedLanguages(): List<String> = map { it.trim() }.filter { it.isNotEmpty() }.distinct()
 
-fun OutputRuleDto.toDomain(): OutputRule =
-    OutputRule(
-        pathTemplate = pathTemplate,
-        format = format.toDomain(),
-        maxQuality = maxQuality?.toDomain(),
-        encodeSettings = encodeSettings?.toDomain(),
-        embedThumbnail = embedThumbnail,
-        embedMetadata = embedMetadata,
-        embedSubtitles = embedSubtitles,
-        normalizeAudio = normalizeAudio,
-    )
+fun OutputRuleDto.toDomain(): OutputRule = OutputRule(
+    pathTemplate = pathTemplate,
+    format = format.toDomain(),
+    maxQuality = maxQuality?.toDomain(),
+    encodeSettings = encodeSettings?.toDomain(),
+    embedThumbnail = embedThumbnail,
+    embedMetadata = embedMetadata,
+    embedSubtitles = embedSubtitles,
+    normalizeAudio = normalizeAudio,
+)
 
-fun OutputTargetDto.toDomain(): OutputTarget =
+/** @param field the field name used in validation errors (`storagePlan.original` → `storagePlan.original.path`). */
+fun OutputTargetDto.toDomain(field: String): Either<DomainError.ValidationError, OutputTarget> = either {
     OutputTarget(
-        path = FilePath(path),
+        path = parseValue("$field.path") { FilePath(path) }.bind(),
         format = format.toDomain(),
         maxQuality = maxQuality?.toDomain(),
         encodeSettings = encodeSettings?.toDomain(),
@@ -81,19 +105,23 @@ fun OutputTargetDto.toDomain(): OutputTarget =
         embedSubtitles = embedSubtitles,
         normalizeAudio = normalizeAudio,
     )
+}
 
-fun StoragePlanDto.toDomain(): StoragePlan =
-    StoragePlan(original = original.toDomain(), additional = additional.map { it.toDomain() })
-
-fun VideoEncodeSettingsDto.toDomain(): VideoEncodeSettings =
-    VideoEncodeSettings(
-        codec = codec.toDomain(),
-        hwAccel = hwAccel?.toDomain(),
-        preset = preset.toDomain(),
-        crf = crf.coerceIn(0, 51),
-        audioBitrate = audioBitrate,
-        audioCodec = audioCodec,
+fun StoragePlanDto.toDomain(): Either<DomainError.ValidationError, StoragePlan> = either {
+    StoragePlan(
+        original = original.toDomain("storagePlan.original").bind(),
+        additional = additional.mapIndexed { i, target -> target.toDomain("storagePlan.additional[$i]").bind() },
     )
+}
+
+fun VideoEncodeSettingsDto.toDomain(): VideoEncodeSettings = VideoEncodeSettings(
+    codec = codec.toDomain(),
+    hwAccel = hwAccel?.toDomain(),
+    preset = preset.toDomain(),
+    crf = crf.coerceIn(0, 51),
+    audioBitrate = audioBitrate,
+    audioCodec = audioCodec,
+)
 
 fun VideoCodecDto.toDomain(): VideoEncodeSettings.VideoCodec = when (this) {
     VideoCodecDto.H264 -> VideoEncodeSettings.VideoCodec.H264
@@ -121,4 +149,3 @@ fun EncodePresetDto.toDomain(): VideoEncodeSettings.EncodePreset = when (this) {
     EncodePresetDto.SLOWER -> VideoEncodeSettings.EncodePreset.SLOWER
     EncodePresetDto.VERYSLOW -> VideoEncodeSettings.EncodePreset.VERYSLOW
 }
-

@@ -54,7 +54,8 @@ server:app → server:di → server:transport → domain, api:contract, api:mapp
 ```
 
 Current deviation (fixed in Step 01, stage 01.7): `server:transport` depends on `server:infra`
-(`previewRoutes`, `systemRoutes` import infra types) and routes inject repositories directly.
+(`systemRoutes` imports infra types) and the rule, channel and workspace routes inject repositories
+directly. Job and preview routes are thin since 01.6: parse in `api:mapping` → use-case → respond.
 
 ## 4. Commands
 
@@ -93,11 +94,14 @@ command.
 
 ## 7. Key domain flows and change recipes
 
-- **Preview:** `POST …/preview` → `PreviewUseCase`: `VideoInfoCache` (yt-dlp on miss) → rule
-  matching (with channel directory, [ADR-008](ADR/008-channel-directory.md)) → metadata
-  (rule template < channel overrides < user overrides) → storage plan. [ADR-007](ADR/007-interactive-preview-refinement.md).
-- **Job:** `POST …/jobs` (optional `saveAsRule`) → `PENDING` → `JobProcessor` downloads, moves,
-  converts, embeds → `COMPLETED`/`FAILED`. Cancel / retry via their use-cases.
+- **Preview:** `POST …/preview` → `PreviewVideoUseCase` (membership) → `PreviewUseCase`:
+  `VideoInfoCache` (yt-dlp on miss) → rule matching (with channel directory,
+  [ADR-008](ADR/008-channel-directory.md)) → metadata (rule template < channel overrides < user
+  overrides) → storage plan, default tracks (`domain/track` selectors), download history.
+  [ADR-007](ADR/007-interactive-preview-refinement.md).
+- **Job:** `POST …/jobs` → `CreateJobUseCase` (membership, validation, optional `saveAsRule` in the
+  same transaction) → `PENDING` → `JobProcessor` downloads, moves, converts, embeds →
+  `COMPLETED`/`FAILED`. List / get / cancel / retry via their workspace-scoped use-cases.
 - **New category:** `Category` → `ResolvedMetadata` → `MetadataTemplate` → DTOs → mapping →
   `MetadataResolver` → UI.
 - **New sealed variant:** domain → `api:contract` (`@SerialName`) → `api:mapping` → `*Pm` if

@@ -18,7 +18,7 @@ related: [ ../step-01-refactoring.md ]
 | 01.3  | [Статический анализ](01.3-static-analysis.md)                     | done        |
 | 01.4  | [Страховочная сетка](01.4-safety-net.md)                          | done        |
 | 01.5  | [Запуск и жизненный цикл](01.5-bootstrap-and-lifecycle.md)        | done        |
-| 01.6  | [Тонкий transport I](01.6-thin-transport-jobs-preview.md)         | not started |
+| 01.6  | [Тонкий transport I](01.6-thin-transport-jobs-preview.md)         | done        |
 | 01.7  | [Тонкий transport II](01.7-thin-transport-rest.md)                | not started |
 | 01.8  | [Транзакции и репозитории](01.8-transactions.md)                  | not started |
 | 01.9  | [Надёжная обработка задач](01.9-job-processing.md)                | not started |

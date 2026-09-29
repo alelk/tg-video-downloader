@@ -15,8 +15,9 @@ import io.ktor.http.HttpStatusCode
 /**
  * Malformed input as the server answers it (G10: → `400 VALIDATION_ERROR`). Stage 01.5 (`StatusPages`)
  * turned what the framework cannot parse — a body that is not JSON, a path/query parameter `Resources`
- * cannot convert — into 400. The remaining `500 INTERNAL_ERROR` cases are manual parsing inside the
- * routes; the stage that fixes it (01.6–01.7) changes exactly those expectations, nothing else.
+ * cannot convert — into 400. Stage 01.6 moved the job routes' manual parsing into `api:mapping` (400).
+ * The remaining `500 INTERNAL_ERROR` case is manual parsing inside the channel routes; stage 01.7
+ * changes exactly that expectation, nothing else.
  */
 class MalformedInputRoutesTest :
     FunSpec({
@@ -42,7 +43,7 @@ class MalformedInputRoutesTest :
                 .shouldBeError(HttpStatusCode.BadRequest, "VALIDATION_ERROR")
         }
 
-        test("a broken UUID in the body (POST …/jobs ruleId) is 500 INTERNAL_ERROR (G10: → 400)") {
+        test("a broken UUID in the body (POST …/jobs ruleId) is 400 VALIDATION_ERROR (G10, api:mapping since 01.6)") {
             app.knowsVideo("bad-1")
             val preview =
                 app.client
@@ -54,7 +55,7 @@ class MalformedInputRoutesTest :
                 .post("$WORKSPACES/bad-input/jobs") {
                     asDevUser()
                     jsonBody(preview.toCreateJobRequest().copy(ruleId = "not-a-uuid"))
-                }.shouldBeError(HttpStatusCode.InternalServerError, "INTERNAL_ERROR")
+                }.shouldBeError(HttpStatusCode.BadRequest, "VALIDATION_ERROR")
         }
 
         test("a body that is not JSON is 400 VALIDATION_ERROR (G10, StatusPages since 01.5)") {

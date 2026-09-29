@@ -1,7 +1,10 @@
 package io.github.alelk.tgvd.server.infra.service
 
+import io.github.alelk.tgvd.domain.track.TrackSelectionSettings
+import io.github.alelk.tgvd.domain.track.TrackSelectionSettingsProvider
 import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
+import io.github.alelk.tgvd.server.infra.config.toTrackSelectionSettings
 import io.github.alelk.tgvd.server.infra.db.dbQuery
 import io.github.alelk.tgvd.server.infra.db.jsonb
 import io.github.alelk.tgvd.server.infra.db.mapping.now
@@ -30,7 +33,7 @@ class SystemSettingsHolder(
     initialYtDlpConfig: YtDlpConfig,
     initialProxyConfig: ProxyConfig,
     private val database: Database,
-) {
+) : TrackSelectionSettingsProvider {
     private val ytDlpRef: AtomicReference<YtDlpConfig>
     private val proxyRef: AtomicReference<ProxyConfig>
 
@@ -45,11 +48,16 @@ class SystemSettingsHolder(
     val ytDlpConfig: YtDlpConfig get() = ytDlpRef.get()
     val proxyConfig: ProxyConfig get() = proxyRef.get()
 
+    override fun trackSelectionSettings(): TrackSelectionSettings = ytDlpConfig.toTrackSelectionSettings()
+
     suspend fun updateYtDlpConfig(update: (YtDlpConfig) -> YtDlpConfig) {
         val new = update(ytDlpRef.get())
         ytDlpRef.set(new)
         persist(KEY_YTDLP, jsonb.encodeToString(new))
-        logger.info { "YtDlpConfig updated: cookiesFromBrowser=${new.cookiesFromBrowser}, cookiesFile=${new.cookiesFile}, legacyServerConnect=${new.legacyServerConnect}, noCheckCertificate=${new.noCheckCertificate}" }
+        logger.info {
+            "YtDlpConfig updated: cookiesFromBrowser=${new.cookiesFromBrowser}, cookiesFile=${new.cookiesFile}, " +
+                "legacyServerConnect=${new.legacyServerConnect}, noCheckCertificate=${new.noCheckCertificate}"
+        }
     }
 
     suspend fun updateProxyConfig(update: (ProxyConfig) -> ProxyConfig) {

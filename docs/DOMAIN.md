@@ -1,3 +1,10 @@
+---
+status: stable
+owner: Alex (alelk)
+updated: 2026-09-29
+related: [ ARCHITECTURE.md, PROJECT_CONTEXT.md ]
+---
+
 # Domain Model
 
 > **Purpose**: Full description of domain entities, sealed hierarchies, value objects and invariants.
@@ -27,6 +34,7 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 ├── common/             # Shared types: Category, DomainError, Tag, value objects (WorkspaceId, JobId, etc.)
 ├── workspace/          # Workspace, WorkspaceMember, WorkspaceRole, WorkspaceRepository port
 │                       # + CreateWorkspaceUseCase, AddWorkspaceMemberUseCase, RemoveWorkspaceMemberUseCase
+│                       # + WorkspaceAccess (membership check used by workspace-scoped use-cases)
 ├── channel/            # Channel (channel directory), ChannelRepository port
 │                       # + CreateChannelUseCase, UpdateChannelUseCase, DeleteChannelUseCase
 │                       # + CreateChannelRequest, UpdateChannelRequest
@@ -37,9 +45,11 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 ├── metadata/           # ResolvedMetadata, MetadataResolver, MetadataTemplate, MetadataTemplateMerger, LlmPort
 ├── storage/            # StoragePlan, OutputRule, OutputFormat, PathTemplateEngine, validateStoragePaths()
 ├── job/                # Job, JobStatus, JobRepository port
-│                       # + CreateJobUseCase, CancelJobUseCase, RetryJobUseCase
-│                       # + CreateJobRequest + toJob()
-├── preview/            # PreviewUseCase (orchestrates video + rule + channel + metadata + storage)
+│                       # + CreateJobUseCase, ListJobsUseCase, GetJobUseCase, CancelJobUseCase, RetryJobUseCase
+│                       # + CreateJobRequest (+ SaveAsRule) + toJob()
+├── preview/            # PreviewUseCase (video + rule + channel + metadata + outputs),
+│                       # PreviewVideoUseCase (+ storage plan, default tracks, download history)
+├── track/              # AudioTrackSelector, SubtitleSelector, TrackSelectionSettings (+ provider port)
 └── tx/                 # TransactionRunner, RoTransactionScope, RwTransactionScope, NoopTransactionRunner
 ```
 
@@ -1366,10 +1376,13 @@ domain/job/
 ├── JobPhase.kt
 ├── JobProgress.kt
 ├── JobError.kt
-├── CreateJobRequest.kt       # request model + toJob() mapping
-├── CreateJobUseCase.kt
+├── CreateJobRequest.kt       # request model (+ SaveAsRule options) + toJob() mapping
+├── CreateJobUseCase.kt       # + CreateJobResult
+├── ListJobsUseCase.kt        # + JobPage
+├── GetJobUseCase.kt
 ├── CancelJobUseCase.kt
 ├── RetryJobUseCase.kt
+├── JobRepositoryExtensions.kt # findInWorkspace(): another workspace's job = JobNotFound
 └── JobRepository.kt          # port
 ```
 ```
@@ -1425,54 +1438,69 @@ data class Job(
 
 ### 8.4 CreateJobUseCase
 
-Checks for an existing active job with the same `videoId` and, if none exists, persists a new `PENDING` job.
-The check and the insert run inside a single **read-write transaction** (`TransactionRunner.inRwTransaction`)
-to prevent the TOCTOU race condition that would otherwise allow two concurrent requests to create
-duplicate jobs for the same video.
+`invoke(workspaceSlug, actor, request)` → `Either<DomainError, CreateJobResult>`. One **read-write
+transaction**; every check happens before the first write:
+
+1. `WorkspaceAccess.requireMember` — `WorkspaceNotFoundBySlug` / `WorkspaceAccessDenied`;
+2. `videoInfo.videoId` = `source.videoId` — `ValidationError("videoInfo.videoId", "Must match source.videoId")`;
+3. `mediaSelection.audioFormatIds` (when set) — a non-empty list of distinct ids of audio-only formats
+   the video offers (`acodec` set and not `"none"`, `vcodec` absent or `"none"`) —
+   `ValidationError("mediaSelection.audioFormatIds", "Select available audio tracks")`;
+4. `mediaSelection.subtitleLanguages` (when set) — distinct languages the video offers (exact match; an
+   empty list = subtitles off) — `ValidationError("mediaSelection.subtitleLanguages", …)`;
+5. `validateStoragePaths` over `storagePlan.original` / `storagePlan.additional[i]`;
+6. no active job for the same `videoId` (in any workspace) — `JobAlreadyExists`
+   (checked inside the transaction: no check-then-insert race).
+
+Then the job is saved (`PENDING`, stamped by the injected `Clock`) and, when `request.saveAsRule` is
+set, a rule built by `buildSaveAsRuleRequest` (matching the channel id or name) is saved in the **same**
+transaction. A rule that cannot be built or that the repository refuses (`Left`) does not fail the job:
+it is returned as `CreateJobResult.saveAsRuleError` and the route logs a `WARN`. An exception while
+saving the rule rolls the job back too.
+
+Structural parsing (UUID `ruleId`, blank `source.videoId`/`videoInfo.videoId`, value classes,
+`saveAsRule.matchBy`) happens before, in `api:mapping` (`CreateJobRequestDto.toDomainRequest()`).
 
 ```kotlin
 class CreateJobUseCase(
+    private val workspaceAccess: WorkspaceAccess,
     private val jobRepository: JobRepository,
+    private val ruleRepository: RuleRepository,
     private val txRunner: TransactionRunner,
-    private val clock: Clock = Clock.System,
+    private val clock: Clock,
 ) {
-    suspend operator fun invoke(request: CreateJobRequest): Either<DomainError, Job> =
-        txRunner.inRwTransaction {
-            either {
-                val activeJobs = jobRepository.findActive()
-                    .filter { it.source.videoId == request.source.videoId }
-                ensure(activeJobs.isEmpty()) {
-                    DomainError.JobAlreadyExists(request.source.videoId, activeJobs.first().id)
-                }
-                val now = clock.now()
-                val job = Job(
-                    id = JobId(Uuid.random()),
-                    workspaceId = request.workspaceId,
-                    createdBy = request.createdBy,
-                    source = request.source,
-                    metadata = request.metadata,
-                    metadataSource = request.metadataSource,
-                    storagePlan = request.storagePlan,
-                    ruleId = request.ruleId,
-                    status = JobStatus.PENDING,
-                    phase = null, progress = null, errorMessage = null,
-                    createdAt = now, updatedAt = now,
-                )
-                jobRepository.save(job).bind()
-            }
-        }
-
-    data class CreateJobRequest(
-        val workspaceId: WorkspaceId,
-        val source: VideoSource,
-        val ruleId: RuleId?,
-        val metadata: ResolvedMetadata,
-        val metadataSource: MetadataSource,
-        val storagePlan: StoragePlan,
-        val createdBy: TelegramUserId,
-    )
+    suspend operator fun invoke(
+        workspaceSlug: WorkspaceSlug,
+        actor: TelegramUserId,
+        request: CreateJobRequest,
+    ): Either<DomainError, CreateJobResult>
 }
+
+data class CreateJobRequest(
+    val source: VideoSource,
+    val videoInfo: VideoInfo,
+    val ruleId: RuleId? = null,
+    val metadata: ResolvedMetadata,
+    val metadataSource: MetadataSource,
+    val storagePlan: StoragePlan,
+    val mediaSelection: MediaSelection? = null,
+    val saveAsRule: SaveAsRule? = null,     // matchBy CHANNEL_ID | CHANNEL_NAME, include…, enabled
+)
+
+data class CreateJobResult(val job: Job, val saveAsRuleError: DomainError? = null)
 ```
+
+### 8.4.1 Workspace-scoped job reads and commands
+
+All take `workspaceSlug` and `actor` and check the membership inside their transaction. A job of
+another workspace is `JobNotFound` — exactly like a missing one.
+
+| Use-case           | Transaction | Result                                                                  |
+|--------------------|-------------|-------------------------------------------------------------------------|
+| `ListJobsUseCase`  | read-only   | `JobPage(items, total)`: newest first; filter by status name ignoring case (unknown name → empty); `offset`/`limit` in memory; `total` = filtered count |
+| `GetJobUseCase`    | read-only   | the job                                                                 |
+| `CancelJobUseCase` | read-write  | `CANCELLED`, or `JobCannotBeCancelled` for a finished job               |
+| `RetryJobUseCase`  | read-write  | `PENDING` (next attempt), or `JobCannotBeRetried` unless failed/cancelled |
 
 ### 8.5 JobRepository (port)
 
@@ -1498,7 +1526,10 @@ Dependencies: `common`, `video`, `rule`, `metadata`, `storage`
 ```
 domain/preview/
 ├── UserOverrides.kt
-└── PreviewUseCase.kt
+├── PreviewResult.kt
+├── PreviewUseCase.kt
+├── PreviewVideoUseCase.kt      # + VideoPreview
+└── DefaultMediaSelection.kt    # tracks pre-selected on the preview screen
 ```
 
 ### 9.1 UserOverrides (sealed)
@@ -1614,6 +1645,24 @@ The sealed overrides type determines the target `ResolvedMetadata` category.
 
 See also: [ADR/007-interactive-preview-refinement.md](./ADR/007-interactive-preview-refinement.md)
 
+### 9.3 PreviewVideoUseCase
+
+What `POST …/preview` returns, assembled in the domain:
+`invoke(workspaceSlug, actor, url, overrides, force)` → `Either<DomainError, VideoPreview>`.
+
+1. membership (`WorkspaceAccess`, read-only transaction) — a non-member never triggers yt-dlp;
+2. `PreviewUseCase` (video info from cache or yt-dlp **outside** any transaction, rule, metadata, outputs);
+3. `PathTemplateEngine` renders the outputs into the `StoragePlan`;
+4. one read-only transaction: the channel directory entry (for its track preferences) and the jobs of
+   this video in the workspace, kept only when terminal (history, newest first);
+5. `defaultMediaSelection(videoInfo, effectiveDownloadPolicy(rule, channel), settings)` — the audio
+   tracks `AudioTrackSelector` would pick (null when there is none) and the offered subtitle languages
+   the `SubtitleSelector` policy asks for (`en` also matches `en-US`; empty when subtitles are off).
+   Settings come from the `TrackSelectionSettingsProvider` port (implemented by `SystemSettingsHolder`).
+
+`VideoPreview(source, result: PreviewResult, storagePlan, appliedOverrides, previousDownloads: List<Job>,
+defaultMediaSelection)` is mapped to `PreviewResponseDto` in `api:mapping`.
+
 ---
 
 ## 10. `tx` — Transaction Abstraction
@@ -1679,7 +1728,7 @@ track can depend on the requester's account/locale, so a dubbed track is
 sometimes reported as default instead of the source audio.
 `YtDlpConfig.originalAudioLanguage` lets the operator pin the known original
 language for a channel; when a track in that language exists,
-`AudioTrackSelector` always treats it as the original, ahead of the
+`AudioTrackSelector` (`domain/track`, reading `TrackSelectionSettings`) always treats it as the original, ahead of the
 `is_original`/`language_preference` heuristics. By default only the original
 track is downloaded (`preferredAudioLanguages = []`); a rule's
 `DownloadPolicy.audioLanguages` or a channel's `TrackPreferences.audioLanguages`

@@ -1,7 +1,6 @@
-package io.github.alelk.tgvd.server.infra.process
+package io.github.alelk.tgvd.domain.track
 
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
-import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
 
 /** Resolves the effective subtitle policy for one download. */
 object SubtitleSelector {
@@ -33,23 +32,30 @@ object SubtitleSelector {
                 // separate requests to YouTube's caption endpoint; space them out to avoid
                 // tripping its rate limiter (HTTP 429).
                 if (regular && automatic) {
-                    sleepSubtitles?.let { add("--sleep-subtitles"); add(it.toString()) }
+                    sleepSubtitles?.let {
+                        add("--sleep-subtitles")
+                        add(it.toString())
+                    }
                 }
             }
         }
     }
 
-    fun select(config: YtDlpConfig, policy: DownloadPolicy, selectedLanguages: List<String>? = null): Selection {
+    fun select(
+        settings: TrackSelectionSettings,
+        policy: DownloadPolicy,
+        selectedLanguages: List<String>? = null,
+    ): Selection {
         val explicitlyDisabled = selectedLanguages != null && selectedLanguages.isEmpty()
         // null = inherit the global default; true/false = force on/off for this rule,
         // overriding the global default in either direction.
         val ruleOverride = policy.downloadSubtitles
         val languages = normalizeLanguages(
             selectedLanguages ?: policy.subtitleLanguages.takeIf { it.isNotEmpty() }
-                ?: config.subLangs
+                ?: settings.subLangs
                     ?.split(',')
                     ?.takeIf { it.isNotEmpty() }
-                ?: config.preferredSubtitleLanguages,
+                ?: settings.preferredSubtitleLanguages,
         )
 
         // An explicit preview-time selection always wins; then a rule's explicit
@@ -62,15 +68,15 @@ object SubtitleSelector {
         }
 
         return Selection(
-            writeRegular = resolve(config.writeSubs),
-            writeAutomatic = resolve(config.writeAutoSubs),
+            writeRegular = resolve(settings.writeSubs),
+            writeAutomatic = resolve(settings.writeAutoSubs),
             languages = languages,
-            embed = config.embedSubs,
-            sleepSubtitles = config.sleepSubtitles,
+            embed = settings.embedSubs,
+            sleepSubtitles = settings.sleepSubtitles,
         )
     }
 
-    internal fun normalizeLanguages(languages: List<String>): List<String> = languages
+    private fun normalizeLanguages(languages: List<String>): List<String> = languages
         .map { it.trim().replace('_', '-').lowercase() }
         .filter { it.isNotBlank() }
         .distinct()

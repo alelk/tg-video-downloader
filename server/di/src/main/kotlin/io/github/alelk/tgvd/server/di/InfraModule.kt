@@ -6,6 +6,7 @@ import io.github.alelk.tgvd.domain.job.JobRepository
 import io.github.alelk.tgvd.domain.rule.RuleRepository
 import io.github.alelk.tgvd.domain.system.ReadinessProbe
 import io.github.alelk.tgvd.domain.system.YtDlpService
+import io.github.alelk.tgvd.domain.track.TrackSelectionSettingsProvider
 import io.github.alelk.tgvd.domain.tx.TransactionRunner
 import io.github.alelk.tgvd.domain.video.VideoDownloader
 import io.github.alelk.tgvd.domain.video.VideoInfoCache
@@ -47,6 +48,7 @@ internal fun infraModule(database: Database?) = module {
 
     // Mutable settings holder (initial values from config or DB, overridable via API; persisted across restarts)
     single { SystemSettingsHolder(get<YtDlpConfig>(), get<ProxyConfig>(), get<Database>()) }
+    single<TrackSelectionSettingsProvider> { get<SystemSettingsHolder>() }
 
     // Repositories (domain port → infra adapter)
     single<WorkspaceRepository> { WorkspaceRepositoryImpl(get<Database>()) }

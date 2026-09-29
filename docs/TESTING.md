@@ -74,13 +74,29 @@ domain/src/commonTest/kotlin/io/github/alelk/tgvd/domain/
 ├── storage/
 │   └── PathTemplateEngineTest.kt
 ├── job/
-│   └── CreateJobUseCaseTest.kt
-└── preview/
-    └── PreviewUseCaseTest.kt
+│   ├── CreateJobUseCaseTest.kt     # every validation branch: same field and message as before 01.6
+│   └── JobUseCasesTest.kt          # list / get / cancel / retry, another workspace's job = not found
+├── preview/
+│   ├── PreviewUseCaseTest.kt
+│   ├── PreviewVideoUseCaseTest.kt
+│   └── DefaultMediaSelectionTest.kt
+├── track/
+│   ├── AudioTrackSelectorTest.kt
+│   └── SubtitleSelectorTest.kt
+└── workspace/
+    └── WorkspaceAccessTest.kt
 
-api/mapping/src/commonTest/kotlin/
-├── RuleMatchMappingTest.kt
-└── MetadataMappingTest.kt
+domain/domain-test-fixtures/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
+├── fakes/                          # FakeWorkspaceRepository, FakeJobRepository, FakeRuleRepository,
+│                                   # FakeChannelRepository (keep the port contract: another workspace
+│                                   # = not found), TestClock
+├── fixtures/                       # object mothers (aWorkspace, aCreateJobRequest, aJob…), Either asserts
+└── track/                          # aTrackSelectionSettings (server defaults)
+
+api/mapping/src/commonTest/kotlin/io/github/alelk/tgvd/api/mapping/
+├── common/ParseTest.kt             # parseId / parseValue: bad input → ValidationError, never an exception
+├── job/CreateJobRequestMappingTest.kt
+└── preview/VideoPreviewMappingTest.kt
 ```
 
 > Tests mirror the package-by-feature structure of the domain.
@@ -97,7 +113,7 @@ server/infra/src/test/kotlin/.../server/infra/
 ├── db/repository/*ImplTest.kt      # round-trips of every repository under ExposedTransactionRunner
 ├── db/jsonb/JsonbFixturesTest.kt   # frozen JSONB fixtures (src/test/resources/jsonb-fixtures/)
 ├── service/SystemSettingsHolderTest.kt
-└── process/…                       # AudioTrackSelector, SubtitleSelector, YtDlpRunner
+└── process/…                       # YtDlpRunner (the track selectors are domain tests since 01.6)
 
 server/app/src/test/kotlin/.../server/
 ├── ApiSurfaceTest.kt               # live routing tree == src/test/resources/api-surface.txt

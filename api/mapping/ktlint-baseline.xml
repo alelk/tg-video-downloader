@@ -75,7 +75,6 @@
     </file>
     <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/preview/toDto.kt">
         <error line="1" column="1" source="standard:filename" />
-        <error line="21" column="1" source="standard:final-newline" />
     </file>
     <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/rule/buildSaveAsRuleRequest.kt">
         <error line="1" column="1" source="standard:filename" />
@@ -100,14 +99,6 @@
     </file>
     <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/storage/toDomain.kt">
         <error line="1" column="1" source="standard:filename" />
-        <error line="3" column="1" source="standard:no-wildcard-imports" />
-        <error line="5" column="1" source="standard:no-wildcard-imports" />
-        <error line="43" column="51" source="standard:function-signature" />
-        <error line="52" column="55" source="standard:function-signature" />
-        <error line="61" column="43" source="standard:function-signature" />
-        <error line="73" column="47" source="standard:function-signature" />
-        <error line="88" column="61" source="standard:function-signature" />
-        <error line="125" column="1" source="standard:no-consecutive-blank-lines" />
     </file>
     <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/storage/toDto.kt">
         <error line="1" column="1" source="standard:filename" />
@@ -122,7 +113,6 @@
     </file>
     <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/video/toDomain.kt">
         <error line="1" column="1" source="standard:filename" />
-        <error line="17" column="41" source="standard:function-signature" />
     </file>
     <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/video/toDto.kt">
         <error line="1" column="1" source="standard:filename" />

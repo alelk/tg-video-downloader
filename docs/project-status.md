@@ -37,13 +37,18 @@ anything a user, client or deployed installation sees (except G10 and Fork 5,
   `exec java` in the three server Dockerfiles, correlation id in log lines; **fix (Fork 5):**
   `TELEGRAM_ALLOWED_USER_IDS`/`TELEGRAM_ALLOWED_USERNAMES` now reach the config (installations that set
   them narrow access — release note); G10: malformed body/parameter → `400 VALIDATION_ERROR`; 499 JVM tests.
+- 2026-09-29 — 01.6 done: job and preview routes are parse (`api:mapping`) → use-case → respond;
+  `WorkspaceAccess`, `CreateJobUseCase` (validation + `saveAsRule` in one transaction),
+  `List/Get/Cancel/RetryJobUseCase`, `PreviewVideoUseCase`; track selectors moved to `domain/track`
+  behind `TrackSelectionSettingsProvider`; G10: broken `ruleId`/value classes in `POST …/jobs` → 400;
+  fakes + mothers in `domain-test-fixtures`, first `api:mapping` tests.
 
 ## Known issues
 
 Deliberately not fixed in Step 01 unless the stage is named.
 
-- `saveAsRule.includeCategory` is accepted in `POST …/jobs` but ignored: the `api:mapping`
-  wrapper drops it and the domain has no such parameter. Fixing it changes behaviour — out of
+- `saveAsRule.includeCategory` is accepted in `POST …/jobs` but ignored: `api:mapping`
+  (`SaveAsRuleDto.toDomain()`) drops it and the domain has no such parameter. Fixing it changes behaviour — out of
   Step 01.
 - Joining a workspace by slug: `POST /workspaces` with a slug that is already taken adds the caller
   as `MEMBER` (`CreateWorkspaceUseCase`). The client relies on it to reconnect; kept as is, a known
