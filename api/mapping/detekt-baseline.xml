@@ -4,13 +4,10 @@
   <CurrentIssues>
     <ID>CyclomaticComplexMethod:toDomain.kt$fun ResolvedMetadataDto.toDomain(): Either&lt;DomainError.ValidationError, ResolvedMetadata></ID>
     <ID>MaxLineLength:toDomain.kt$MetadataTemplate.SeriesEpisode(seriesNameOverride, seasonPattern, episodePattern, titleOverride, titlePattern, defaultTags)</ID>
-    <ID>MaxLineLength:toDomainRequest.kt$fun</ID>
     <ID>MaxLineLength:toDto.kt$MetadataTemplateDto.SeriesEpisode(seriesNameOverride, seasonPattern, episodePattern, titleOverride, titlePattern, defaultTags)</ID>
-    <ID>NewLineAtEndOfFile:buildSaveAsRuleRequest.kt$io.github.alelk.tgvd.api.mapping.rule.buildSaveAsRuleRequest.kt</ID>
     <ID>NewLineAtEndOfFile:toDomain.kt$io.github.alelk.tgvd.api.mapping.common.toDomain.kt</ID>
     <ID>NewLineAtEndOfFile:toDomain.kt$io.github.alelk.tgvd.api.mapping.preview.toDomain.kt</ID>
     <ID>NewLineAtEndOfFile:toDto.kt$io.github.alelk.tgvd.api.mapping.common.toDto.kt</ID>
-    <ID>UnusedParameter:buildSaveAsRuleRequest.kt$includeCategory: Boolean = true</ID>
     <ID>WildcardImport:toDto.kt$import io.github.alelk.tgvd.api.contract.storage.*</ID>
     <ID>WildcardImport:toDto.kt$import io.github.alelk.tgvd.domain.storage.*</ID>
   </CurrentIssues>

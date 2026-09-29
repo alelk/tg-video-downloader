@@ -2,8 +2,7 @@ package io.github.alelk.tgvd.server.transport.error
 
 import io.github.alelk.tgvd.api.contract.common.ApiErrorDto
 import io.github.alelk.tgvd.domain.common.DomainError
-import io.ktor.http.*
-
+import io.ktor.http.HttpStatusCode
 
 fun DomainError.toHttpResponse(correlationId: String): Pair<HttpStatusCode, ApiErrorDto> = when (this) {
     is DomainError.ValidationError ->
@@ -68,7 +67,7 @@ fun DomainError.toHttpResponse(correlationId: String): Pair<HttpStatusCode, ApiE
 
     is DomainError.ChannelNotFound ->
         HttpStatusCode.NotFound to apiError("NOT_FOUND", message, correlationId)
+
+    is DomainError.YtDlpUpdateDisabled ->
+        HttpStatusCode.Forbidden to apiError("UPDATE_DISABLED", message, correlationId)
 }
-
-
-

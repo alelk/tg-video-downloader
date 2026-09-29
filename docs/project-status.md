@@ -42,6 +42,12 @@ anything a user, client or deployed installation sees (except G10 and Fork 5,
   `List/Get/Cancel/RetryJobUseCase`, `PreviewVideoUseCase`; track selectors moved to `domain/track`
   behind `TrackSelectionSettingsProvider`; G10: broken `ruleId`/value classes in `POST …/jobs` → 400;
   fakes + mothers in `domain-test-fixtures`, first `api:mapping` tests.
+- 2026-09-29 — 01.7 done: rule, channel, workspace and system routes are parse → use-case → respond;
+  `server:transport` no longer depends on `server:infra` and injects no repository; domain port
+  `SystemSettingsStore` (+ yt-dlp status/update use-cases); `Clock` injected without defaults
+  (`single<Clock> { Clock.System }`); `UnconfiguredLlmPort` instead of `LlmPort?`; `NoopTransactionRunner`
+  moved to `domain-test-fixtures`; fitness tests `TransportSourceGuardTest`, `DomainPurityTest`;
+  G10: broken tags/regex/blank ids/non-positive user ids in rule, channel and member input → 400.
 
 ## Known issues
 

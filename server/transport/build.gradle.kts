@@ -8,7 +8,6 @@ dependencies {
     api(projects.domain)
     api(projects.api.contract)
     api(projects.api.mapping)
-    api(projects.server.infra)
 
     // Ktor Server
     api(libs.bundles.ktor.server)

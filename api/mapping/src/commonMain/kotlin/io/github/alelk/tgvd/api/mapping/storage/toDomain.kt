@@ -82,16 +82,21 @@ fun TrackPreferencesDto.toDomain(): TrackPreferences = TrackPreferences(
 
 private fun List<String>.normalizedLanguages(): List<String> = map { it.trim() }.filter { it.isNotEmpty() }.distinct()
 
-fun OutputRuleDto.toDomain(): OutputRule = OutputRule(
-    pathTemplate = pathTemplate,
-    format = format.toDomain(),
-    maxQuality = maxQuality?.toDomain(),
-    encodeSettings = encodeSettings?.toDomain(),
-    embedThumbnail = embedThumbnail,
-    embedMetadata = embedMetadata,
-    embedSubtitles = embedSubtitles,
-    normalizeAudio = normalizeAudio,
-)
+/** @param field the field name used in validation errors (`outputs[0]` → `outputs[0].pathTemplate`). */
+fun OutputRuleDto.toDomain(field: String): Either<DomainError.ValidationError, OutputRule> = parseValue(
+    "$field.pathTemplate",
+) {
+    OutputRule(
+        pathTemplate = pathTemplate,
+        format = format.toDomain(),
+        maxQuality = maxQuality?.toDomain(),
+        encodeSettings = encodeSettings?.toDomain(),
+        embedThumbnail = embedThumbnail,
+        embedMetadata = embedMetadata,
+        embedSubtitles = embedSubtitles,
+        normalizeAudio = normalizeAudio,
+    )
+}
 
 /** @param field the field name used in validation errors (`storagePlan.original` → `storagePlan.original.path`). */
 fun OutputTargetDto.toDomain(field: String): Either<DomainError.ValidationError, OutputTarget> = either {

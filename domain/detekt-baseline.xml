@@ -4,24 +4,8 @@
   <CurrentIssues>
     <ID>CyclomaticComplexMethod:VideoEncodeSettings.kt$VideoEncodeSettings.HwAccel$fun encoderFor(codec: VideoCodec): String?</ID>
     <ID>CyclomaticComplexMethod:mergeTemplates.kt$fun mergeTemplates(base: MetadataTemplate, overlay: MetadataTemplate?): MetadataTemplate</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError$DownloadFailed : DomainError</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError$Forbidden : DomainError</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError$JobCannotBeCancelled : DomainError</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError$JobCannotBeRetried : DomainError</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError$PostProcessingFailed : DomainError</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError$StorageFailed : DomainError</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError$VideoExtractionFailed : DomainError</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError$WorkspaceNotFoundBySlug : DomainError</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError$WorkspaceSlugConflict : DomainError</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError.ChannelNotFound$data</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError.JobAlreadyExists$data</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError.PathTraversalAttempt$data</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError.VideoUnavailable$data</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError.WorkspaceAccessDenied$data</ID>
-    <ID>MaxLineLength:DomainError.kt$DomainError.WorkspaceNotFound$data</ID>
     <ID>MaxLineLength:JobRepository.kt$JobRepository$suspend fun updateStatus(id: JobId, status: JobStatus, phase: JobPhase? = null, progress: Int? = null, errorMessage: String? = null): Either&lt;DomainError, Job></ID>
     <ID>MaxLineLength:PathTemplateEngineTest.kt$PathTemplateEngineTest$val metadata = ResolvedMetadata.SeriesEpisode(seriesName = "Breaking Bad", season = "02", episode = "05", title = "Breakage")</ID>
-    <ID>MaxLineLength:PreviewUseCaseTest.kt$EmptyChannelRepository$override suspend fun findByTags(workspaceId: WorkspaceId, tags: Set&lt;Tag>, matchAll: Boolean): List&lt;Channel></ID>
     <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest$val channelMatch = rule(name = "channelMatch", priority = 5, match = RuleMatch.ChannelId("UC_music"), workspaceId = wsId)</ID>
     <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest$val disabled = rule(name = "disabled", priority = 100, match = RuleMatch.ChannelId("UC_music"), workspaceId = wsId, enabled = false)</ID>
     <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest$val enabled = rule(name = "enabled", priority = 1, match = RuleMatch.ChannelId("UC_music"), workspaceId = wsId, enabled = true)</ID>
@@ -33,7 +17,6 @@
     <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest.&lt;no name provided>$override suspend fun findAllTags(workspaceId: WorkspaceId)</ID>
     <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest.&lt;no name provided>$override suspend fun findByWorkspace(workspaceId: WorkspaceId)</ID>
     <ID>MaxLineLength:RuleMatchingServiceTest.kt$RuleMatchingServiceTest.&lt;no name provided>$override suspend fun findEnabledByWorkspace(workspaceId: WorkspaceId)</ID>
-    <ID>MaxLineLength:SaveAsRuleBuilderTest.kt$SaveAsRuleBuilderTest$val job = buildTestJob(ResolvedMetadata.MusicVideo(artist = "Rick Astley", title = "Never Gonna Give You Up"))</ID>
     <ID>MaxLineLength:TrackPreferencesTest.kt$TrackPreferencesTest$TrackPreferences(audioLanguages = emptyList(), downloadSubtitles = true, subtitleLanguages = listOf("ru"))</ID>
     <ID>MaxLineLength:TrackPreferencesTest.kt$TrackPreferencesTest$rule.withOverrides(channel) shouldBe rule.copy(downloadSubtitles = false, audioLanguages = listOf("de", "fr"))</ID>
     <ID>MaxLineLength:TrackPreferencesTest.kt$TrackPreferencesTest$val base = TrackPreferences(audioLanguages = listOf("en"), downloadSubtitles = true, subtitleLanguages = listOf("ru"))</ID>
@@ -58,10 +41,7 @@
     <ID>WildcardImport:ChannelTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
     <ID>WildcardImport:MetadataResolverTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
     <ID>WildcardImport:PathTemplateEngineTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
-    <ID>WildcardImport:PreviewUseCaseTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
     <ID>WildcardImport:RuleMatchTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
     <ID>WildcardImport:RuleMatchingServiceTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
-    <ID>WildcardImport:SaveAsRuleBuilderTest.kt$import io.github.alelk.tgvd.domain.common.*</ID>
-    <ID>WildcardImport:SaveAsRuleBuilderTest.kt$import io.github.alelk.tgvd.domain.storage.*</ID>
   </CurrentIssues>
 </SmellBaseline>

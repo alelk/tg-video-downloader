@@ -11,8 +11,8 @@ import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
+/** A new channel directory entry; the workspace it belongs to is given by the use-case that creates it. */
 data class CreateChannelRequest(
-    val workspaceId: WorkspaceId,
     val channelId: ChannelId,
     val extractor: Extractor,
     val name: String,
@@ -22,20 +22,22 @@ data class CreateChannelRequest(
     val trackPreferences: TrackPreferences? = null,
 )
 
-/** Creates a new [Channel] from this request, assigning a random id and the given timestamps. */
+/** Creates a new [Channel] of [workspaceId] from this request, assigning a random id and the given timestamps. */
 @OptIn(ExperimentalUuidApi::class)
-fun CreateChannelRequest.toChannel(createdAt: Instant, updatedAt: Instant = createdAt): Channel =
-    Channel(
-        id = ChannelDirectoryEntryId(Uuid.random()),
-        workspaceId = workspaceId,
-        channelId = channelId,
-        extractor = extractor,
-        name = name,
-        tags = tags,
-        metadataOverrides = metadataOverrides,
-        notes = notes,
-        trackPreferences = trackPreferences?.takeUnless { it.isEmpty },
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-    )
-
+fun CreateChannelRequest.toChannel(
+    workspaceId: WorkspaceId,
+    createdAt: Instant,
+    updatedAt: Instant = createdAt,
+): Channel = Channel(
+    id = ChannelDirectoryEntryId(Uuid.random()),
+    workspaceId = workspaceId,
+    channelId = channelId,
+    extractor = extractor,
+    name = name,
+    tags = tags,
+    metadataOverrides = metadataOverrides,
+    notes = notes,
+    trackPreferences = trackPreferences?.takeUnless { it.isEmpty },
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)

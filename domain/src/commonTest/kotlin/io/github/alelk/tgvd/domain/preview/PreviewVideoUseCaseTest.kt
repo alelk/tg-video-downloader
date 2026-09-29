@@ -11,6 +11,7 @@ import io.github.alelk.tgvd.domain.common.Url
 import io.github.alelk.tgvd.domain.common.WorkspaceSlug
 import io.github.alelk.tgvd.domain.fakes.FakeChannelRepository
 import io.github.alelk.tgvd.domain.fakes.FakeJobRepository
+import io.github.alelk.tgvd.domain.fakes.FakeLlmPort
 import io.github.alelk.tgvd.domain.fakes.FakeRuleRepository
 import io.github.alelk.tgvd.domain.fakes.FakeWorkspaceRepository
 import io.github.alelk.tgvd.domain.fakes.TestClock
@@ -95,7 +96,7 @@ class PreviewVideoUseCaseTest :
                     videoInfoCache = cache,
                     ruleMatchingService = RuleMatchingService(FakeRuleRepository(), channels),
                     metadataResolver = MetadataResolver(),
-                    llmPort = null,
+                    llmPort = FakeLlmPort(),
                     txRunner = tx,
                 )
             val previewVideo =

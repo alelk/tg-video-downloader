@@ -1,6 +1,5 @@
 package io.github.alelk.tgvd.domain.job
 
-import io.github.alelk.tgvd.domain.common.WorkspaceId
 import io.github.alelk.tgvd.domain.metadata.MetadataTemplate
 import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.rule.CreateRuleRequest
@@ -16,9 +15,10 @@ import io.github.alelk.tgvd.domain.storage.OutputTarget
  * - Matches by the provided [match] condition (e.g. ChannelId)
  * - Uses metadata extracted from the job as a template (overrides with actual values)
  * - Reproduces the storage plan from the job as output path templates (using placeholders)
+ *
+ * The workspace of the rule is given when the request becomes a rule (`toRule(workspaceId, …)`).
  */
 fun buildSaveAsRuleRequest(
-    workspaceId: WorkspaceId,
     match: RuleMatch,
     job: Job,
     includeMetadataTemplate: Boolean = true,
@@ -33,7 +33,6 @@ fun buildSaveAsRuleRequest(
     }
 
     return CreateRuleRequest(
-        workspaceId = workspaceId,
         name = "Auto: ${job.source.extractor.value} / ${match::class.simpleName}",
         match = match,
         metadataTemplate = metadataTemplate,
@@ -54,14 +53,13 @@ private fun ResolvedMetadata.toTemplate(includeOverrides: Boolean): MetadataTemp
     is ResolvedMetadata.Other -> MetadataTemplate.Other()
 }
 
-private fun OutputTarget.toOutputRule(videoId: String, includeStoragePolicy: Boolean): OutputRule =
-    OutputRule(
-        pathTemplate = path.value.replace(videoId, "{videoId}"),
-        format = format,
-        maxQuality = maxQuality.takeIf { includeStoragePolicy },
-        encodeSettings = encodeSettings.takeIf { includeStoragePolicy },
-        embedThumbnail = includeStoragePolicy && embedThumbnail,
-        embedMetadata = includeStoragePolicy && embedMetadata,
-        embedSubtitles = includeStoragePolicy && embedSubtitles,
-        normalizeAudio = includeStoragePolicy && normalizeAudio,
-    )
+private fun OutputTarget.toOutputRule(videoId: String, includeStoragePolicy: Boolean): OutputRule = OutputRule(
+    pathTemplate = path.value.replace(videoId, "{videoId}"),
+    format = format,
+    maxQuality = maxQuality.takeIf { includeStoragePolicy },
+    encodeSettings = encodeSettings.takeIf { includeStoragePolicy },
+    embedThumbnail = includeStoragePolicy && embedThumbnail,
+    embedMetadata = includeStoragePolicy && embedMetadata,
+    embedSubtitles = includeStoragePolicy && embedSubtitles,
+    normalizeAudio = includeStoragePolicy && normalizeAudio,
+)

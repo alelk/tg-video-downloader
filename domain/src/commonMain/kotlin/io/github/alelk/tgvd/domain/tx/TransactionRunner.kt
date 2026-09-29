@@ -23,24 +23,3 @@ interface RoTransactionScope
 
 /** Marker scope injected into a read-write transaction block. Extends [RoTransactionScope]. */
 interface RwTransactionScope : RoTransactionScope
-
-// Singleton scope objects — allocated once, carry no state.
-private object RoScopeImpl : RoTransactionScope
-private object RwScopeImpl : RwTransactionScope
-
-/**
- * No-op implementation — executes blocks immediately without any transaction management.
- *
- * Suitable for:
- * - Unit tests that mock repositories
- * - Platforms without transactional storage (e.g. in-memory, JS)
- */
-class NoopTransactionRunner : TransactionRunner {
-    override suspend fun <T> inRoTransaction(block: suspend RoTransactionScope.() -> T): T =
-        block.invoke(RoScopeImpl)
-
-    override suspend fun <T> inRwTransaction(block: suspend RwTransactionScope.() -> T): T =
-        block.invoke(RwScopeImpl)
-}
-
-

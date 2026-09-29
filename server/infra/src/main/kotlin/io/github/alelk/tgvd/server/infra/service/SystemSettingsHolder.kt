@@ -1,10 +1,16 @@
 package io.github.alelk.tgvd.server.infra.service
 
+import io.github.alelk.tgvd.domain.system.SystemSettings
+import io.github.alelk.tgvd.domain.system.SystemSettingsStore
 import io.github.alelk.tgvd.domain.track.TrackSelectionSettings
 import io.github.alelk.tgvd.domain.track.TrackSelectionSettingsProvider
 import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
+import io.github.alelk.tgvd.server.infra.config.toProxyConfig
+import io.github.alelk.tgvd.server.infra.config.toProxySettings
 import io.github.alelk.tgvd.server.infra.config.toTrackSelectionSettings
+import io.github.alelk.tgvd.server.infra.config.toYtDlpSettings
+import io.github.alelk.tgvd.server.infra.config.withSettings
 import io.github.alelk.tgvd.server.infra.db.dbQuery
 import io.github.alelk.tgvd.server.infra.db.jsonb
 import io.github.alelk.tgvd.server.infra.db.mapping.now
@@ -28,12 +34,16 @@ private const val KEY_PROXY = "proxy"
  *
  * Initial values: loaded from DB if present, otherwise fall back to config (application.yaml / env vars).
  * Every update is immediately persisted to the DB so settings survive server restarts.
+ *
+ * Implements the domain ports [SystemSettingsStore] (the editable settings) and
+ * [TrackSelectionSettingsProvider]; the config ↔ domain mapping is in `config/SystemSettingsMapping.kt`.
  */
 class SystemSettingsHolder(
     initialYtDlpConfig: YtDlpConfig,
     initialProxyConfig: ProxyConfig,
     private val database: Database,
-) : TrackSelectionSettingsProvider {
+) : SystemSettingsStore,
+    TrackSelectionSettingsProvider {
     private val ytDlpRef: AtomicReference<YtDlpConfig>
     private val proxyRef: AtomicReference<ProxyConfig>
 
@@ -49,6 +59,16 @@ class SystemSettingsHolder(
     val proxyConfig: ProxyConfig get() = proxyRef.get()
 
     override fun trackSelectionSettings(): TrackSelectionSettings = ytDlpConfig.toTrackSelectionSettings()
+
+    override fun current(): SystemSettings =
+        SystemSettings(ytDlpConfig.toYtDlpSettings(), proxyConfig.toProxySettings())
+
+    override fun isYtDlpUpdateAllowed(): Boolean = ytDlpConfig.allowUpdate
+
+    override suspend fun save(settings: SystemSettings) {
+        updateYtDlpConfig { it.withSettings(settings.ytDlp) }
+        updateProxyConfig { settings.proxy.toProxyConfig() }
+    }
 
     suspend fun updateYtDlpConfig(update: (YtDlpConfig) -> YtDlpConfig) {
         val new = update(ytDlpRef.get())

@@ -81,15 +81,16 @@ Client side (KMP):
 Server side (JVM):
   server:app ───────▶ server:di, server:transport, server:infra, domain, api:contract
   server:di ────────▶ server:transport, server:infra, domain
-  server:transport ─▶ domain, api:contract, api:mapping   (+ server:infra today, see note)
+  server:transport ─▶ domain, api:contract, api:mapping
   server:infra ─────▶ domain
 
 Test support:
   domain:domain-test-fixtures ─▶ domain   (used by commonTest of domain)
 ```
 
-> Note: `server:transport` currently depends on `server:infra` — a violation of the rule in §2.3,
-> removed in Step 01 (stage 01.7, [`plans/step-01/`](plans/step-01/README.md)).
+> Since stage 01.7 `server:transport` does not depend on `server:infra` and no route injects a
+> repository; both rules are fitness tests (`TransportSourceGuardTest` in `server:transport`,
+> `DomainPurityTest` in `domain` for the purity of `domain/commonMain`).
 
 ### 2.2 Module Descriptions
 
@@ -101,29 +102,31 @@ Test support:
 
 **Contains**:
 - `common/` — `Category`, `DomainError`, `Tag`, value objects (`WorkspaceId`, `JobId`, etc.)
-- `workspace/` — `Workspace`, `WorkspaceMember`, `WorkspaceRole`, `WorkspaceRepository` port, `CreateWorkspaceUseCase`, `AddWorkspaceMemberUseCase`, `RemoveWorkspaceMemberUseCase`, `WorkspaceAccess` (membership check)
-- `channel/` — `Channel`, `ChannelRepository` port, `CreateChannelUseCase`, `UpdateChannelUseCase`, `DeleteChannelUseCase`, request models
+- `workspace/` — `Workspace`, `WorkspaceMember`, `WorkspaceRole`, `WorkspaceRepository` port, `ListWorkspacesUseCase`, `CreateWorkspaceUseCase`, `ListWorkspaceMembersUseCase`, `AddWorkspaceMemberUseCase`, `RemoveWorkspaceMemberUseCase`, `WorkspaceAccess` (membership check)
+- `channel/` — `Channel`, `ChannelRepository` port, `ListChannelsUseCase` (`ChannelFilter`), `ListChannelTagsUseCase`, `GetChannelUseCase`, `CreateChannelUseCase`, `UpdateChannelUseCase`, `DeleteChannelUseCase`, request models
 - `video/` — `VideoSource`, `VideoInfo`, `VideoInfoExtractor` port, `VideoInfoCache` port, `VideoDownloader` port
-- `rule/` — `Rule`, `RuleMatch` (sealed, incl. `HasTag`, `CategoryEquals`), `MatchContext`, `MatchResult`, `RuleMatchingService`, `RuleRepository` port, `CreateRuleUseCase`, `UpdateRuleUseCase`, `DeleteRuleUseCase`, request models
-- `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `MetadataTemplateMerger`, `MetadataResolver`, `LlmPort`
+- `rule/` — `Rule`, `RuleMatch` (sealed, incl. `HasTag`, `CategoryEquals`), `MatchContext`, `MatchResult`, `RuleMatchingService`, `RuleRepository` port, `ListRulesUseCase`, `GetRuleUseCase`, `CreateRuleUseCase`, `UpdateRuleUseCase`, `DeleteRuleUseCase`, request models
+- `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `MetadataTemplateMerger`, `MetadataResolver`, `LlmPort` (never nullable: `UnconfiguredLlmPort` in infra when no LLM)
 - `storage/` — `StoragePlan`, `OutputRule`, `OutputFormat` (sealed), `PathTemplateEngine`, `VideoDownloader` port, `validateStoragePaths()`
 - `job/` — `Job`, `JobStatus`, `CreateJobUseCase` (validation + `saveAsRule`), `ListJobsUseCase`, `GetJobUseCase`, `CancelJobUseCase`, `RetryJobUseCase`, `JobRepository` port, `CreateJobRequest` + `toJob()`
 - `preview/` — `UserOverrides` (sealed), `PreviewUseCase` (orchestrator), `PreviewVideoUseCase` (what `POST …/preview` returns)
 - `track/` — `AudioTrackSelector`, `SubtitleSelector`, `TrackSelectionSettings`, `TrackSelectionSettingsProvider` port
-- `tx/` — `TransactionRunner`, `RoTransactionScope`, `RwTransactionScope`, `NoopTransactionRunner`
+- `system/` — `SystemSettings` + `SystemSettingsStore` port, `Get/UpdateSystemSettingsUseCase`, `YtDlpService` port, `GetYtDlpStatusUseCase`, `UpdateYtDlpUseCase`, `ReadinessProbe` port
+- `tx/` — `TransactionRunner`, `RoTransactionScope`, `RwTransactionScope` (the test-only `NoopTransactionRunner` is in `domain-test-fixtures`)
 
 ```
 ├── common/         # Shared types: Category, DomainError, Tag, value objects
-├── workspace/      # Workspace, WorkspaceRepository port, WorkspaceAccess + CreateWorkspaceUseCase, AddWorkspaceMemberUseCase, RemoveWorkspaceMemberUseCase
-├── channel/        # Channel, ChannelRepository port + CreateChannelUseCase, UpdateChannelUseCase, DeleteChannelUseCase
+├── workspace/      # Workspace, WorkspaceRepository port, WorkspaceAccess + List/Create workspace, List/Add/Remove member use-cases
+├── channel/        # Channel, ChannelRepository port + List/ListTags/Get/Create/Update/Delete channel use-cases
 ├── video/          # VideoSource, VideoInfo, VideoInfoExtractor port, VideoInfoCache port, VideoDownloader port
-├── rule/           # Rule, RuleMatch (sealed), RuleMatchingService, RuleRepository port + CreateRuleUseCase, UpdateRuleUseCase, DeleteRuleUseCase
+├── rule/           # Rule, RuleMatch (sealed), RuleMatchingService, RuleRepository port + List/Get/Create/Update/Delete rule use-cases
 ├── metadata/       # ResolvedMetadata (sealed), MetadataTemplate (sealed), MetadataResolver, LlmPort
 ├── storage/        # StoragePlan, OutputRule, OutputFormat (sealed), PathTemplateEngine, validateStoragePaths()
 ├── job/            # Job, JobStatus, JobRepository port + CreateJobUseCase, ListJobsUseCase, GetJobUseCase, CancelJobUseCase, RetryJobUseCase
 ├── preview/        # UserOverrides (sealed), PreviewUseCase, PreviewVideoUseCase
 ├── track/          # AudioTrackSelector, SubtitleSelector, TrackSelectionSettings (+ provider port)
-└── tx/             # TransactionRunner, RoTransactionScope, RwTransactionScope, NoopTransactionRunner
+├── system/         # SystemSettings + SystemSettingsStore port, yt-dlp status/update use-cases, ReadinessProbe
+└── tx/             # TransactionRunner, RoTransactionScope, RwTransactionScope
 ```
 
 **Dependencies**: Kotlin stdlib (`kotlin.time.Instant`, `kotlin.time.Duration`, `kotlin.uuid.Uuid`), Arrow (Either), kotlinx-coroutines.
@@ -222,13 +225,14 @@ Test support:
 
 #### `server:infra` — JVM only
 
-**Purpose**: Implementation of domain ports (DB, processes, filesystem). No LLM adapter exists yet — `LlmPort` has no implementation.
+**Purpose**: Implementation of domain ports (DB, processes, filesystem). No LLM adapter exists yet — `LlmPort` is bound to `UnconfiguredLlmPort` (`llm/`), which refuses every suggestion, so previews fall back to `MetadataResolver`.
 
 **Contains**:
 - `db/` — tables, repositories, persistence models, mappings
 - `process/` — `YtDlpRunner`, `FfmpegRunner`, `YtDlpServiceImpl`
-- `service/` — `JobProcessor` (background job handler)
-- `config/` — configuration data classes
+- `service/` — `JobProcessor` (background job handler), `SystemSettingsHolder` (implements `SystemSettingsStore` and `TrackSelectionSettingsProvider`)
+- `llm/` — `UnconfiguredLlmPort`
+- `config/` — configuration data classes and their mapping to domain settings
 
 **JobProcessor** — a background coroutine loop that:
 1. Polls the DB for `PENDING` jobs (interval from `JobsConfig.pollIntervalMs`)

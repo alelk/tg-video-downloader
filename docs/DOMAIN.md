@@ -33,14 +33,16 @@ This structure:
 domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 ├── common/             # Shared types: Category, DomainError, Tag, value objects (WorkspaceId, JobId, etc.)
 ├── workspace/          # Workspace, WorkspaceMember, WorkspaceRole, WorkspaceRepository port
-│                       # + CreateWorkspaceUseCase, AddWorkspaceMemberUseCase, RemoveWorkspaceMemberUseCase
+│                       # + ListWorkspacesUseCase, CreateWorkspaceUseCase, ListWorkspaceMembersUseCase,
+│                       #   AddWorkspaceMemberUseCase, RemoveWorkspaceMemberUseCase
 │                       # + WorkspaceAccess (membership check used by workspace-scoped use-cases)
 ├── channel/            # Channel (channel directory), ChannelRepository port
-│                       # + CreateChannelUseCase, UpdateChannelUseCase, DeleteChannelUseCase
+│                       # + ListChannelsUseCase (ChannelFilter), ListChannelTagsUseCase, GetChannelUseCase,
+│                       #   CreateChannelUseCase, UpdateChannelUseCase, DeleteChannelUseCase
 │                       # + CreateChannelRequest, UpdateChannelRequest
 ├── video/              # VideoSource, VideoInfo, VideoInfoExtractor port, VideoInfoCache port, VideoDownloader port
 ├── rule/               # Rule, RuleMatch, MatchResult, RuleMatchingService, RuleRepository port
-│                       # + CreateRuleUseCase, UpdateRuleUseCase, DeleteRuleUseCase
+│                       # + ListRulesUseCase, GetRuleUseCase, CreateRuleUseCase, UpdateRuleUseCase, DeleteRuleUseCase
 │                       # + CreateRuleRequest, UpdateRuleRequest
 ├── metadata/           # ResolvedMetadata, MetadataResolver, MetadataTemplate, MetadataTemplateMerger, LlmPort
 ├── storage/            # StoragePlan, OutputRule, OutputFormat, PathTemplateEngine, validateStoragePaths()
@@ -50,7 +52,10 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 ├── preview/            # PreviewUseCase (video + rule + channel + metadata + outputs),
 │                       # PreviewVideoUseCase (+ storage plan, default tracks, download history)
 ├── track/              # AudioTrackSelector, SubtitleSelector, TrackSelectionSettings (+ provider port)
-└── tx/                 # TransactionRunner, RoTransactionScope, RwTransactionScope, NoopTransactionRunner
+├── system/             # SystemSettings + SystemSettingsStore port, Get/UpdateSystemSettingsUseCase,
+│                       # YtDlpService port, GetYtDlpStatusUseCase, UpdateYtDlpUseCase, ReadinessProbe port
+└── tx/                 # TransactionRunner, RoTransactionScope, RwTransactionScope
+                        # (NoopTransactionRunner for tests lives in domain-test-fixtures)
 ```
 
 ### Package Dependency Graph
@@ -361,6 +366,18 @@ interface WorkspaceRepository {
 }
 ```
 
+### 3.5 Workspace use-cases
+
+| Use-case                       | Transaction | Who            | Result / errors                                                        |
+|--------------------------------|-------------|----------------|------------------------------------------------------------------------|
+| `ListWorkspacesUseCase`        | read-only   | anyone         | the caller's workspaces, each with the caller's membership (`WorkspaceMembership`) |
+| `CreateWorkspaceUseCase`       | read-write  | anyone         | new slug → workspace + caller as `OWNER` (`created = true`); taken slug → caller added as `MEMBER`, existing workspace (`created = false`) — joining by slug is a known risk, kept |
+| `ListWorkspaceMembersUseCase`  | read-only   | member         | the members; non-member → `WorkspaceAccessDenied`                      |
+| `AddWorkspaceMemberUseCase`    | read-write  | `OWNER`        | the new member; anyone else → `WorkspaceAccessDenied`                  |
+| `RemoveWorkspaceMemberUseCase` | read-write  | `OWNER`        | `Unit`; anyone else → `WorkspaceAccessDenied`; not a member → `ValidationError("userId")` |
+
+All take the workspace by slug; an unknown slug is `WorkspaceNotFoundBySlug`.
+
 See also: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
 
 ---
@@ -509,6 +526,21 @@ interface ChannelRepository {
     suspend fun findAllTags(workspaceId: WorkspaceId): Set<Tag>
 }
 ```
+
+### 4a.3 Channel use-cases
+
+All take `workspaceSlug` and `actor` and check the membership inside their transaction; a channel of
+another workspace is `ChannelNotFound` — exactly like a missing one. `CreateChannelRequest` carries
+no workspace: the use-case builds the channel with `toChannel(workspace.id, clock.now())`.
+
+| Use-case                 | Transaction | Result                                                                   |
+|--------------------------|-------------|--------------------------------------------------------------------------|
+| `ListChannelsUseCase`    | read-only   | by `ChannelFilter`: `All`, `ByPlatformId(channelId, extractor)` (none or one), `ByTag(tag)` |
+| `ListChannelTagsUseCase` | read-only   | the workspace's tags, once each, sorted by value                         |
+| `GetChannelUseCase`      | read-only   | the channel                                                              |
+| `CreateChannelUseCase`   | read-write  | the new channel                                                          |
+| `UpdateChannelUseCase`   | read-write  | patch: non-null fields overwrite; empty `trackPreferences` clear them    |
+| `DeleteChannelUseCase`   | read-write  | `Unit`                                                                   |
 
 ---
 
@@ -695,6 +727,14 @@ interface RuleRepository {
     suspend fun delete(id: RuleId): Boolean
 }
 ```
+
+### 5.5 Rule use-cases
+
+`ListRulesUseCase` (read-only, highest priority first), `GetRuleUseCase` (read-only),
+`CreateRuleUseCase`, `UpdateRuleUseCase` (patch: non-null fields overwrite), `DeleteRuleUseCase`
+(read-write). All take `workspaceSlug` and `actor` and check the membership inside their
+transaction; a rule of another workspace is `RuleNotFound`. `CreateRuleRequest` carries no
+workspace: `toRule(workspace.id, clock.now())`.
 
 ---
 
@@ -926,6 +966,13 @@ Used for three-level metadata merge:
 interface LlmPort {
     suspend fun suggestMetadata(video: VideoInfo): Either<DomainError.LlmError, LlmSuggestion>
 }
+```
+
+The port is never nullable (G8). A deployment without an LLM gets `UnconfiguredLlmPort`
+(`server:infra`), which answers every video with `LlmError("none", "LLM is not configured")`; the
+preview then resolves with an empty template (`MetadataSource.FALLBACK`), exactly as before.
+
+```kotlin
 
 data class LlmSuggestion(
     val category: Category,
@@ -1584,7 +1631,7 @@ class PreviewUseCase(
     private val videoInfoCache: VideoInfoCache,
     private val ruleMatchingService: RuleMatchingService,
     private val metadataResolver: MetadataResolver,
-    private val llmPort: LlmPort?,
+    private val llmPort: LlmPort,
     private val txRunner: TransactionRunner,
 ) {
     suspend operator fun invoke(
@@ -1665,6 +1712,24 @@ defaultMediaSelection)` is mapped to `PreviewResponseDto` in `api:mapping`.
 
 ---
 
+## 9a. `system` — System settings and yt-dlp
+
+- `SystemSettings(ytDlp: YtDlpSettings, proxy: ProxySettings)` — what an administrator edits at
+  runtime (`/system/settings`). Deployment-only values (binary path, timeouts, retries,
+  `allowUpdate`) stay in the server config. `cookiesContent` and the proxy password are secrets:
+  stored and used, never sent back (masked in `api:mapping`).
+- `SystemSettingsStore` (port, implemented by `SystemSettingsHolder`): `current()`,
+  `isYtDlpUpdateAllowed()`, `save(settings)`.
+- `UpdateSystemSettingsUseCase(UpdateSystemSettingsRequest)`: language codes trimmed, lowercased,
+  `_` → `-`, blanks/duplicates dropped; legacy `subLangs` becomes `preferredSubtitleLanguages` and is
+  not stored; `maxAdditionalAudioTracks` clamped to `0..8`; a missing secret or an unknown proxy type
+  keeps the stored value.
+- `GetYtDlpStatusUseCase` — installed version (required) + latest release (best effort; unknown on a
+  GitHub failure), `checkedAt` from the injected `Clock`. `UpdateYtDlpUseCase` — refused with
+  `YtDlpUpdateDisabled` (HTTP `403 UPDATE_DISABLED`) when the config disallows updates.
+
+---
+
 ## 10. `tx` — Transaction Abstraction
 
 **Purpose**: Decouples use cases from the concrete transaction mechanism (Exposed, in-memory, no-op).
@@ -1683,7 +1748,7 @@ interface RwTransactionScope : RoTransactionScope  // marker: read-write
 - Use cases that **read only** → `inRoTransaction`
 - Use cases that **write** → `inRwTransaction`
 - Long-running I/O (LLM, yt-dlp) must be kept **outside** any transaction block
-- In tests → `NoopTransactionRunner` (executes the block inline, no DB required)
+- In tests → `NoopTransactionRunner` from `domain-test-fixtures` (executes the block inline, no DB required)
 
 **Implementation**: `ExposedTransactionRunner` in `server:infra/db/` wraps `suspendTransaction` with the appropriate `readOnly` flag.
 

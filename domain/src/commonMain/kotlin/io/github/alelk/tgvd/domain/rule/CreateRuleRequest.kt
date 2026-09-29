@@ -9,8 +9,8 @@ import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
+/** A new rule; the workspace it belongs to is given by the use-case that creates it. */
 data class CreateRuleRequest(
-    val workspaceId: WorkspaceId,
     val name: String,
     val match: RuleMatch,
     val metadataTemplate: MetadataTemplate,
@@ -20,20 +20,18 @@ data class CreateRuleRequest(
     val priority: Int = 0,
 )
 
-/** Creates a new [Rule] from this request, assigning a random id and the given timestamps. */
+/** Creates a new [Rule] of [workspaceId] from this request, assigning a random id and the given timestamps. */
 @OptIn(ExperimentalUuidApi::class)
-fun CreateRuleRequest.toRule(createdAt: Instant, updatedAt: Instant = createdAt): Rule =
-    Rule(
-        id = RuleId(Uuid.random()),
-        workspaceId = workspaceId,
-        name = name,
-        match = match,
-        metadataTemplate = metadataTemplate,
-        downloadPolicy = downloadPolicy,
-        outputs = outputs,
-        enabled = enabled,
-        priority = priority,
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-    )
-
+fun CreateRuleRequest.toRule(workspaceId: WorkspaceId, createdAt: Instant, updatedAt: Instant = createdAt): Rule = Rule(
+    id = RuleId(Uuid.random()),
+    workspaceId = workspaceId,
+    name = name,
+    match = match,
+    metadataTemplate = metadataTemplate,
+    downloadPolicy = downloadPolicy,
+    outputs = outputs,
+    enabled = enabled,
+    priority = priority,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)

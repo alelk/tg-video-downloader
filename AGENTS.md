@@ -16,7 +16,7 @@ Versions only in `gradle/libs.versions.toml`; product version only in `app.versi
 | Path                     | What                                                            | Targets |
 |--------------------------|-----------------------------------------------------------------|---------|
 | `domain/`                | entities, ports, use-cases, `DomainError`, `TransactionRunner` | jvm, js |
-| `domain/domain-test-fixtures/` | Kotest `Arb` generators for tests                         | jvm, js |
+| `domain/domain-test-fixtures/` | test support: fakes, object mothers, `TestClock`, `NoopTransactionRunner`, `Arb`s | jvm, js |
 | `api/contract/`          | HTTP DTOs (kotlinx.serialization)                               | jvm, js |
 | `api/mapping/`           | domain ↔ DTO mapping                                            | jvm, js |
 | `api/client/`            | Ktor HTTP client `TgVideoDownloaderClient`                      | jvm, js |
@@ -32,8 +32,8 @@ Build logic lives in the included build `convention-plugins/` (`tgvd.kmp`, `tgvd
 convention and lists its dependencies; repositories are only in `settings.gradle.kts`; project
 dependencies use `projects.x` accessors — [`ARCHITECTURE.md` §4](docs/ARCHITECTURE.md#4-gradle-modules).
 
-Web target is `js(IR)` (no wasm). LLM adapters don't exist yet: `LlmPort` is declared in
-`domain`, nothing implements it.
+Web target is `js(IR)` (no wasm). LLM adapters don't exist yet: `LlmPort` is bound to
+`UnconfiguredLlmPort` (infra), which refuses every suggestion — previews use the fallback resolver.
 
 ## Commands
 

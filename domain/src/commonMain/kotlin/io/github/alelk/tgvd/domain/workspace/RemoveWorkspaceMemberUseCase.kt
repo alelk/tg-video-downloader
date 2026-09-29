@@ -2,33 +2,29 @@ package io.github.alelk.tgvd.domain.workspace
 
 import arrow.core.Either
 import arrow.core.raise.either
-import arrow.core.raise.ensure
 import io.github.alelk.tgvd.domain.common.DomainError
 import io.github.alelk.tgvd.domain.common.TelegramUserId
-import io.github.alelk.tgvd.domain.common.WorkspaceId
+import io.github.alelk.tgvd.domain.common.WorkspaceSlug
 import io.github.alelk.tgvd.domain.tx.TransactionRunner
 
 class RemoveWorkspaceMemberUseCase(
     private val workspaceRepository: WorkspaceRepository,
     private val txRunner: TransactionRunner,
 ) {
-    /** Removes [targetUserId] from [workspaceId]. Only OWNER may call this. */
+    /**
+     * Removes [targetUserId] from the workspace [workspaceSlug]. Only its OWNER may do this; anyone else
+     * gets [DomainError.WorkspaceAccessDenied]. A user who is not a member is a [DomainError.ValidationError].
+     */
     suspend operator fun invoke(
-        workspaceId: WorkspaceId,
-        callerId: TelegramUserId,
+        workspaceSlug: WorkspaceSlug,
+        actor: TelegramUserId,
         targetUserId: TelegramUserId,
-    ): Either<DomainError, Unit> =
-        txRunner.inRwTransaction {
-            either {
-                val callerMembership = workspaceRepository.findMembers(workspaceId)
-                    .find { it.userId == callerId }
-                ensure(callerMembership?.role == WorkspaceRole.OWNER) {
-                    DomainError.WorkspaceAccessDenied(workspaceId, callerId)
-                }
-                if (!workspaceRepository.removeMember(workspaceId, targetUserId)) {
-                    raise(DomainError.ValidationError("userId", "User ${targetUserId.value} is not a member"))
-                }
+    ): Either<DomainError, Unit> = txRunner.inRwTransaction {
+        either {
+            val workspace = workspaceRepository.requireOwner(workspaceSlug, actor).bind()
+            if (!workspaceRepository.removeMember(workspace.id, targetUserId)) {
+                raise(DomainError.ValidationError("userId", "User ${targetUserId.value} is not a member"))
             }
         }
+    }
 }
-

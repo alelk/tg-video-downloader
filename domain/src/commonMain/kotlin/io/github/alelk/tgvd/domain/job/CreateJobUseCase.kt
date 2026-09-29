@@ -66,13 +66,12 @@ class CreateJobUseCase(
                 request.saveAsRule?.let { saveAs ->
                     saveAs.matchBy.toRuleMatch(request.videoInfo).map { match ->
                         buildSaveAsRuleRequest(
-                            workspaceId = workspace.id,
                             match = match,
                             job = job,
                             includeMetadataTemplate = saveAs.includeMetadataTemplate,
                             includeStoragePolicy = saveAs.includeStoragePolicy,
                             enabled = saveAs.enabled,
-                        ).toRule(now)
+                        ).toRule(workspace.id, now)
                     }
                 }
 

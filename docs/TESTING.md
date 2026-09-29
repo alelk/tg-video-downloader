@@ -67,7 +67,14 @@ dependencies {
 domain/src/commonTest/kotlin/io/github/alelk/tgvd/domain/
 ├── rule/
 │   ├── RuleMatchTest.kt
-│   └── RuleMatchingServiceTest.kt
+│   ├── RuleMatchingServiceTest.kt
+│   └── RuleUseCasesTest.kt         # list / get / create / update / delete, another workspace's rule = not found
+├── channel/
+│   ├── ChannelTest.kt
+│   └── ChannelUseCasesTest.kt      # filters, tags, CRUD, another workspace's channel = not found
+├── system/
+│   ├── YtDlpVersionTest.kt
+│   └── SystemUseCasesTest.kt       # settings normalisation and kept secrets, yt-dlp status/update
 ├── metadata/
 │   ├── ResolvedMetadataTest.kt
 │   └── MetadataResolverTest.kt
@@ -84,23 +91,32 @@ domain/src/commonTest/kotlin/io/github/alelk/tgvd/domain/
 │   ├── AudioTrackSelectorTest.kt
 │   └── SubtitleSelectorTest.kt
 └── workspace/
-    └── WorkspaceAccessTest.kt
+    ├── WorkspaceAccessTest.kt
+    └── WorkspaceUseCasesTest.kt    # list, create/join by slug, members: list (member), add/remove (OWNER)
+
+domain/src/jvmTest/kotlin/io/github/alelk/tgvd/domain/architecture/
+└── DomainPurityTest.kt             # fitness: no Ktor/Exposed/serialization/Koin, no Clock.System in commonMain
 
 domain/domain-test-fixtures/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 ├── fakes/                          # FakeWorkspaceRepository, FakeJobRepository, FakeRuleRepository,
 │                                   # FakeChannelRepository (keep the port contract: another workspace
-│                                   # = not found), TestClock
-├── fixtures/                       # object mothers (aWorkspace, aCreateJobRequest, aJob…), Either asserts
-└── track/                          # aTrackSelectionSettings (server defaults)
+│                                   # = not found), FakeLlmPort, TestClock
+├── fixtures/                       # object mothers (aWorkspace, aCreateJobRequest, aJob, aRule, aChannel…), Either asserts
+├── track/                          # aTrackSelectionSettings (server defaults)
+└── tx/NoopTransactionRunner.kt     # runs the block inline (test-only, not in domain since 01.7)
 
 api/mapping/src/commonTest/kotlin/io/github/alelk/tgvd/api/mapping/
 ├── common/ParseTest.kt             # parseId / parseValue: bad input → ValidationError, never an exception
 ├── job/CreateJobRequestMappingTest.kt
-└── preview/VideoPreviewMappingTest.kt
+├── preview/VideoPreviewMappingTest.kt
+├── rule/RuleMappingTest.kt         # invalid regex / tag / blank path template → ValidationError
+├── channel/ChannelMappingTest.kt   # query filter precedence, blank ids, malformed tags
+├── workspace/WorkspaceMappingTest.kt
+└── system/SystemSettingsMappingTest.kt  # secrets never sent, proxy type parsing, update response
 ```
 
 > Tests mirror the package-by-feature structure of the domain.
-> `jvmTest/` is reserved for JVM-specific edge cases; `jsTest/` would compile but not run (no JS test runner).
+> `jvmTest/` is reserved for JVM-specific edge cases and source-scanning fitness tests (they need `java.io.File`); `jsTest/` would compile but not run (no JS test runner).
 
 ### JVM Modules (server:*)
 
@@ -112,7 +128,8 @@ server/infra/src/test/kotlin/.../server/infra/
 ├── db/MigrationsTest.kt            # empty DB → DatabaseFactory start path → Flyway validate(), ≥ V1…V8
 ├── db/repository/*ImplTest.kt      # round-trips of every repository under ExposedTransactionRunner
 ├── db/jsonb/JsonbFixturesTest.kt   # frozen JSONB fixtures (src/test/resources/jsonb-fixtures/)
-├── service/SystemSettingsHolderTest.kt
+├── service/SystemSettingsHolderTest.kt   # also as SystemSettingsStore: deployment-only values kept
+├── llm/UnconfiguredLlmPortTest.kt  # G8: the unconfigured port previews exactly like the former null port
 └── process/…                       # YtDlpRunner (the track selectors are domain tests since 01.6)
 
 server/app/src/test/kotlin/.../server/
@@ -120,6 +137,9 @@ server/app/src/test/kotlin/.../server/
 ├── route/*RoutesTest.kt            # module() + Testcontainers + fakes, devMode (X-Telegram-Init-Data: dev)
 ├── fakes/Fakes.kt                  # VideoInfoExtractor, VideoDownloader, YtDlpService
 └── telegram/MiniAppDeepLinkTest.kt
+
+server/transport/src/test/kotlin/.../server/transport/architecture/
+└── TransportSourceGuardTest.kt     # fitness: no repository and no server.infra in transport sources
 
 api/contract/src/jvmTest/kotlin/.../api/contract/golden/
 └── GoldenJsonTest.kt               # golden wire JSON (src/jvmTest/resources/golden/), both directions

@@ -53,9 +53,11 @@ server:app → server:di → server:transport → domain, api:contract, api:mapp
                        → server:infra     → domain          (never api:*)
 ```
 
-Current deviation (fixed in Step 01, stage 01.7): `server:transport` depends on `server:infra`
-(`systemRoutes` imports infra types) and the rule, channel and workspace routes inject repositories
-directly. Job and preview routes are thin since 01.6: parse in `api:mapping` → use-case → respond.
+Every route is parse (`api:mapping`, `Either`) → use-case (membership and ownership checked inside
+its transaction) → respond (since 01.6 for jobs and preview, 01.7 for the rest). `server:transport`
+does not depend on `server:infra` and injects no repository — pinned by `TransportSourceGuardTest`;
+`domain/commonMain` stays free of Ktor/Exposed/serialization/Koin and `Clock.System` —
+`DomainPurityTest`.
 
 ## 4. Commands
 
@@ -89,7 +91,8 @@ command.
 | `YtDlpService` (`domain/system`)      | `YtDlpServiceImpl`                  | yt-dlp version and self-update           |
 | — (used by the job processor)         | `FfmpegRunner`                      | conversion, audio extraction, tag/cover embedding |
 | `VideoInfoCache`                      | `VideoInfoCacheImpl` (PostgreSQL)   | yt-dlp result cache for preview          |
-| `LlmPort`                             | **none** (not implemented)          | metadata suggestions; without it `MetadataResolver` is used |
+| `SystemSettingsStore` (`domain/system`) | `SystemSettingsHolder` (PostgreSQL `system_settings`) | runtime yt-dlp and proxy settings (`/system/settings`) |
+| `LlmPort`                             | `UnconfiguredLlmPort` (no real adapter yet) | metadata suggestions; refused → `MetadataResolver` fallback |
 | —                                     | `TelegramMiniAppAutoReplyBot` (long polling, `server:app`) | replies with a Mini App button |
 
 ## 7. Key domain flows and change recipes

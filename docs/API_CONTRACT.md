@@ -98,7 +98,7 @@ data class ApiErrorDto(
 
 | Code                      | HTTP Status | Description                                          |
 |---------------------------|-------------|------------------------------------------------------|
-| `VALIDATION_ERROR`        | 400         | Input validation error; also a malformed request — a body that is not valid JSON for the DTO, a path/query parameter that does not convert, a broken id or a value a domain type rejects in the `POST …/jobs` body (G10) |
+| `VALIDATION_ERROR`        | 400         | Input validation error; also a malformed request — a body that is not valid JSON for the DTO, a path/query parameter that does not convert, a broken id, or a value a domain type rejects (a blank id, a malformed tag, an invalid regex, a non-positive user id) in a body or query (G10; jobs since 01.6, rules, channels and members since 01.7). `POST /workspaces` with a bad slug keeps its legacy body `{"error": …}` |
 | `INVALID_URL`             | 400         | Invalid video URL                                    |
 | `UNAUTHORIZED`            | 401         | Invalid initData                                     |
 | `FORBIDDEN`               | 403         | User not in allowlist                                |

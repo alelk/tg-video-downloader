@@ -24,7 +24,7 @@ class PreviewUseCase(
     private val videoInfoCache: VideoInfoCache,
     private val ruleMatchingService: RuleMatchingService,
     private val metadataResolver: MetadataResolver,
-    private val llmPort: LlmPort?,
+    private val llmPort: LlmPort,
     private val txRunner: TransactionRunner,
 ) {
     /**
@@ -77,10 +77,7 @@ class PreviewUseCase(
      * Override fields take the highest priority.
      * The sealed overrides type determines the target [ResolvedMetadata] category.
      */
-    private fun applyOverrides(
-        metadata: ResolvedMetadata,
-        overrides: UserOverrides?,
-    ): ResolvedMetadata {
+    private fun applyOverrides(metadata: ResolvedMetadata, overrides: UserOverrides?): ResolvedMetadata {
         if (overrides == null) return metadata
 
         return when (overrides) {
@@ -116,27 +113,25 @@ class PreviewUseCase(
     }
 
     private suspend fun resolveMetadata(
-        video: VideoInfo, matchResult: MatchResult?,
-    ): Pair<ResolvedMetadata, MetadataSource> {
-        return if (matchResult != null) {
-            val effectiveTemplate = mergeTemplates(
-                base = matchResult.rule.metadataTemplate,
-                overlay = matchResult.channel?.metadataOverrides,
-            )
-            metadataResolver.resolve(video, effectiveTemplate) to MetadataSource.RULE
-        } else {
-            resolveFallback(video)
-        }
+        video: VideoInfo,
+        matchResult: MatchResult?,
+    ): Pair<ResolvedMetadata, MetadataSource> = if (matchResult != null) {
+        val effectiveTemplate = mergeTemplates(
+            base = matchResult.rule.metadataTemplate,
+            overlay = matchResult.channel?.metadataOverrides,
+        )
+        metadataResolver.resolve(video, effectiveTemplate) to MetadataSource.RULE
+    } else {
+        resolveFallback(video)
     }
 
-    private suspend fun resolveFallback(video: VideoInfo): Pair<ResolvedMetadata, MetadataSource> {
-        if (llmPort != null) {
-            val llmResult = llmPort.suggestMetadata(video)
-            llmResult.onRight { suggestion ->
-                return suggestion.metadata to MetadataSource.LLM
-            }
-        }
-        val fallback = metadataResolver.resolve(video, MetadataTemplate.Other())
-        return fallback to MetadataSource.FALLBACK
-    }
+    /**
+     * No rule matched: ask the LLM; when it has no suggestion (an error, or no LLM configured — the
+     * unconfigured adapter always answers with an error) resolve with an empty template.
+     */
+    private suspend fun resolveFallback(video: VideoInfo): Pair<ResolvedMetadata, MetadataSource> =
+        llmPort.suggestMetadata(video).fold(
+            ifLeft = { metadataResolver.resolve(video, MetadataTemplate.Other()) to MetadataSource.FALLBACK },
+            ifRight = { suggestion -> suggestion.metadata to MetadataSource.LLM },
+        )
 }

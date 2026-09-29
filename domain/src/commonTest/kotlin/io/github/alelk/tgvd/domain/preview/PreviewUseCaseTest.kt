@@ -4,8 +4,23 @@ import arrow.core.Either
 import arrow.core.right
 import io.github.alelk.tgvd.domain.channel.Channel
 import io.github.alelk.tgvd.domain.channel.ChannelRepository
-import io.github.alelk.tgvd.domain.common.*
+import io.github.alelk.tgvd.domain.common.Category
+import io.github.alelk.tgvd.domain.common.ChannelDirectoryEntryId
+import io.github.alelk.tgvd.domain.common.ChannelId
+import io.github.alelk.tgvd.domain.common.DomainError
+import io.github.alelk.tgvd.domain.common.Extractor
+import io.github.alelk.tgvd.domain.common.RuleId
+import io.github.alelk.tgvd.domain.common.Tag
+import io.github.alelk.tgvd.domain.common.Url
+import io.github.alelk.tgvd.domain.common.VideoId
+import io.github.alelk.tgvd.domain.common.WorkspaceId
+import io.github.alelk.tgvd.domain.fakes.FakeLlmPort
+import io.github.alelk.tgvd.domain.fixtures.shouldBeRight
+import io.github.alelk.tgvd.domain.metadata.LlmSuggestion
 import io.github.alelk.tgvd.domain.metadata.MetadataResolver
+import io.github.alelk.tgvd.domain.metadata.MetadataSource
+import io.github.alelk.tgvd.domain.metadata.MetadataTemplate
+import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.rule.Rule
 import io.github.alelk.tgvd.domain.rule.RuleMatchingService
 import io.github.alelk.tgvd.domain.rule.RuleRepository
@@ -23,74 +38,116 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
-class PreviewUseCaseTest : FunSpec({
-    val url = "https://example.com/video"
-    val workspaceId = WorkspaceId(Uuid.random())
-    val video = VideoInfo(
-        videoId = VideoId("video-1"),
-        extractor = Extractor.YOUTUBE,
-        title = "Artist - Title",
-        channelId = ChannelId("channel-1"),
-        channelName = "Channel",
-        uploadDate = null,
-        duration = 60.seconds,
-        webpageUrl = Url(url),
-    )
-
-    test("extracts outside transaction and scopes cache and rule access") {
-        val transactions = RecordingTransactionRunner()
-        val calls = mutableListOf<String>()
-        val cache = RecordingCache(transactions, calls, cached = null)
-        val useCase = PreviewUseCase(
-            videoInfoExtractor = object : VideoInfoExtractor {
-                override suspend fun extract(url: String): Either<DomainError, VideoInfo> {
-                    transactions.active shouldBe null
-                    url shouldBe video.webpageUrl.value
-                    calls += "extract"
-                    return video.right()
-                }
-            },
-            videoInfoCache = cache,
-            ruleMatchingService = RuleMatchingService(
-                ruleRepository = EmptyRuleRepository(transactions, calls),
-                channelRepository = EmptyChannelRepository(transactions, calls),
-            ),
-            metadataResolver = MetadataResolver(),
-            llmPort = null,
-            txRunner = transactions,
+class PreviewUseCaseTest :
+    FunSpec({
+        val url = "https://example.com/video"
+        val workspaceId = WorkspaceId(Uuid.random())
+        val video = VideoInfo(
+            videoId = VideoId("video-1"),
+            extractor = Extractor.YOUTUBE,
+            title = "Artist - Title",
+            channelId = ChannelId("channel-1"),
+            channelName = "Channel",
+            uploadDate = null,
+            duration = 60.seconds,
+            webpageUrl = Url(url),
         )
 
-        useCase(url, workspaceId).isRight() shouldBe true
+        test("extracts outside transaction and scopes cache and rule access") {
+            val transactions = RecordingTransactionRunner()
+            val calls = mutableListOf<String>()
+            val cache = RecordingCache(transactions, calls, cached = null)
+            val useCase = PreviewUseCase(
+                videoInfoExtractor = object : VideoInfoExtractor {
+                    override suspend fun extract(url: String): Either<DomainError, VideoInfo> {
+                        transactions.active shouldBe null
+                        url shouldBe video.webpageUrl.value
+                        calls += "extract"
+                        return video.right()
+                    }
+                },
+                videoInfoCache = cache,
+                ruleMatchingService = RuleMatchingService(
+                    ruleRepository = EmptyRuleRepository(transactions, calls),
+                    channelRepository = EmptyChannelRepository(transactions, calls),
+                ),
+                metadataResolver = MetadataResolver(),
+                llmPort = FakeLlmPort(),
+                txRunner = transactions,
+            )
 
-        calls.shouldContainExactly("cache.get", "extract", "cache.put", "rules.find", "channels.find")
-        cache.stored shouldBe video
-    }
+            useCase(url, workspaceId).isRight() shouldBe true
 
-    test("uses cached video without invoking extractor or write transaction") {
-        val transactions = RecordingTransactionRunner()
-        val calls = mutableListOf<String>()
-        val cache = RecordingCache(transactions, calls, cached = video)
-        val useCase = PreviewUseCase(
-            videoInfoExtractor = object : VideoInfoExtractor {
-                override suspend fun extract(url: String): Either<DomainError, VideoInfo> =
-                    error("extractor must not be called on a cache hit")
-            },
-            videoInfoCache = cache,
-            ruleMatchingService = RuleMatchingService(
-                ruleRepository = EmptyRuleRepository(transactions, calls),
-                channelRepository = EmptyChannelRepository(transactions, calls),
-            ),
-            metadataResolver = MetadataResolver(),
-            llmPort = null,
-            txRunner = transactions,
-        )
+            calls.shouldContainExactly("cache.get", "extract", "cache.put", "rules.find", "channels.find")
+            cache.stored shouldBe video
+        }
 
-        useCase(url, workspaceId).isRight() shouldBe true
+        test("uses cached video without invoking extractor or write transaction") {
+            val transactions = RecordingTransactionRunner()
+            val calls = mutableListOf<String>()
+            val cache = RecordingCache(transactions, calls, cached = video)
+            val useCase = PreviewUseCase(
+                videoInfoExtractor = object : VideoInfoExtractor {
+                    override suspend fun extract(url: String): Either<DomainError, VideoInfo> =
+                        error("extractor must not be called on a cache hit")
+                },
+                videoInfoCache = cache,
+                ruleMatchingService = RuleMatchingService(
+                    ruleRepository = EmptyRuleRepository(transactions, calls),
+                    channelRepository = EmptyChannelRepository(transactions, calls),
+                ),
+                metadataResolver = MetadataResolver(),
+                llmPort = FakeLlmPort(),
+                txRunner = transactions,
+            )
 
-        calls.shouldContainExactly("cache.get", "rules.find", "channels.find")
-        transactions.modes.shouldContainExactly(Mode.READ_ONLY, Mode.READ_ONLY)
-    }
-})
+            useCase(url, workspaceId).isRight() shouldBe true
+
+            calls.shouldContainExactly("cache.get", "rules.find", "channels.find")
+            transactions.modes.shouldContainExactly(Mode.READ_ONLY, Mode.READ_ONLY)
+        }
+
+        context("no rule matches") {
+            fun previewWith(llm: FakeLlmPort): PreviewUseCase {
+                val transactions = RecordingTransactionRunner()
+                val calls = mutableListOf<String>()
+                return PreviewUseCase(
+                    videoInfoExtractor = object : VideoInfoExtractor {
+                        override suspend fun extract(url: String): Either<DomainError, VideoInfo> = video.right()
+                    },
+                    videoInfoCache = RecordingCache(transactions, calls, cached = video),
+                    ruleMatchingService = RuleMatchingService(
+                        ruleRepository = EmptyRuleRepository(transactions, calls),
+                        channelRepository = EmptyChannelRepository(transactions, calls),
+                    ),
+                    metadataResolver = MetadataResolver(),
+                    llmPort = llm,
+                    txRunner = transactions,
+                )
+            }
+
+            test("an LLM suggestion is used as is, source LLM") {
+                val suggested = ResolvedMetadata.MusicVideo(artist = "Suggested Artist", title = "Suggested Title")
+                val llm = FakeLlmPort(LlmSuggestion(Category.MUSIC_VIDEO, suggested, confidence = 0.9))
+
+                val result = previewWith(llm)(url, workspaceId).shouldBeRight()
+
+                llm.asked shouldBe listOf(video)
+                result.metadata shouldBe suggested
+                result.metadataSource shouldBe MetadataSource.LLM
+            }
+
+            test("an LLM error (and so an unconfigured LLM) falls back to the empty template, source FALLBACK") {
+                val llm = FakeLlmPort(suggestion = null)
+
+                val result = previewWith(llm)(url, workspaceId).shouldBeRight()
+
+                llm.asked shouldBe listOf(video)
+                result.metadata shouldBe MetadataResolver().resolve(video, MetadataTemplate.Other())
+                result.metadataSource shouldBe MetadataSource.FALLBACK
+            }
+        }
+    })
 
 private enum class Mode { READ_ONLY, READ_WRITE }
 
@@ -174,7 +231,8 @@ private class EmptyChannelRepository(
     override suspend fun findById(id: ChannelDirectoryEntryId): Channel? = null
     override suspend fun findByWorkspace(workspaceId: WorkspaceId): List<Channel> = emptyList()
     override suspend fun findByTag(workspaceId: WorkspaceId, tag: Tag): List<Channel> = emptyList()
-    override suspend fun findByTags(workspaceId: WorkspaceId, tags: Set<Tag>, matchAll: Boolean): List<Channel> = emptyList()
+    override suspend fun findByTags(workspaceId: WorkspaceId, tags: Set<Tag>, matchAll: Boolean): List<Channel> =
+        emptyList()
     override suspend fun save(channel: Channel): Either<DomainError, Channel> = channel.right()
     override suspend fun delete(id: ChannelDirectoryEntryId): Boolean = false
     override suspend fun findAllTags(workspaceId: WorkspaceId): Set<Tag> = emptySet()

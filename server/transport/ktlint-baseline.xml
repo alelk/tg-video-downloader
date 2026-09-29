@@ -36,11 +36,6 @@
         <error line="1" column="1" source="standard:filename" />
         <error line="13" column="74" source="standard:function-signature" />
     </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/transport/error/DomainErrorOpts.kt">
-        <error line="5" column="1" source="standard:no-wildcard-imports" />
-        <error line="7" column="1" source="standard:no-consecutive-blank-lines" />
-        <error line="73" column="1" source="standard:no-consecutive-blank-lines" />
-    </file>
     <file name="src/main/kotlin/io/github/alelk/tgvd/server/transport/error/apiError.kt">
         <error line="1" column="1" source="standard:filename" />
         <error line="5" column="78" source="standard:function-signature" />
@@ -51,81 +46,9 @@
         <error line="1" column="1" source="standard:filename" />
         <error line="1" column="1" source="standard:no-empty-file" />
     </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/transport/route/channelRoutes.kt">
-        <error line="1" column="1" source="standard:filename" />
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="12" column="1" source="standard:no-wildcard-imports" />
-        <error line="24" column="1" source="standard:no-wildcard-imports" />
-        <error line="25" column="1" source="standard:no-wildcard-imports" />
-        <error line="26" column="1" source="standard:no-wildcard-imports" />
-        <error line="30" column="1" source="standard:no-wildcard-imports" />
-        <error line="55" column="63" source="standard:trailing-comma-on-call-site" />
-        <error line="56" column="34" source="standard:trailing-comma-on-call-site" />
-        <error line="132" column="1" source="standard:no-consecutive-blank-lines" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/transport/route/ruleRoutes.kt">
-        <error line="1" column="1" source="standard:filename" />
-        <error line="13" column="1" source="standard:no-wildcard-imports" />
-        <error line="20" column="1" source="standard:no-wildcard-imports" />
-        <error line="21" column="1" source="standard:no-wildcard-imports" />
-        <error line="22" column="1" source="standard:no-wildcard-imports" />
-        <error line="26" column="1" source="standard:no-wildcard-imports" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/transport/route/systemRoutes.kt">
-        <error line="1" column="1" source="standard:filename" />
-        <error line="4" column="1" source="standard:no-wildcard-imports" />
-        <error line="13" column="1" source="standard:no-wildcard-imports" />
-        <error line="14" column="1" source="standard:no-wildcard-imports" />
-        <error line="15" column="1" source="standard:no-wildcard-imports" />
-        <error line="18" column="1" source="standard:no-wildcard-imports" />
-        <error line="19" column="1" source="standard:no-wildcard-imports" />
-        <error line="36" column="44" source="standard:no-multi-spaces" />
-        <error line="107" column="47" source="standard:wrapping" />
-        <error line="108" column="63" source="standard:wrapping" />
-        <error line="144" column="22" source="standard:wrapping" />
-        <error line="144" column="40" source="standard:wrapping" />
-        <error line="146" column="9" source="standard:wrapping" />
-        <error line="168" column="26" source="standard:argument-list-wrapping" />
-        <error line="168" column="52" source="standard:argument-list-wrapping" />
-        <error line="168" column="61" source="standard:argument-list-wrapping" />
-        <error line="168" column="80" source="standard:argument-list-wrapping" />
-        <error line="168" column="119" source="standard:argument-list-wrapping" />
-        <error line="168" column="121" source="standard:max-line-length" />
-        <error line="168" column="137" source="standard:argument-list-wrapping" />
-        <error line="168" column="138" source="standard:argument-list-wrapping" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/transport/route/workspaceRoutes.kt">
-        <error line="1" column="1" source="standard:filename" />
-        <error line="5" column="1" source="standard:import-ordering" />
-        <error line="7" column="1" source="standard:no-wildcard-imports" />
-        <error line="12" column="1" source="standard:no-wildcard-imports" />
-        <error line="16" column="1" source="standard:no-wildcard-imports" />
-        <error line="17" column="1" source="standard:no-wildcard-imports" />
-        <error line="18" column="1" source="standard:no-wildcard-imports" />
-        <error line="21" column="1" source="standard:no-wildcard-imports" />
-        <error line="22" column="1" source="standard:no-wildcard-imports" />
-        <error line="50" column="65" source="standard:trailing-comma-on-call-site" />
-        <error line="61" column="14" source="standard:trailing-comma-on-call-site" />
-    </file>
     <file name="src/main/kotlin/io/github/alelk/tgvd/server/transport/util/correlationId.kt">
         <error line="1" column="1" source="standard:filename" />
         <error line="11" column="31" source="standard:final-newline" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/transport/util/parseId.kt">
-        <error line="1" column="1" source="standard:filename" />
-        <error line="16" column="24" source="standard:parameter-list-wrapping" />
-        <error line="16" column="24" source="standard:function-signature" />
-        <error line="16" column="37" source="standard:parameter-list-wrapping" />
-        <error line="16" column="37" source="standard:function-signature" />
-        <error line="16" column="63" source="standard:parameter-list-wrapping" />
-        <error line="16" column="63" source="standard:function-signature" />
-        <error line="16" column="70" source="standard:parameter-list-wrapping" />
-        <error line="16" column="74" source="standard:parameter-list-wrapping" />
-        <error line="16" column="80" source="standard:parameter-list-wrapping" />
-        <error line="16" column="80" source="standard:function-signature" />
-        <error line="16" column="121" source="standard:max-line-length" />
-        <error line="16" column="123" source="standard:function-signature" />
-        <error line="23" column="1" source="standard:no-consecutive-blank-lines" />
     </file>
     <file name="src/main/kotlin/io/github/alelk/tgvd/server/transport/util/respondEither.kt">
         <error line="1" column="1" source="standard:filename" />
@@ -134,11 +57,5 @@
         <error line="8" column="1" source="standard:no-wildcard-imports" />
         <error line="10" column="1" source="standard:no-consecutive-blank-lines" />
         <error line="45" column="1" source="standard:no-consecutive-blank-lines" />
-    </file>
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/transport/util/workspaceAccess.kt">
-        <error line="1" column="1" source="standard:filename" />
-        <error line="7" column="1" source="standard:no-unused-imports" />
-        <error line="8" column="1" source="standard:no-unused-imports" />
-        <error line="26" column="1" source="standard:no-consecutive-blank-lines" />
     </file>
 </baseline>

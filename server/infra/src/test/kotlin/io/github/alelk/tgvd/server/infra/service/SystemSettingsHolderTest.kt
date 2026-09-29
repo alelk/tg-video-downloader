@@ -1,5 +1,9 @@
 package io.github.alelk.tgvd.server.infra.service
 
+import io.github.alelk.tgvd.domain.system.ProxySettings
+import io.github.alelk.tgvd.domain.system.ProxyType
+import io.github.alelk.tgvd.domain.system.SystemSettings
+import io.github.alelk.tgvd.domain.system.YtDlpSettings
 import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
 import io.github.alelk.tgvd.server.infra.config.YtDlpExtractorOverride
@@ -8,6 +12,7 @@ import io.github.alelk.tgvd.server.infra.testing.PostgresTestContainer
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlin.time.Duration.Companion.minutes
+import io.github.alelk.tgvd.domain.system.YtDlpExtractorOverride as ExtractorOverride
 
 /**
  * [SystemSettingsHolder] round-trip on PostgreSQL: config defaults on an empty table → update →
@@ -50,5 +55,38 @@ class SystemSettingsHolderTest :
             tx.inRwTransaction { restarted.updateProxyConfig { it.copy(username = "u", password = "p") } }
             tx.inRwTransaction { SystemSettingsHolder(configYtDlp, configProxy, db) }.proxyConfig shouldBe
                 proxy.copy(username = "u", password = "p")
+        }
+
+        test("as SystemSettingsStore: save keeps the deployment-only values and survives a restart") {
+            val deployment = configYtDlp.copy(allowUpdate = false, retries = 9, timeout = 5.minutes)
+            val fresh = PostgresTestContainer.newMigratedDatabase().database
+            val freshTx = ExposedTransactionRunner(fresh)
+            val holder = freshTx.inRwTransaction { SystemSettingsHolder(deployment, configProxy, fresh) }
+            holder.current() shouldBe SystemSettings(YtDlpSettings(), ProxySettings())
+            holder.isYtDlpUpdateAllowed() shouldBe false
+
+            val settings =
+                SystemSettings(
+                    ytDlp =
+                    YtDlpSettings(
+                        cookiesContent = "# cookies",
+                        preferredAudioLanguages = listOf("en"),
+                        subLangs = "ru",
+                        extractorOverrides = mapOf("vk" to ExtractorOverride(noCheckCertificate = true)),
+                    ),
+                    proxy = ProxySettings(true, ProxyType.SOCKS5, "10.0.0.2", 1081, "u", "p"),
+                )
+            freshTx.inRwTransaction { holder.save(settings) }
+
+            holder.current() shouldBe settings
+            holder.ytDlpConfig.path shouldBe deployment.path
+            holder.ytDlpConfig.retries shouldBe 9
+            holder.ytDlpConfig.timeout shouldBe 5.minutes
+            holder.isYtDlpUpdateAllowed() shouldBe false
+            holder.proxyConfig shouldBe
+                ProxyConfig(true, ProxyConfig.ProxyType.SOCKS5, "10.0.0.2", 1081, "u", "p")
+
+            val restarted = freshTx.inRwTransaction { SystemSettingsHolder(configYtDlp, configProxy, fresh) }
+            restarted.current() shouldBe settings
         }
     })

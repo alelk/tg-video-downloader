@@ -3,8 +3,10 @@ package io.github.alelk.tgvd.server.di
 import io.github.alelk.tgvd.domain.channel.ChannelRepository
 import io.github.alelk.tgvd.domain.job.JobOutputRepository
 import io.github.alelk.tgvd.domain.job.JobRepository
+import io.github.alelk.tgvd.domain.metadata.LlmPort
 import io.github.alelk.tgvd.domain.rule.RuleRepository
 import io.github.alelk.tgvd.domain.system.ReadinessProbe
+import io.github.alelk.tgvd.domain.system.SystemSettingsStore
 import io.github.alelk.tgvd.domain.system.YtDlpService
 import io.github.alelk.tgvd.domain.track.TrackSelectionSettingsProvider
 import io.github.alelk.tgvd.domain.tx.TransactionRunner
@@ -24,6 +26,7 @@ import io.github.alelk.tgvd.server.infra.db.repository.JobRepositoryImpl
 import io.github.alelk.tgvd.server.infra.db.repository.RuleRepositoryImpl
 import io.github.alelk.tgvd.server.infra.db.repository.VideoInfoCacheImpl
 import io.github.alelk.tgvd.server.infra.db.repository.WorkspaceRepositoryImpl
+import io.github.alelk.tgvd.server.infra.llm.UnconfiguredLlmPort
 import io.github.alelk.tgvd.server.infra.process.FfmpegRunner
 import io.github.alelk.tgvd.server.infra.process.YtDlpBootstrap
 import io.github.alelk.tgvd.server.infra.process.YtDlpRunner
@@ -48,6 +51,7 @@ internal fun infraModule(database: Database?) = module {
 
     // Mutable settings holder (initial values from config or DB, overridable via API; persisted across restarts)
     single { SystemSettingsHolder(get<YtDlpConfig>(), get<ProxyConfig>(), get<Database>()) }
+    single<SystemSettingsStore> { get<SystemSettingsHolder>() }
     single<TrackSelectionSettingsProvider> { get<SystemSettingsHolder>() }
 
     // Repositories (domain port → infra adapter)
@@ -75,6 +79,10 @@ internal fun infraModule(database: Database?) = module {
             }
         }
     }
+
+    // LLM: no adapter exists yet (implementing one is outside Step 01), so every configuration —
+    // `llm.provider: none` or not — gets the unconfigured port: previews fall back to the resolver.
+    single<LlmPort> { UnconfiguredLlmPort }
 
     // System services
     single<YtDlpService> { YtDlpServiceImpl(get<YtDlpConfig>(), get<HttpClient>()) }

@@ -1,9 +1,14 @@
 package io.github.alelk.tgvd.domain.fixtures
 
+import io.github.alelk.tgvd.domain.channel.Channel
+import io.github.alelk.tgvd.domain.channel.CreateChannelRequest
+import io.github.alelk.tgvd.domain.common.ChannelDirectoryEntryId
 import io.github.alelk.tgvd.domain.common.ChannelId
 import io.github.alelk.tgvd.domain.common.Extractor
 import io.github.alelk.tgvd.domain.common.FilePath
 import io.github.alelk.tgvd.domain.common.JobId
+import io.github.alelk.tgvd.domain.common.RuleId
+import io.github.alelk.tgvd.domain.common.Tag
 import io.github.alelk.tgvd.domain.common.TelegramUserId
 import io.github.alelk.tgvd.domain.common.Url
 import io.github.alelk.tgvd.domain.common.VideoId
@@ -14,9 +19,14 @@ import io.github.alelk.tgvd.domain.job.Job
 import io.github.alelk.tgvd.domain.job.JobStatus
 import io.github.alelk.tgvd.domain.job.SaveAsRule
 import io.github.alelk.tgvd.domain.metadata.MetadataSource
+import io.github.alelk.tgvd.domain.metadata.MetadataTemplate
 import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
+import io.github.alelk.tgvd.domain.rule.CreateRuleRequest
+import io.github.alelk.tgvd.domain.rule.Rule
+import io.github.alelk.tgvd.domain.rule.RuleMatch
 import io.github.alelk.tgvd.domain.storage.MediaContainer
 import io.github.alelk.tgvd.domain.storage.OutputFormat
+import io.github.alelk.tgvd.domain.storage.OutputRule
 import io.github.alelk.tgvd.domain.storage.OutputTarget
 import io.github.alelk.tgvd.domain.storage.StoragePlan
 import io.github.alelk.tgvd.domain.video.MediaSelection
@@ -115,4 +125,54 @@ fun aJob(
     createdAt = createdAt,
     updatedAt = createdAt,
     finishedAt = if (status.isTerminal) createdAt else null,
+)
+
+fun aCreateRuleRequest(name: String = "Music", channelId: String = "channel-1", priority: Int = 0): CreateRuleRequest =
+    CreateRuleRequest(
+        name = name,
+        match = RuleMatch.ChannelId(channelId),
+        metadataTemplate = MetadataTemplate.Other(),
+        outputs = listOf(OutputRule("/media/{title}.{ext}", OutputFormat.OriginalVideo(MediaContainer.MKV))),
+        priority = priority,
+    )
+
+@OptIn(ExperimentalUuidApi::class)
+fun aRule(workspace: Workspace, name: String = "Music", priority: Int = 0, createdAt: Instant = FIXED_INSTANT): Rule =
+    aCreateRuleRequest(name = name, priority = priority).let {
+        Rule(
+            id = RuleId(Uuid.random()),
+            name = it.name,
+            workspaceId = workspace.id,
+            match = it.match,
+            metadataTemplate = it.metadataTemplate,
+            outputs = it.outputs,
+            priority = it.priority,
+            createdAt = createdAt,
+            updatedAt = createdAt,
+        )
+    }
+
+fun aCreateChannelRequest(channelId: String = "UC-1", tags: Set<String> = emptySet()): CreateChannelRequest =
+    CreateChannelRequest(
+        channelId = ChannelId(channelId),
+        extractor = Extractor.YOUTUBE,
+        name = "Channel $channelId",
+        tags = tags.map(::Tag).toSet(),
+    )
+
+@OptIn(ExperimentalUuidApi::class)
+fun aChannel(
+    workspace: Workspace,
+    channelId: String = "UC-1",
+    tags: Set<String> = emptySet(),
+    createdAt: Instant = FIXED_INSTANT,
+): Channel = Channel(
+    id = ChannelDirectoryEntryId(Uuid.random()),
+    workspaceId = workspace.id,
+    channelId = ChannelId(channelId),
+    extractor = Extractor.YOUTUBE,
+    name = "Channel $channelId",
+    tags = tags.map(::Tag).toSet(),
+    createdAt = createdAt,
+    updatedAt = createdAt,
 )
