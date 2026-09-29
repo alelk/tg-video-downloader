@@ -13,6 +13,10 @@ import io.github.alelk.tgvd.domain.workspace.WorkspaceAccess
 /**
  * Cancels a pending or running job of the workspace [workspaceSlug].
  * A job of another workspace is [DomainError.JobNotFound].
+ *
+ * The write is a compare-and-set from the cancellable statuses: a job that finished (or was cancelled)
+ * between the read and the write is [DomainError.JobCannotBeCancelled] with its actual status, and it
+ * is not touched. `CANCELLED` is written only here; the processor sees it and stops the download.
  */
 class CancelJobUseCase(
     private val workspaceAccess: WorkspaceAccess,
@@ -28,7 +32,15 @@ class CancelJobUseCase(
             val workspace = workspaceAccess.requireMember(workspaceSlug, actor).bind()
             val job = jobRepository.findInWorkspace(jobId, workspace.id).bind()
             ensure(job.status.isCancellable) { DomainError.JobCannotBeCancelled(jobId, job.status) }
-            jobRepository.updateStatus(jobId, JobStatus.CANCELLED).bind()
+            jobRepository
+                .transition(jobId, expected = JobStatus.sourcesOf(JobStatus.CANCELLED), to = JobStatus.CANCELLED)
+                .mapLeft { error ->
+                    if (error is DomainError.JobStatusConflict) {
+                        DomainError.JobCannotBeCancelled(jobId, error.actualStatus)
+                    } else {
+                        error
+                    }
+                }.bind()
         }
     }
 }

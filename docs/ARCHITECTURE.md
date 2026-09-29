@@ -234,12 +234,11 @@ Test support:
 - `llm/` — `UnconfiguredLlmPort`
 - `config/` — configuration data classes and their mapping to domain settings
 
-**JobProcessor** — a background coroutine loop that:
-1. Polls the DB for `PENDING` jobs (interval from `JobsConfig.pollIntervalMs`)
-2. Limits concurrency via `Semaphore(maxConcurrentDownloads)`
-3. Downloads video via `VideoDownloader.downloadWithProgress()` with progress updates
-4. Updates job status: `PENDING → DOWNLOADING → POST_PROCESSING → COMPLETED / FAILED` (`CANCELLED` on user cancel)
-5. Starts and stops automatically with the Ktor Application lifecycle
+**JobProcessor** — a background coroutine loop; its full lifecycle is §5.3. In short: at start it
+returns interrupted jobs to the queue, then every `pollIntervalMs` stops the jobs that are no longer
+processing (cancelled through the API) and claims pending jobs atomically while fewer than
+`maxConcurrentDownloads` run; every status write is a compare-and-set; `stop()` requeues the running
+jobs. yt-dlp and ffmpeg processes die with the job's coroutine (`process/CancellableProcess.kt`).
 
 **Dependencies**: `domain`, Exposed, Flyway, Ktor Client (JVM), kotlinx.serialization.
 
@@ -485,10 +484,10 @@ See [ADR/007-interactive-preview-refinement.md](./ADR/007-interactive-preview-re
 ### 5.2 Job Execution Flow
 
 ```
-JobProcessor.pollLoop (polls PENDING)
+JobProcessor.pollOnce ── JobRepository.claimNext()  (PENDING → DOWNLOADING, atomic)
        │
        ▼
-JobProcessor
+JobProcessor.processJob
        ├──▶ YtDlpDownloader.download()  (+ proxy, + thumbnail)
        │         │
        │         ▼
@@ -513,7 +512,7 @@ JobProcessor
        │           embedMetadata? → ffmpeg embed tags
        │           embedThumbnail? → ffmpeg embed cover art (mjpeg for MP4)
        │
-       └──▶ JobRepository.updateStatus(COMPLETED)
+       └──▶ JobRepository.transition({DOWNLOADING, POST_PROCESSING} → COMPLETED)   (CAS)
 ```
 
 Every repository call of `JobProcessor` is its own short transaction through `TransactionRunner`
@@ -533,6 +532,50 @@ Every repository call of `JobProcessor` is its own short transaction through `Tr
 > - `audioBitrate`: 96k, 128k, 192k, 256k, 320k
 
 ---
+
+
+### 5.3 Job lifecycle (Stage 01.9)
+
+Status table (`domain/job/JobStatus.kt`, tested pair by pair in `JobStatusTest`):
+
+| From              | May move to                                                           | Who                                   |
+|-------------------|-----------------------------------------------------------------------|---------------------------------------|
+| `PENDING`         | `DOWNLOADING`, `CANCELLED`                                            | claim (processor); `CancelJobUseCase` |
+| `DOWNLOADING`     | `DOWNLOADING`, `POST_PROCESSING`, `COMPLETED`, `FAILED`, `CANCELLED`, `PENDING` | processor; cancel; shutdown/restart   |
+| `POST_PROCESSING` | `POST_PROCESSING`, `COMPLETED`, `FAILED`, `CANCELLED`, `PENDING`      | the same                              |
+| `FAILED`          | `PENDING`                                                             | `RetryJobUseCase` (`attempt + 1`)     |
+| `CANCELLED`       | `PENDING`                                                             | `RetryJobUseCase` (`attempt + 1`)     |
+| `COMPLETED`       | —                                                                     |                                       |
+
+Rules:
+
+- **Every status write is a compare-and-set**: `JobRepository.transition(id, expected, to, patch)` is one
+  `UPDATE … WHERE id = ? AND status IN (expected)`; no matching row → `JobStatusConflict` (use-cases
+  report it as the existing `JobCannotBeCancelled`/`JobCannotBeRetried`, same HTTP answer). There is no
+  unconditional status write (`updateStatus` is gone).
+- **Claim**: `claimNext()` — `SELECT … WHERE status = 'pending' ORDER BY created_at LIMIT 1 FOR UPDATE
+  SKIP LOCKED` + update of that row (`started_at`, phase `DOWNLOAD` 0 %); served by `idx_jobs_pending`
+  (V3), no new migration. Two concurrent claims never get the same job.
+- **Cancel**: only `CancelJobUseCase` writes `CANCELLED`. The processor notices it two ways: its next
+  CAS write (progress, outcome) fails → the job's coroutine is cancelled and writes nothing more; or,
+  for a silent download, the next poll reads the running jobs' statuses and cancels the coroutines of
+  those no longer `DOWNLOADING`/`POST_PROCESSING`. Cancelling the coroutine terminates the yt-dlp/ffmpeg
+  process tree: descendants and process get `SIGTERM`, up to 5 s, then `SIGKILL`; the stdout read loop
+  ends because the pipe closes. Waiting for a process is `onExit().await()`, never a blocking `waitFor()`.
+- **Stop** (`ApplicationStopping` → `runBlocking { withTimeout(15 s) { stop() } }`): no more claims; the
+  running jobs are cancelled with `ShutdownCancellation`, given up to 10 s (`stop(grace)`), then — in
+  `NonCancellable` — put back to `PENDING` by a CAS from the processing statuses (same `attempt`, progress
+  cleared). The pool closes only on `ApplicationStopped`, after that.
+- **Start**: before the first claim, `requeueInterrupted()` returns every `DOWNLOADING`/`POST_PROCESSING`
+  row to `PENDING` with the same attempt (Fork 2) — a job interrupted by a crash or a `SIGKILL` is
+  downloaded again, not stuck.
+- **One server instance per database** is a deployment condition: the start-up recovery would requeue
+  jobs a second live instance is processing. No automatic retries (`maxAttempts`/`retryDelayMs` unused).
+
+Tests: `JobLifecycleTest` (server:app — the mine: cancel through the route mid-download, `stop()`
+mid-download, a row left in `downloading`; proven red on an unconditional `UPDATE`),
+`JobStatusWritesTest` (CAS, claim under concurrency, requeue), `ProcessCancellationTest` (the process
+tree dies on cancellation).
 
 ## 6. Extensibility
 

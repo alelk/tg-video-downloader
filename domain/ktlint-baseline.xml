@@ -66,25 +66,6 @@
     <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/JobPhase.kt">
         <error line="10" column="1" source="standard:final-newline" />
     </file>
-    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/JobRepository.kt">
-        <error line="14" column="30" source="standard:parameter-list-wrapping" />
-        <error line="14" column="30" source="standard:function-signature" />
-        <error line="14" column="41" source="standard:parameter-list-wrapping" />
-        <error line="14" column="41" source="standard:function-signature" />
-        <error line="14" column="60" source="standard:parameter-list-wrapping" />
-        <error line="14" column="60" source="standard:function-signature" />
-        <error line="14" column="85" source="standard:parameter-list-wrapping" />
-        <error line="14" column="85" source="standard:function-signature" />
-        <error line="14" column="108" source="standard:parameter-list-wrapping" />
-        <error line="14" column="108" source="standard:function-signature" />
-        <error line="14" column="121" source="standard:max-line-length" />
-        <error line="14" column="136" source="standard:parameter-list-wrapping" />
-        <error line="14" column="136" source="standard:function-signature" />
-    </file>
-    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/JobStatus.kt">
-        <error line="9" column="14" source="standard:trailing-comma-on-declaration-site" />
-        <error line="16" column="1" source="standard:no-consecutive-blank-lines" />
-    </file>
     <file name="src/commonMain/kotlin/io/github/alelk/tgvd/domain/job/buildSaveAsRuleRequest.kt">
         <error line="1" column="1" source="standard:filename" />
     </file>
@@ -268,10 +249,6 @@
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="10" column="34" source="standard:class-signature" />
         <error line="156" column="1" source="standard:no-consecutive-blank-lines" />
-    </file>
-    <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/job/JobStatusTest.kt">
-        <error line="8" column="23" source="standard:class-signature" />
-        <error line="63" column="1" source="standard:no-consecutive-blank-lines" />
     </file>
     <file name="src/commonTest/kotlin/io/github/alelk/tgvd/domain/metadata/MetadataResolverTest.kt">
         <error line="3" column="1" source="standard:no-wildcard-imports" />

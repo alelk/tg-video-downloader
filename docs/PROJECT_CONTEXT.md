@@ -80,7 +80,8 @@ command.
 - **Persistence:** JSONB columns use `*Pm` models in `server:infra`, separate from DTOs;
   migrations `V1…V8` are frozen, new ones are `V9+`.
 - **Jobs:** `JobStatus` = `PENDING → DOWNLOADING → POST_PROCESSING → COMPLETED | FAILED | CANCELLED`;
-  `JobProcessor` polls `PENDING` jobs.
+  `JobProcessor` claims `PENDING` jobs atomically; every status write is a compare-and-set; stop and
+  restart return interrupted jobs to `PENDING` (ARCHITECTURE §5.3).
 - **Auth:** Telegram `initData` (HMAC + `auth_date`) validated on every request
   (header `X-Telegram-Init-Data`); `devMode` accepts `dev` as init data.
 

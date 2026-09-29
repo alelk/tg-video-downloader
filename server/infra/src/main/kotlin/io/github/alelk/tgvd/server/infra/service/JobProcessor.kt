@@ -8,6 +8,7 @@ import io.github.alelk.tgvd.domain.job.JobOutputRepository
 import io.github.alelk.tgvd.domain.job.JobPhase
 import io.github.alelk.tgvd.domain.job.JobRepository
 import io.github.alelk.tgvd.domain.job.JobStatus
+import io.github.alelk.tgvd.domain.job.JobStatusPatch
 import io.github.alelk.tgvd.domain.metadata.ResolvedMetadata
 import io.github.alelk.tgvd.domain.rule.RuleRepository
 import io.github.alelk.tgvd.domain.storage.DownloadPolicy
@@ -26,32 +27,57 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 import io.github.alelk.tgvd.domain.job.Job as DomainJob
 
 private val logger = KotlinLogging.logger {}
 
 /**
- * Background job processor that polls for pending jobs and executes downloads.
+ * Background job processor: claims pending jobs and runs their downloads.
  *
- * Lifecycle: [start] launches a coroutine loop, [stop] cancels it gracefully.
+ * Lifecycle: [start] first puts back to `PENDING` every job a previous process left in a processing
+ * status (`requeueInterrupted`, Fork 2 — the same attempt), then polls every `pollIntervalMs`; [stop]
+ * stops claiming, cancels the running jobs and puts them back to `PENDING`. One server instance per
+ * database: the start-up recovery would requeue jobs another live instance is working on.
+ *
+ * Each poll:
+ * 1. the statuses of the running jobs are read; a job that is no longer `DOWNLOADING`/`POST_PROCESSING`
+ *    (cancelled through the API, or moved by anyone else) has its coroutine cancelled — the yt-dlp/ffmpeg
+ *    process tree dies with it;
+ * 2. while a slot is free, the oldest pending job is claimed atomically (`claimNext`) and started.
+ *
+ * Every status write of a job is a compare-and-set from the processing statuses ([moveJob]). When it
+ * finds the job moved by someone else, the job's coroutine is cancelled and writes nothing more — so a
+ * cancelled job never comes back as `DOWNLOADING` or `COMPLETED`. `CANCELLED` is written only by
+ * `CancelJobUseCase`; the processor never writes it, whatever the reason its coroutine ends.
  *
  * Transactions: the processor runs outside any use-case, so it opens them itself through [txRunner] —
  * every read a short read-only transaction, every write a short read-write one. yt-dlp, ffmpeg and file
  * work always run outside a transaction.
  */
+@OptIn(ExperimentalUuidApi::class)
 @Suppress("LongParameterList") // ports, runners and config of one background service; splitting it is Not in (Step 01)
 class JobProcessor(
     private val jobRepository: JobRepository,
@@ -66,44 +92,124 @@ class JobProcessor(
     private val clock: Clock,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("JobProcessor"))
-    private val semaphore = Semaphore(config.maxConcurrentDownloads)
+
+    /** Coroutines of the jobs this instance is processing; a slot is free while it is below the limit. */
+    private val running = ConcurrentHashMap<JobId, Job>()
+
+    @Volatile
+    private var accepting = true
+
+    @Volatile
+    private var loop: Job? = null
 
     fun start() {
         logger.info {
             "JobProcessor started (maxConcurrent=${config.maxConcurrentDownloads}, " +
                 "pollInterval=${config.pollIntervalMs}ms)"
         }
-        scope.launch { pollLoop() }
+        loop =
+            scope.launch {
+                pollLoop()
+            }.also { it.invokeOnCompletion { logger.info { "JobProcessor poll loop stopped" } } }
     }
 
-    fun stop() {
-        logger.info { "JobProcessor stopping..." }
-        scope.cancel()
+    /**
+     * Graceful stop: no more claims; the running jobs are cancelled with [ShutdownCancellation] (their
+     * processes are terminated) and given up to [grace] to wind down; then — whatever happened, even if
+     * this call is cancelled — each of them goes back to `PENDING` with the same attempt (a CAS from the
+     * processing statuses, so a job that has just completed or been cancelled keeps its status).
+     */
+    suspend fun stop(grace: Duration = DEFAULT_STOP_GRACE) {
+        logger.info { "JobProcessor stopping (${running.size} running job(s))..." }
+        accepting = false
+        val interrupted = mutableSetOf<JobId>()
+        try {
+            loop?.cancelAndJoin()
+            interrupted += running.keys
+            val jobs = running.values.toList()
+            jobs.forEach { it.cancel(ShutdownCancellation()) }
+            if (withTimeoutOrNull(grace) { jobs.joinAll() } == null) {
+                logger.warn { "Running jobs did not stop within $grace; requeueing them anyway" }
+            }
+        } finally {
+            withContext(NonCancellable) {
+                interrupted += running.keys
+                running.values.forEach { it.cancel(ShutdownCancellation()) }
+                interrupted.forEach { requeue(it) }
+            }
+            scope.cancel()
+            logger.info { "JobProcessor stopped; ${interrupted.size} job(s) returned to the queue" }
+        }
     }
 
+    @Suppress("TooGenericExceptionCaught") // a poller logs and continues on anything but cancellation
     private suspend fun pollLoop() {
+        var recovered = false
         while (currentCoroutineContext().isActive) {
             try {
-                val pendingJobs = txRunner.inRoTransaction { jobRepository.findActive() }
-                    .filter { it.status == JobStatus.PENDING }
-
-                for (job in pendingJobs) {
-                    semaphore.acquire()
-                    scope.launch {
-                        try {
-                            processJob(job)
-                        } finally {
-                            semaphore.release()
-                        }
-                    }
+                // Strictly before the first claim: later it would requeue this instance's own jobs.
+                if (!recovered) {
+                    recoverInterrupted()
+                    recovered = true
                 }
+                pollOnce()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                logger.error(e) { "Error in poll loop" }
+                logger.error(e) { "Job poll failed; retrying on the next tick" }
             }
-
             delay(config.pollIntervalMs)
+        }
+    }
+
+    /** Start-up recovery (Fork 2): jobs a previous process left processing go back to the queue. */
+    private suspend fun recoverInterrupted() {
+        val requeued = txRunner.inRwTransaction { jobRepository.requeueInterrupted() }
+        logger.info { "Returned $requeued interrupted job(s) to the queue" }
+    }
+
+    /**
+     * One pass of the poller: first the running jobs that are no longer processing (cancelled through
+     * the API, …) are stopped, then jobs are claimed while a slot is free.
+     */
+    private suspend fun pollOnce() {
+        val ids = running.keys.toList()
+        if (ids.isNotEmpty()) {
+            val statuses = txRunner.inRoTransaction { ids.associateWith { jobRepository.findById(it)?.status } }
+            val stale = statuses.filterValues { it == null || !it.isProcessing }
+            stale.forEach { (id, status) ->
+                logger.info { "Job ${id.value} is ${status ?: "gone"} now; stopping its processing" }
+                running[id]?.cancel(JobNoLongerProcessing(id, "status is ${status ?: "gone"}"))
+            }
+            // The processes die before a new claim may start the same job again (after a retry).
+            stale.keys.mapNotNull { running[it] }.joinAll()
+        }
+        while (accepting && running.size < config.maxConcurrentDownloads) {
+            // Claim and registration are not interrupted halfway: a claimed job is always in [running]
+            // before stop() looks, so stop() puts it back to the queue.
+            val claimed =
+                withContext(NonCancellable) {
+                    txRunner.inRwTransaction { jobRepository.claimNext() }?.also { launchJob(it) }
+                } ?: break
+            logger.info { "Claimed job ${claimed.id.value}" }
+        }
+    }
+
+    private fun launchJob(job: DomainJob) {
+        val handle = scope.launch(CoroutineName("job-${job.id.value}"), start = CoroutineStart.LAZY) { processJob(job) }
+        running[job.id] = handle
+        handle.invokeOnCompletion { running.remove(job.id, handle) }
+        handle.start()
+    }
+
+    @Suppress("TooGenericExceptionCaught") // shutdown must requeue every job it can, whatever fails for one
+    private suspend fun requeue(id: JobId) {
+        try {
+            txRunner.inRwTransaction {
+                jobRepository.transition(id, JobStatus.processingSourcesOf(JobStatus.PENDING), JobStatus.PENDING)
+            }.onLeft { logger.info { "Job ${id.value} not requeued: ${it.message}" } }
+        } catch (e: Exception) {
+            logger.error(e) { "Failed to return job ${id.value} to the queue; the next start will" }
         }
     }
 
@@ -112,8 +218,7 @@ class JobProcessor(
         logger.info { "Processing job ${job.id.value}: ${job.source.url.value}" }
 
         try {
-            // 1. Transition to DOWNLOADING
-            writeStatus(job.id, JobStatus.DOWNLOADING, JobPhase.DOWNLOAD, 0)
+            // 1. The claim has already moved the job to DOWNLOADING (phase DOWNLOAD, 0 %).
 
             // 2. Resolve download policy: global settings < rule < channel track overrides
             val (rule, channel) = txRunner.inRoTransaction {
@@ -192,11 +297,10 @@ class JobProcessor(
                     .collect { event ->
                         when (event) {
                             is DownloadEvent.Progress -> {
-                                writeStatus(
-                                    id = job.id,
-                                    status = JobStatus.DOWNLOADING,
-                                    phase = JobPhase.DOWNLOAD,
-                                    progress = event.progress.percent,
+                                moveJob(
+                                    job.id,
+                                    JobStatus.DOWNLOADING,
+                                    JobStatusPatch(phase = JobPhase.DOWNLOAD, progress = event.progress.percent),
                                 )
                             }
                             is DownloadEvent.Completed -> {
@@ -206,16 +310,18 @@ class JobProcessor(
                                             "Actual format: ${format.formatId} " +
                                             "(${format.width ?: "?"}x${format.height ?: "?"})"
                                     }
-                                    txRunner.inRwTransaction {
-                                        videoInfoCache.updateActualFormat(job.source.url.value, format)
-
-                                        // Update current job's videoInfo as well
-                                        val currentVideoInfo = videoInfoCache.get(job.source.url.value)
-                                        if (currentVideoInfo != null) {
-                                            jobRepository.save(
-                                                job.copy(videoInfo = currentVideoInfo, updatedAt = clock.now()),
-                                            )
+                                    val currentVideoInfo =
+                                        txRunner.inRwTransaction {
+                                            videoInfoCache.updateActualFormat(job.source.url.value, format)
+                                            videoInfoCache.get(job.source.url.value)
                                         }
+                                    // Update current job's videoInfo as well — a CAS like every job write
+                                    currentVideoInfo?.let { info ->
+                                        moveJob(
+                                            job.id,
+                                            JobStatus.DOWNLOADING,
+                                            JobStatusPatch(phase = JobPhase.DOWNLOAD, progress = 100, videoInfo = info),
+                                        )
                                     }
                                 }
                             }
@@ -226,11 +332,13 @@ class JobProcessor(
             // 6. Resolve actual file (yt-dlp may add format suffixes like .f313.webm)
             val actualFile = resolveDownloadedFile(outputPath)
             if (actualFile == null) {
-                writeStatus(
-                    id = job.id,
-                    status = JobStatus.FAILED,
-                    errorMessage =
-                    "Downloaded file not found: ${outputPath.value} (also checked for yt-dlp format suffixes)",
+                moveJob(
+                    job.id,
+                    JobStatus.FAILED,
+                    JobStatusPatch(
+                        errorMessage =
+                        "Downloaded file not found: ${outputPath.value} (also checked for yt-dlp format suffixes)",
+                    ),
                 )
                 return
             }
@@ -258,14 +366,18 @@ class JobProcessor(
 
             // 6. Process additional outputs (conversions/copies)
             if (job.storagePlan.additional.isNotEmpty()) {
-                writeStatus(job.id, JobStatus.DOWNLOADING, JobPhase.CONVERT, 0)
+                moveJob(job.id, JobStatus.DOWNLOADING, JobStatusPatch(phase = JobPhase.CONVERT, progress = 0))
 
                 // Track completed outputs by conversion signature to reuse results
                 val completedOutputs = mutableMapOf<ConversionKey, FilePath>()
 
                 for ((index, target) in job.storagePlan.additional.withIndex()) {
                     val progress = ((index.toDouble() / job.storagePlan.additional.size) * 100).toInt()
-                    writeStatus(job.id, JobStatus.DOWNLOADING, JobPhase.CONVERT, progress)
+                    moveJob(
+                        job.id,
+                        JobStatus.DOWNLOADING,
+                        JobStatusPatch(phase = JobPhase.CONVERT, progress = progress),
+                    )
 
                     val key = ConversionKey.of(target)
                     val existingOutput = completedOutputs[key]
@@ -300,8 +412,8 @@ class JobProcessor(
             }
             txRunner.inRwTransaction { jobOutputRepository.saveAll(outputRecords) }
 
-            // 8. Mark completed
-            writeStatus(job.id, JobStatus.COMPLETED, progress = 100)
+            // 8. Mark completed (no phase: a finished job has no progress, as before)
+            moveJob(job.id, JobStatus.COMPLETED)
 
             logger.info {
                 val additional = job.storagePlan.additional.size
@@ -309,26 +421,33 @@ class JobProcessor(
                     if (additional > 0) " (+$additional additional outputs)" else ""
             }
         } catch (e: CancellationException) {
-            writeStatus(job.id, JobStatus.CANCELLED)
+            // Cancelled (through the API, by a lost CAS, by a shutdown): whoever cancelled it owns the
+            // status. Nothing is written here.
+            logger.info { "Job ${job.id.value} stopped: ${e.message}" }
             throw e
         } catch (e: Exception) {
+            // A failure caused by the cancellation (a killed process, a closed pipe) is not a job failure.
+            currentCoroutineContext().ensureActive()
             logger.error(e) { "Job ${job.id.value} failed" }
-            writeStatus(
-                id = job.id,
-                status = JobStatus.FAILED,
-                errorMessage = e.message ?: "Unknown error",
-            )
+            moveJob(job.id, JobStatus.FAILED, JobStatusPatch(errorMessage = e.message ?: "Unknown error"))
         }
     }
 
-    /** One status write = one short read-write transaction. */
-    private suspend fun writeStatus(
-        id: JobId,
-        status: JobStatus,
-        phase: JobPhase? = null,
-        progress: Int? = null,
-        errorMessage: String? = null,
-    ) = txRunner.inRwTransaction { jobRepository.updateStatus(id, status, phase, progress, errorMessage) }
+    /**
+     * The only way the processor writes a job's status: one short read-write transaction with a
+     * compare-and-set from the processing statuses that may reach [to]. A `Left` means the job was moved
+     * by someone else (cancelled, requeued) or the write failed: the job's coroutine is cancelled and
+     * writes nothing more.
+     */
+    private suspend fun moveJob(id: JobId, to: JobStatus, patch: JobStatusPatch = JobStatusPatch()) {
+        txRunner
+            .inRwTransaction { jobRepository.transition(id, JobStatus.processingSourcesOf(to), to, patch) }
+            .onLeft { error ->
+                val reason = JobNoLongerProcessing(id, error.message)
+                currentCoroutineContext().cancel(reason)
+                throw reason
+            }
+    }
 
     private suspend fun cachedVideoInfo(job: DomainJob): VideoInfo? =
         txRunner.inRoTransaction { videoInfoCache.get(job.source.url.value) }
@@ -550,6 +669,17 @@ class JobProcessor(
         }
     }
 }
+
+/** How long [JobProcessor.stop] waits for the cancelled jobs (and their processes) to wind down. */
+val DEFAULT_STOP_GRACE: Duration = 10.seconds
+
+/** The cause a shutdown cancels running jobs with; they are requeued, not cancelled for the user. */
+class ShutdownCancellation : CancellationException("JobProcessor is stopping")
+
+/** The job is not ours to process any more (its status was moved by someone else); nothing is written. */
+@OptIn(ExperimentalUuidApi::class)
+private class JobNoLongerProcessing(id: JobId, reason: String) :
+    CancellationException("Job ${id.value} is no longer processed here: $reason")
 
 /** Map VideoQuality to maximum resolution (width x height) for ffmpeg scaling. */
 private fun DownloadPolicy.VideoQuality.toMaxResolution(): Pair<Int, Int>? = when (this) {

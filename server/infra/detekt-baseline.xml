@@ -9,7 +9,6 @@
     <ID>CyclomaticComplexMethod:JobProcessor.kt$JobProcessor$@OptIn(ExperimentalUuidApi::class) private suspend fun processJob(job: DomainJob)</ID>
     <ID>CyclomaticComplexMethod:YtDlpRunner.kt$YtDlpRunner$override fun downloadWithProgress( url: Url, outputPath: FilePath, policy: DownloadPolicy, videoInfo: VideoInfo?, mediaSelection: MediaSelection?, ): Flow&lt;DownloadEvent></ID>
     <ID>CyclomaticComplexMethod:YtDlpRunner.kt$YtDlpRunner$override suspend fun extract(url: String): Either&lt;DomainError, VideoInfo></ID>
-    <ID>LongMethod:FfmpegRunner.kt$FfmpegRunner$private fun probeHwAccel(hwAccel: VideoEncodeSettings.HwAccel, codec: VideoEncodeSettings.VideoCodec): Boolean</ID>
     <ID>LongMethod:FfmpegRunner.kt$FfmpegRunner$suspend fun convertVideo( input: FilePath, output: FilePath, container: MediaContainer, maxWidth: Int? = null, maxHeight: Int? = null, encodeSettings: VideoEncodeSettings? = null, ): Either&lt;DomainError, FilePath></ID>
     <ID>LongMethod:JobProcessor.kt$JobProcessor$@OptIn(ExperimentalUuidApi::class) private suspend fun processAdditionalOutput(job: DomainJob, originalPath: FilePath, target: OutputTarget)</ID>
     <ID>LongMethod:JobProcessor.kt$JobProcessor$@OptIn(ExperimentalUuidApi::class) private suspend fun processJob(job: DomainJob)</ID>
@@ -19,8 +18,6 @@
     <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$"remux to ${container.extension}" + if (limits.isNotEmpty()) " (source ${sourceWidth}x${sourceHeight} within $limits)" else ""</ID>
     <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$"scale='trunc(iw*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2':'trunc(ih*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2'"</ID>
     <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$logger.info { "Probing HW accel $hwAccel (encoder=$encoder, device=$device, LIBVA_DRIVER_NAME=$libvaDriver)..." }</ID>
-    <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$logger.info { "Source resolution (${sourceWidth}x${sourceHeight}) within limits (${maxWidth ?: "any"}x${maxHeight ?: "any"}), will remux only" }</ID>
-    <ID>MaxLineLength:FfmpegRunner.kt$FfmpegRunner$logger.warn { "Hardware encoder (${settings.hwAccel}) failed, retrying with software encoder (${fallbackSettings.resolveEncoder()})" }</ID>
     <ID>MaxLineLength:YtDlpRunnerTest.kt$YtDlpRunnerTest$VideoInfo.Format("5", "m4a", vcodec = "none", acodec = "mp4a", tbr = 256.0, isOriginalAudio = true)</ID>
     <ID>MaxLineLength:YtDlpServiceImpl.kt$YtDlpServiceImpl$DomainError.VideoExtractionFailed(Url("https://yt-dlp.org"), "Failed to get yt-dlp version: $output").left()</ID>
     <ID>MaxLineLength:YtDlpServiceImpl.kt$YtDlpServiceImpl$DomainError.VideoExtractionFailed(Url("https://yt-dlp.org"), "Update failed: ${output.takeLast(500)}").left()</ID>
@@ -29,7 +26,7 @@
     <ID>MaxLineLength:metadataTemplate.kt$MetadataTemplate.SeriesEpisode(seriesNameOverride, seasonPattern, episodePattern, titleOverride, titlePattern, defaultTags)</ID>
     <ID>MaxLineLength:metadataTemplate.kt$MetadataTemplatePm.SeriesEpisode(seriesNameOverride, seasonPattern, episodePattern, titleOverride, titlePattern, defaultTags)</ID>
     <ID>NestedBlockDepth:JobProcessor.kt$JobProcessor$@OptIn(ExperimentalUuidApi::class) private suspend fun processJob(job: DomainJob)</ID>
-    <ID>ReturnCount:FfmpegRunner.kt$FfmpegRunner$private fun probeHwAccel(hwAccel: VideoEncodeSettings.HwAccel, codec: VideoEncodeSettings.VideoCodec): Boolean</ID>
+    <ID>ReturnCount:FfmpegRunner.kt$FfmpegRunner$private suspend fun probeHwAccel( hwAccel: VideoEncodeSettings.HwAccel, codec: VideoEncodeSettings.VideoCodec, ): Boolean</ID>
     <ID>ReturnCount:FfmpegRunner.kt$FfmpegRunner$private fun resolveRenderDevice(): String?</ID>
     <ID>ReturnCount:JobProcessor.kt$JobProcessor$private fun findThumbnailFile(originalPath: FilePath): File?</ID>
     <ID>ReturnCount:JobProcessor.kt$JobProcessor$private fun resolveDownloadedFile(expectedPath: FilePath): File?</ID>

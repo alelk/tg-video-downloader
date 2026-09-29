@@ -491,6 +491,14 @@ readiness probe's `SELECT 1` (`DatabaseReadinessProbe`), which opens a plain `tr
 
 yt-dlp, ffmpeg, LLM and HTTP calls never run inside a transaction.
 
+### 7.2 Job status writes
+
+`jobs.status` is never written unconditionally (Stage 01.9, ARCHITECTURE §5.3):
+`JobRepositoryImpl.transition` is `UPDATE jobs … WHERE id = ? AND status IN (expected)` (0 rows →
+`JobStatusConflict`); `claimNext` is `SELECT id … WHERE status = 'pending' ORDER BY created_at LIMIT 1
+FOR UPDATE SKIP LOCKED` + update of that row — served by the existing partial index `idx_jobs_pending`
+(V3), so no new migration; `requeueInterrupted` updates only `downloading`/`post-processing` rows.
+
 > `newSuspendedTransaction()` is deprecated in Exposed 1.0.0; `suspendTransaction()` is used.
 
 ### 7.2 Nesting and the "`Left` commits" trap

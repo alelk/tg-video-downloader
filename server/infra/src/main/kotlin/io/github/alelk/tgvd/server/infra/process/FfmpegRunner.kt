@@ -12,6 +12,7 @@ import io.github.alelk.tgvd.domain.storage.MediaContainer
 import io.github.alelk.tgvd.domain.storage.VideoEncodeSettings
 import io.github.alelk.tgvd.server.infra.config.FfmpegConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -20,9 +21,7 @@ import kotlin.uuid.ExperimentalUuidApi
 
 private val logger = KotlinLogging.logger {}
 
-class FfmpegRunner(
-    private val config: FfmpegConfig,
-) {
+class FfmpegRunner(private val config: FfmpegConfig) {
 
     /**
      * Resolved render device path (e.g. `/dev/dri/renderD128`).
@@ -81,7 +80,10 @@ class FfmpegRunner(
      * Runs a quick ffmpeg test with a 1-frame synthetic input.
      * Result is cached so each type is probed at most once.
      */
-    private fun probeHwAccel(hwAccel: VideoEncodeSettings.HwAccel, codec: VideoEncodeSettings.VideoCodec): Boolean {
+    private suspend fun probeHwAccel(
+        hwAccel: VideoEncodeSettings.HwAccel,
+        codec: VideoEncodeSettings.VideoCodec,
+    ): Boolean {
         val cached = hwProbeCache.get()[hwAccel]
         if (cached != null) return cached
 
@@ -98,54 +100,22 @@ class FfmpegRunner(
         }
 
         val libvaDriver = System.getenv("LIBVA_DRIVER_NAME")
-        logger.info { "Probing HW accel $hwAccel (encoder=$encoder, device=$device, LIBVA_DRIVER_NAME=$libvaDriver)..." }
+        logger.info {
+            "Probing HW accel $hwAccel (encoder=$encoder, device=$device, LIBVA_DRIVER_NAME=$libvaDriver)..."
+        }
 
         val result = try {
-            val args = buildList {
-                add(config.path)
-                add("-hide_banner")
-                when (hwAccel) {
-                    VideoEncodeSettings.HwAccel.QSV -> {
-                        add("-init_hw_device"); add("vaapi=va:$device")
-                        add("-init_hw_device"); add("qsv=qs@va")
-                        add("-filter_hw_device"); add("qs")
-                        add("-hwaccel"); add("vaapi")
-                        add("-hwaccel_output_format"); add("vaapi")
+            val args = probeArgs(hwAccel, device, encoder)
+
+            val (exitCode, output) = withContext(Dispatchers.IO) {
+                ProcessBuilder(args)
+                    .redirectErrorStream(true)
+                    .start()
+                    .runCancellable { process ->
+                        val output = process.inputStream.bufferedReader().use { it.readText() }
+                        process.awaitExit() to output
                     }
-                    VideoEncodeSettings.HwAccel.VAAPI -> {
-                        add("-init_hw_device"); add("vaapi=va:$device")
-                        add("-filter_hw_device"); add("va")
-                        add("-hwaccel"); add("vaapi")
-                        add("-hwaccel_output_format"); add("vaapi")
-                    }
-                    VideoEncodeSettings.HwAccel.NVENC -> {
-                        add("-hwaccel"); add("cuda")
-                    }
-                    else -> {}
-                }
-                add("-f"); add("lavfi")
-                add("-i"); add("testsrc=duration=0.1:size=64x64:rate=1")
-                when (hwAccel) {
-                    VideoEncodeSettings.HwAccel.QSV -> {
-                        add("-vf"); add("format=nv12,hwupload,hwmap=derive_device=qsv,format=qsv")
-                    }
-                    VideoEncodeSettings.HwAccel.VAAPI -> {
-                        add("-vf"); add("format=nv12,hwupload")
-                    }
-                    else -> {}
-                }
-                add("-c:v"); add(encoder)
-                add("-frames:v"); add("1")
-                add("-f"); add("null")
-                add("-")
             }
-
-            val process = ProcessBuilder(args)
-                .redirectErrorStream(true)
-                .start()
-
-            val output = process.inputStream.bufferedReader().use { it.readText() }
-            val exitCode = process.waitFor()
 
             if (exitCode == 0) {
                 logger.info { "HW accel $hwAccel probe succeeded (encoder=$encoder)" }
@@ -154,6 +124,8 @@ class FfmpegRunner(
                 logger.warn { "HW accel $hwAccel probe failed (exit=$exitCode): ${output.takeLast(300)}" }
                 false
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.warn { "HW accel $hwAccel probe error: ${e.message}" }
             false
@@ -162,6 +134,64 @@ class FfmpegRunner(
         cacheProbeResult(hwAccel, result)
         return result
     }
+
+    /** The ffmpeg command of [probeHwAccel]: encode one synthetic frame with [encoder] on [device]. */
+    private fun probeArgs(hwAccel: VideoEncodeSettings.HwAccel, device: String, encoder: String): List<String> =
+        buildList {
+            add(config.path)
+            add("-hide_banner")
+            when (hwAccel) {
+                VideoEncodeSettings.HwAccel.QSV -> {
+                    add("-init_hw_device")
+                    add("vaapi=va:$device")
+                    add("-init_hw_device")
+                    add("qsv=qs@va")
+                    add("-filter_hw_device")
+                    add("qs")
+                    add("-hwaccel")
+                    add("vaapi")
+                    add("-hwaccel_output_format")
+                    add("vaapi")
+                }
+                VideoEncodeSettings.HwAccel.VAAPI -> {
+                    add("-init_hw_device")
+                    add("vaapi=va:$device")
+                    add("-filter_hw_device")
+                    add("va")
+                    add("-hwaccel")
+                    add("vaapi")
+                    add("-hwaccel_output_format")
+                    add("vaapi")
+                }
+                VideoEncodeSettings.HwAccel.NVENC -> {
+                    add("-hwaccel")
+                    add("cuda")
+                }
+                else -> {}
+            }
+            add("-f")
+            add("lavfi")
+            add("-i")
+            add("testsrc=duration=0.1:size=64x64:rate=1")
+            when (hwAccel) {
+                VideoEncodeSettings.HwAccel.QSV -> {
+                    add("-vf")
+                    add("format=nv12,hwupload,hwmap=derive_device=qsv,format=qsv")
+                }
+                VideoEncodeSettings.HwAccel.VAAPI -> {
+                    add("-vf")
+                    add("format=nv12,hwupload")
+                }
+                else -> {}
+            }
+            add("-c:v")
+            add(encoder)
+            add("-frames:v")
+            add("1")
+            add("-f")
+            add("null")
+            add("-")
+        }
 
     private fun cacheProbeResult(hwAccel: VideoEncodeSettings.HwAccel, result: Boolean) {
         hwProbeCache.updateAndGet { it + (hwAccel to result) }
@@ -194,7 +224,10 @@ class FfmpegRunner(
         }
 
         if ((maxHeight != null || maxWidth != null) && !needsTranscode) {
-            logger.info { "Source resolution (${sourceWidth}x${sourceHeight}) within limits (${maxWidth ?: "any"}x${maxHeight ?: "any"}), will remux only" }
+            logger.info {
+                "Source resolution (${sourceWidth}x$sourceHeight) within limits " +
+                    "(${maxWidth ?: "any"}x${maxHeight ?: "any"}), will remux only"
+            }
         }
 
         val args = buildList {
@@ -203,32 +236,45 @@ class FfmpegRunner(
                 addHwAccelInitArgs(settings.hwAccel)
             }
 
-            add("-i"); add(input.value)
-            add("-map"); add("0:v:0?")
-            add("-map"); add("0:a?")
-            add("-map_metadata"); add("0")
+            add("-i")
+            add(input.value)
+            add("-map")
+            add("0:v:0?")
+            add("-map")
+            add("0:a?")
+            add("-map_metadata")
+            add("0")
 
             if (needsTranscode) {
                 // Video scaling — fit within maxWidth x maxHeight box, preserving aspect ratio.
                 // For QSV: use scale_vaapi + hwmap (vaapi surface → qsv surface) as Jellyfin does.
                 // For others: standard scale filter with software or hwaccel-specific approach.
                 val scaleFilter = buildScaleFilter(maxWidth, maxHeight, settings.hwAccel)
-                add("-vf"); add(scaleFilter)
+                add("-vf")
+                add(scaleFilter)
                 // Video encoder
-                add("-c:v"); add(settings.resolveEncoder())
+                add("-c:v")
+                add(settings.resolveEncoder())
                 // Quality
                 addEncoderQualityArgs(settings)
                 // Audio
-                add("-c:a"); add(settings.resolveAudioCodec(container))
-                add("-b:a"); add(settings.audioBitrate)
+                add("-c:a")
+                add(settings.resolveAudioCodec(container))
+                add("-b:a")
+                add(settings.audioBitrate)
             } else {
                 // No transcoding — just remux
-                add("-c:v"); add("copy")
-                add("-c:a"); add("copy")
+                add("-c:v")
+                add("copy")
+                add("-c:a")
+                add("copy")
             }
-            add("-disposition:a"); add("0")
-            add("-disposition:a:0"); add("default")
-            add("-y"); add(output.value)
+            add("-disposition:a")
+            add("0")
+            add("-disposition:a:0")
+            add("default")
+            add("-y")
+            add(output.value)
         }
 
         val desc = if (needsTranscode) {
@@ -237,7 +283,8 @@ class FfmpegRunner(
             "convert to ${container.extension} ($sizeDesc, $encoder, crf=${settings.crf})"
         } else {
             val limits = listOfNotNull(maxWidth?.let { "${it}w" }, maxHeight?.let { "${it}p" }).joinToString("x")
-            "remux to ${container.extension}" + if (limits.isNotEmpty()) " (source ${sourceWidth}x${sourceHeight} within $limits)" else ""
+            "remux to ${container.extension}" +
+                if (limits.isNotEmpty()) " (source ${sourceWidth}x$sourceHeight within $limits)" else ""
         }
 
         val result = runFfmpeg(args = args, description = desc)
@@ -249,32 +296,52 @@ class FfmpegRunner(
             cacheProbeResult(hwAccel, false)
 
             val fallbackSettings = settings.copy(hwAccel = null)
-            logger.warn { "Hardware encoder (${settings.hwAccel}) failed, retrying with software encoder (${fallbackSettings.resolveEncoder()})" }
+            logger.warn {
+                "Hardware encoder (${settings.hwAccel}) failed, " +
+                    "retrying with software encoder (${fallbackSettings.resolveEncoder()})"
+            }
             val fallbackArgs = buildList {
-                add("-i"); add(input.value)
-                add("-map"); add("0:v:0?")
-                add("-map"); add("0:a?")
-                add("-map_metadata"); add("0")
+                add("-i")
+                add(input.value)
+                add("-map")
+                add("0:v:0?")
+                add("-map")
+                add("0:a?")
+                add("-map_metadata")
+                add("0")
                 if (needsTranscode) {
                     val scaleFilter = buildScaleFilter(maxWidth, maxHeight)
-                    add("-vf"); add(scaleFilter)
-                    add("-c:v"); add(fallbackSettings.resolveEncoder())
-                    add("-crf"); add("${fallbackSettings.crf}")
-                    add("-preset"); add(fallbackSettings.preset.ffmpegValue)
-                    add("-c:a"); add(fallbackSettings.resolveAudioCodec(container))
-                    add("-b:a"); add(fallbackSettings.audioBitrate)
+                    add("-vf")
+                    add(scaleFilter)
+                    add("-c:v")
+                    add(fallbackSettings.resolveEncoder())
+                    add("-crf")
+                    add("${fallbackSettings.crf}")
+                    add("-preset")
+                    add(fallbackSettings.preset.ffmpegValue)
+                    add("-c:a")
+                    add(fallbackSettings.resolveAudioCodec(container))
+                    add("-b:a")
+                    add(fallbackSettings.audioBitrate)
                 } else {
-                    add("-c:v"); add("copy")
-                    add("-c:a"); add("copy")
+                    add("-c:v")
+                    add("copy")
+                    add("-c:a")
+                    add("copy")
                 }
-                add("-disposition:a"); add("0")
-                add("-disposition:a:0"); add("default")
-                add("-y"); add(output.value)
+                add("-disposition:a")
+                add("0")
+                add("-disposition:a:0")
+                add("default")
+                add("-y")
+                add(output.value)
             }
             val fallbackDesc = if (needsTranscode) {
                 val sizeDesc = listOfNotNull(maxWidth?.let { "${it}w" }, maxHeight?.let { "${it}p" }).joinToString("x")
                 "convert to ${container.extension} ($sizeDesc, ${fallbackSettings.resolveEncoder()}, crf=${fallbackSettings.crf}) [sw fallback]"
-            } else desc
+            } else {
+                desc
+            }
             return runFfmpeg(args = fallbackArgs, description = fallbackDesc).map { output }
         }
 
@@ -286,7 +353,7 @@ class FfmpegRunner(
      *
      * Downgrade chain: QSV → VAAPI → software, NVENC → software, etc.
      */
-    private fun resolveEffectiveSettings(settings: VideoEncodeSettings): VideoEncodeSettings {
+    private suspend fun resolveEffectiveSettings(settings: VideoEncodeSettings): VideoEncodeSettings {
         val hw = settings.hwAccel ?: return settings
 
         // Probe requested HW
@@ -328,26 +395,38 @@ class FfmpegRunner(
                 // 4. hwaccel vaapi — decode via VAAPI
                 // 5. hwaccel_output_format vaapi — decoded frames stay on VAAPI surface
                 // 6. extra_hw_frames — reserve extra surfaces for filter pipeline
-                add("-init_hw_device"); add("vaapi=va:$device")
-                add("-init_hw_device"); add("qsv=qs@va")
-                add("-filter_hw_device"); add("qs")
-                add("-hwaccel"); add("vaapi")
-                add("-hwaccel_output_format"); add("vaapi")
-                add("-extra_hw_frames"); add("64")
+                add("-init_hw_device")
+                add("vaapi=va:$device")
+                add("-init_hw_device")
+                add("qsv=qs@va")
+                add("-filter_hw_device")
+                add("qs")
+                add("-hwaccel")
+                add("vaapi")
+                add("-hwaccel_output_format")
+                add("vaapi")
+                add("-extra_hw_frames")
+                add("64")
             }
             VideoEncodeSettings.HwAccel.VAAPI -> {
                 if (device == null) {
                     logger.warn { "VAAPI requested but no render device available — skipping HW init" }
                     return
                 }
-                add("-init_hw_device"); add("vaapi=va:$device")
-                add("-filter_hw_device"); add("va")
-                add("-hwaccel"); add("vaapi")
-                add("-hwaccel_output_format"); add("vaapi")
-                add("-extra_hw_frames"); add("64")
+                add("-init_hw_device")
+                add("vaapi=va:$device")
+                add("-filter_hw_device")
+                add("va")
+                add("-hwaccel")
+                add("vaapi")
+                add("-hwaccel_output_format")
+                add("vaapi")
+                add("-extra_hw_frames")
+                add("64")
             }
             VideoEncodeSettings.HwAccel.NVENC -> {
-                add("-hwaccel"); add("cuda")
+                add("-hwaccel")
+                add("cuda")
             }
             VideoEncodeSettings.HwAccel.VIDEOTOOLBOX -> {} // no init flag needed
             VideoEncodeSettings.HwAccel.AMF -> {} // no init flag needed
@@ -365,28 +444,41 @@ class FfmpegRunner(
                 VideoEncodeSettings.HwAccel.VIDEOTOOLBOX -> {
                     // VideoToolbox uses -q:v with INVERTED scale: 1 = worst, 100 = best (lossless)
                     val vtQuality = ((51 - settings.crf).toDouble() / 51.0 * 99.0 + 1.0).toInt().coerceIn(1, 100)
-                    add("-q:v"); add("$vtQuality")
+                    add("-q:v")
+                    add("$vtQuality")
                 }
                 VideoEncodeSettings.HwAccel.NVENC -> {
-                    add("-cq"); add("${settings.crf}")
-                    add("-preset"); add(nvencPreset(settings.preset))
+                    add("-cq")
+                    add("${settings.crf}")
+                    add("-preset")
+                    add(nvencPreset(settings.preset))
                 }
                 VideoEncodeSettings.HwAccel.QSV -> {
-                    add("-low_power"); add("1")
-                    add("-preset"); add("medium")
-                    add("-global_quality"); add("${settings.crf}")
+                    add("-low_power")
+                    add("1")
+                    add("-preset")
+                    add("medium")
+                    add("-global_quality")
+                    add("${settings.crf}")
                 }
                 VideoEncodeSettings.HwAccel.VAAPI -> {
                     // VAAPI uses quality level via rc_mode + quality param
                     // -rc_mode CQP with -global_quality works similarly to CRF
-                    add("-rc_mode"); add("CQP")
-                    add("-global_quality"); add("${settings.crf}")
+                    add("-rc_mode")
+                    add("CQP")
+                    add("-global_quality")
+                    add("${settings.crf}")
                 }
-                else -> { add("-crf"); add("${settings.crf}") }
+                else -> {
+                    add("-crf")
+                    add("${settings.crf}")
+                }
             }
         } else {
-            add("-crf"); add("${settings.crf}")
-            add("-preset"); add(settings.preset.ffmpegValue)
+            add("-crf")
+            add("${settings.crf}")
+            add("-preset")
+            add(settings.preset.ffmpegValue)
         }
     }
 
@@ -405,40 +497,38 @@ class FfmpegRunner(
         maxWidth: Int?,
         maxHeight: Int?,
         hwAccel: VideoEncodeSettings.HwAccel? = null,
-    ): String {
-        return when (hwAccel) {
-            VideoEncodeSettings.HwAccel.QSV -> {
-                val w = maxWidth ?: -1
-                val h = maxHeight ?: -1
-                if (maxWidth != null || maxHeight != null) {
-                    // scale_vaapi scales on VAAPI surface, hwmap maps result to QSV for h264_qsv encoder
-                    "scale_vaapi=w=$w:h=$h:format=nv12," +
-                        "hwmap=derive_device=qsv,format=qsv"
-                } else {
-                    // No resize — just map VAAPI surface to QSV
+    ): String = when (hwAccel) {
+        VideoEncodeSettings.HwAccel.QSV -> {
+            val w = maxWidth ?: -1
+            val h = maxHeight ?: -1
+            if (maxWidth != null || maxHeight != null) {
+                // scale_vaapi scales on VAAPI surface, hwmap maps result to QSV for h264_qsv encoder
+                "scale_vaapi=w=$w:h=$h:format=nv12," +
                     "hwmap=derive_device=qsv,format=qsv"
-                }
+            } else {
+                // No resize — just map VAAPI surface to QSV
+                "hwmap=derive_device=qsv,format=qsv"
             }
-            VideoEncodeSettings.HwAccel.VAAPI -> {
-                val w = maxWidth ?: -1
-                val h = maxHeight ?: -1
-                if (maxWidth != null || maxHeight != null) {
-                    "scale_vaapi=w=$w:h=$h:format=nv12"
-                } else {
-                    "scale_vaapi=format=nv12"
-                }
+        }
+        VideoEncodeSettings.HwAccel.VAAPI -> {
+            val w = maxWidth ?: -1
+            val h = maxHeight ?: -1
+            if (maxWidth != null || maxHeight != null) {
+                "scale_vaapi=w=$w:h=$h:format=nv12"
+            } else {
+                "scale_vaapi=format=nv12"
             }
-            else -> {
-                // Standard software scale filter — fit within box, never upscale, round to even
-                when {
-                    maxWidth != null && maxHeight != null ->
-                        "scale='trunc(iw*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2':'trunc(ih*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2'"
-                    maxHeight != null ->
-                        "scale=-2:'min($maxHeight\\,ih)'"
-                    maxWidth != null ->
-                        "scale='min($maxWidth\\,iw)':-2"
-                    else -> error("No dimension constraint specified")
-                }
+        }
+        else -> {
+            // Standard software scale filter — fit within box, never upscale, round to even
+            when {
+                maxWidth != null && maxHeight != null ->
+                    "scale='trunc(iw*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2':'trunc(ih*min(1\\,min($maxWidth/iw\\,$maxHeight/ih))/2)*2'"
+                maxHeight != null ->
+                    "scale=-2:'min($maxHeight\\,ih)'"
+                maxWidth != null ->
+                    "scale='min($maxWidth\\,iw)':-2"
+                else -> error("No dimension constraint specified")
             }
         }
     }
@@ -478,15 +568,17 @@ class FfmpegRunner(
                 input.value,
             ).redirectErrorStream(true).start()
 
-            val output = process.inputStream.bufferedReader().use { it.readText().trim() }
-            val exitCode = process.waitFor()
+            val (exitCode, output) = process.runCancellable {
+                val output = process.inputStream.bufferedReader().use { it.readText().trim() }
+                process.awaitExit() to output
+            }
             if (exitCode == 0) {
                 // Output format: "width,height" e.g. "2579,1080"
                 val parts = output.lines().firstOrNull()?.trim()?.split(",")
                 val width = parts?.getOrNull(0)?.trim()?.toIntOrNull()
                 val height = parts?.getOrNull(1)?.trim()?.toIntOrNull()
                 if (width != null && height != null) {
-                    logger.info { "Probed video resolution: ${width}x${height} for ${input.fileName}" }
+                    logger.info { "Probed video resolution: ${width}x$height for ${input.fileName}" }
                     width to height
                 } else {
                     logger.warn { "Could not parse ffprobe resolution output: $output" }
@@ -496,20 +588,19 @@ class FfmpegRunner(
                 logger.warn { "ffprobe failed (exit=$exitCode): $output" }
                 null
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.warn { "ffprobe not available: ${e.message}" }
             null
         }
     }
 
-    suspend fun extractAudio(
-        input: FilePath,
-        output: FilePath,
-        format: AudioFormat,
-    ): Either<DomainError, FilePath> = runFfmpeg(
-        args = listOf("-i", input.value, "-vn", "-c:a", audioCodecFor(format), "-y", output.value),
-        description = "extract audio as ${format.extension}",
-    ).map { output }
+    suspend fun extractAudio(input: FilePath, output: FilePath, format: AudioFormat): Either<DomainError, FilePath> =
+        runFfmpeg(
+            args = listOf("-i", input.value, "-vn", "-c:a", audioCodecFor(format), "-y", output.value),
+            description = "extract audio as ${format.extension}",
+        ).map { output }
 
     suspend fun embedMetadata(
         input: FilePath,
@@ -524,83 +615,95 @@ class FfmpegRunner(
         ).map { output }
     }
 
-    suspend fun embedThumbnail(
-        input: FilePath,
-        thumbnail: FilePath,
-        output: FilePath,
-    ): Either<DomainError, FilePath> {
+    suspend fun embedThumbnail(input: FilePath, thumbnail: FilePath, output: FilePath): Either<DomainError, FilePath> {
         val thumbExt = thumbnail.extension.lowercase()
         val outputExt = output.extension.lowercase()
         val isMp4 = outputExt == "mp4" || outputExt == "m4a" || outputExt == "m4v"
 
         // For MP4: webp thumbnails must be converted; use mjpeg codec for the cover art stream
         val args = buildList {
-            add("-i"); add(input.value)
-            add("-i"); add(thumbnail.value)
-            add("-map"); add("0")
-            add("-map"); add("1")
-            add("-c"); add("copy")
+            add("-i")
+            add(input.value)
+            add("-i")
+            add(thumbnail.value)
+            add("-map")
+            add("0")
+            add("-map")
+            add("1")
+            add("-c")
+            add("copy")
             if (isMp4) {
                 // MP4 doesn't support webp covers; transcode thumbnail to mjpeg
                 if (thumbExt == "webp" || thumbExt == "png") {
-                    add("-c:v:1"); add("mjpeg")
-                    add("-q:v:1"); add("2")  // high quality jpeg
+                    add("-c:v:1")
+                    add("mjpeg")
+                    add("-q:v:1")
+                    add("2") // high quality jpeg
                 } else {
-                    add("-c:v:1"); add("copy")
+                    add("-c:v:1")
+                    add("copy")
                 }
-                add("-disposition:v:1"); add("attached_pic")
+                add("-disposition:v:1")
+                add("attached_pic")
             } else {
-                add("-disposition:v:1"); add("attached_pic")
+                add("-disposition:v:1")
+                add("attached_pic")
             }
-            add("-y"); add(output.value)
+            add("-y")
+            add(output.value)
         }
 
         return runFfmpeg(args = args, description = "embed thumbnail").map { output }
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    private suspend fun runFfmpeg(
-        args: List<String>,
-        description: String,
-    ): Either<DomainError, Unit> = withContext(Dispatchers.IO) {
-        try {
-            val command = listOf(config.path) + args
-            logger.info { "Running ffmpeg ($description): ${command.joinToString(" ")}" }
+    private suspend fun runFfmpeg(args: List<String>, description: String): Either<DomainError, Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                val command = listOf(config.path) + args
+                logger.info { "Running ffmpeg ($description): ${command.joinToString(" ")}" }
 
-            val process = ProcessBuilder(command)
-                .redirectErrorStream(true)
-                .start()
+                // Cancelling the caller (a cancelled job, a shutdown) terminates ffmpeg.
+                val (exitCode, output) = ProcessBuilder(command)
+                    .redirectErrorStream(true)
+                    .start()
+                    .runCancellable { process ->
+                        val output = process.inputStream.bufferedReader().use { it.readText() }
+                        process.awaitExit() to output
+                    }
 
-            val output = process.inputStream.bufferedReader().use { it.readText() }
-            val exitCode = process.waitFor()
-
-            if (exitCode != 0) {
-                // Log driver/VAAPI-related lines separately for diagnostics
-                val hwLines = output.lines().filter {
-                    it.contains("libva") || it.contains("VAAPI") || it.contains("drv_video") ||
-                        it.contains("init_hw_device") || it.contains("Device creation")
+                if (exitCode != 0) {
+                    // Log driver/VAAPI-related lines separately for diagnostics
+                    val hwLines = output.lines().filter {
+                        it.contains("libva") ||
+                            it.contains("VAAPI") ||
+                            it.contains("drv_video") ||
+                            it.contains("init_hw_device") ||
+                            it.contains("Device creation")
+                    }
+                    if (hwLines.isNotEmpty()) {
+                        logger.error { "ffmpeg HW diagnostics ($description):\n${hwLines.joinToString("\n")}" }
+                    }
+                    logger.error { "ffmpeg failed (exit=$exitCode, $description): ${output.takeLast(500)}" }
+                    DomainError.PostProcessingFailed(
+                        jobId = JobId(kotlin.uuid.Uuid.random()),
+                        phase = JobPhase.CONVERT,
+                        cause = output.takeLast(500),
+                    ).left()
+                } else {
+                    Unit.right()
                 }
-                if (hwLines.isNotEmpty()) {
-                    logger.error { "ffmpeg HW diagnostics ($description):\n${hwLines.joinToString("\n")}" }
-                }
-                logger.error { "ffmpeg failed (exit=$exitCode, $description): ${output.takeLast(500)}" }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.error(e) { "ffmpeg execution failed ($description)" }
                 DomainError.PostProcessingFailed(
                     jobId = JobId(kotlin.uuid.Uuid.random()),
                     phase = JobPhase.CONVERT,
-                    cause = output.takeLast(500),
+                    cause = e.message ?: "Unknown error",
                 ).left()
-            } else {
-                Unit.right()
             }
-        } catch (e: Exception) {
-            logger.error(e) { "ffmpeg execution failed ($description)" }
-            DomainError.PostProcessingFailed(
-                jobId = JobId(kotlin.uuid.Uuid.random()),
-                phase = JobPhase.CONVERT,
-                cause = e.message ?: "Unknown error",
-            ).left()
         }
-    }
 
     private fun audioCodecFor(format: AudioFormat): String = when (format) {
         AudioFormat.M4A -> "aac"

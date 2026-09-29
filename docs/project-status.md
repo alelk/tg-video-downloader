@@ -54,6 +54,11 @@ anything a user, client or deployed installation sees (except G10 and Fork 5,
   `WorkspaceSlugConflict`/`JobAlreadyExists`, else `DatabaseFailed` → same `500 INTERNAL_ERROR`); repositories
   take time from `Clock` (inserts store the use-case's timestamps) and statuses via the mapping; `JobProcessor`
   smoke test on Testcontainers; 659 JVM tests.
+- 2026-09-29 — 01.9 done: job status transitions are a pure table in `JobStatus`; every status write is a
+  compare-and-set (`JobRepository.transition`, `updateStatus` removed), `claimNext` (`FOR UPDATE SKIP LOCKED`),
+  `requeueInterrupted` at start (Fork 2); cancel stops the download and kills the yt-dlp/ffmpeg process tree;
+  `stop()` requeues running jobs; the mine test (`JobLifecycleTest`) proven red on an unconditional `UPDATE`;
+  714 JVM tests.
 
 ## Known issues
 

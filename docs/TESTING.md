@@ -127,15 +127,19 @@ server/infra/src/testFixtures/kotlin/.../server/infra/testing/
 server/infra/src/test/kotlin/.../server/infra/
 ├── db/MigrationsTest.kt            # empty DB → DatabaseFactory start path → Flyway validate(), ≥ V1…V8
 ├── db/repository/*ImplTest.kt      # round-trips of every repository under ExposedTransactionRunner
+├── db/repository/JobStatusWritesTest.kt  # status CAS, claimNext (two parallel claims → one wins), requeue
+├── service/JobProcessorSmokeTest.kt      # a pending job through the processor to COMPLETED
 ├── db/jsonb/JsonbFixturesTest.kt   # frozen JSONB fixtures (src/test/resources/jsonb-fixtures/)
 ├── service/SystemSettingsHolderTest.kt   # also as SystemSettingsStore: deployment-only values kept
 ├── llm/UnconfiguredLlmPortTest.kt  # G8: the unconfigured port previews exactly like the former null port
-└── process/…                       # YtDlpRunner (the track selectors are domain tests since 01.6)
+└── process/…                       # YtDlpRunner; ProcessCancellationTest (stub binary: cancel kills the tree)
 
 server/app/src/test/kotlin/.../server/
 ├── ApiSurfaceTest.kt               # live routing tree == src/test/resources/api-surface.txt
 ├── route/*RoutesTest.kt            # module() + Testcontainers + fakes, devMode (X-Telegram-Init-Data: dev)
+├── job/JobLifecycleTest.kt         # THE MINE (01.9): cancel via route / stop() / restart mid-download
 ├── fakes/Fakes.kt                  # VideoInfoExtractor, VideoDownloader, YtDlpService
+├── fakes/ControlledVideoDownloader.kt    # a download the test drives step by step; records its cancellation
 └── telegram/MiniAppDeepLinkTest.kt
 
 server/transport/src/test/kotlin/.../server/transport/architecture/

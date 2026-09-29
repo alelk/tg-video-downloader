@@ -26,9 +26,9 @@ import io.github.alelk.tgvd.server.infra.config.YtDlpExtractorOverride
 import io.github.alelk.tgvd.server.infra.config.toTrackSelectionSettings
 import io.github.alelk.tgvd.server.infra.service.SystemSettingsHolder
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -320,17 +320,17 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
     /**
      * Run yt-dlp `--dump-json` for [url] with the provided args and return (exitCode, stdout, stderr).
      */
-    private suspend fun runExtractProcess(args: List<String>): Triple<Int, String, String> = coroutineScope {
-        val process = ProcessBuilder(args)
-            .redirectErrorStream(false)
-            .enrichPath()
-            .start()
-        val stdoutDeferred = async { process.inputStream.bufferedReader().use { it.readText() } }
-        val stderrDeferred = async { process.errorStream.bufferedReader().use { it.readText() } }
-        val stdout = stdoutDeferred.await()
-        val stderr = stderrDeferred.await()
-        Triple(process.waitFor(), stdout, stderr)
-    }
+    private suspend fun runExtractProcess(args: List<String>): Triple<Int, String, String> = ProcessBuilder(args)
+        .redirectErrorStream(false)
+        .enrichPath()
+        .start()
+        .runCancellable { process ->
+            val stdoutDeferred = async { process.inputStream.bufferedReader().use { it.readText() } }
+            val stderrDeferred = async { process.errorStream.bufferedReader().use { it.readText() } }
+            val stdout = stdoutDeferred.await()
+            val stderr = stderrDeferred.await()
+            Triple(process.awaitExit(), stdout, stderr)
+        }
 
     private fun buildExtractArgs(url: String): List<String> = buildList {
         add(config.path)
@@ -442,6 +442,8 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
                     )
                 } ?: emptyList(),
             ).right()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.error(e) { "Failed to extract video info from $url" }
             DomainError.VideoExtractionFailed(Url(url), e.message ?: "Unknown error").left()
@@ -488,13 +490,14 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
             }
 
             logger.info { "yt-dlp command: ${args.safeCommand()}" }
-            val process = ProcessBuilder(args)
+            val (exitCode, output) = ProcessBuilder(args)
                 .redirectErrorStream(true)
                 .enrichPath()
                 .start()
-
-            val output = process.inputStream.bufferedReader().use { it.readText() }
-            val exitCode = process.waitFor()
+                .runCancellable { process ->
+                    val output = process.inputStream.bufferedReader().use { it.readText() }
+                    process.awaitExit() to output
+                }
 
             if (exitCode != 0) {
                 logger.error { "yt-dlp download failed (exit=$exitCode): ${output.takeLast(2000)}" }
@@ -505,6 +508,8 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
             }
 
             outputPath.right()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.error(e) { "Failed to download ${url.value}" }
             DomainError.DownloadFailed(
@@ -567,33 +572,37 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
         val process = ProcessBuilder(args).redirectErrorStream(true).enrichPath().start()
         val outputLines = mutableListOf<String>()
         val progressTracker = MediaProgressTracker(selectedFormatId?.split('+')?.size ?: 1)
-        process.inputStream.bufferedReader().useLines { lines ->
-            for (line in lines) {
-                outputLines += line
-                // Log informational lines about format selection, merging, and warnings
-                if (line.contains("[info]") ||
-                    line.contains("[merger]") ||
-                    line.contains("[download] Destination") ||
-                    line.contains("Downloading format") ||
-                    line.contains("[warning]") ||
-                    line.contains("[error]")
-                ) {
-                    logger.info { "yt-dlp: $line" }
-                }
+        // Cancelling the collector (a cancelled job, a shutdown) cancels this producer: the process tree
+        // is terminated, its stdout closes and the read loop below ends.
+        val exitCode = process.runCancellable {
+            process.inputStream.bufferedReader().useLines { lines ->
+                for (line in lines) {
+                    outputLines += line
+                    // Log informational lines about format selection, merging, and warnings
+                    if (line.contains("[info]") ||
+                        line.contains("[merger]") ||
+                        line.contains("[download] Destination") ||
+                        line.contains("Downloading format") ||
+                        line.contains("[warning]") ||
+                        line.contains("[error]")
+                    ) {
+                        logger.info { "yt-dlp: $line" }
+                    }
 
-                // Try to extract downloaded format ID from log
-                // Example: [info] BaW_jenozKc: Downloading 1 format(s): 303+251
-                if (line.contains("Downloading 1 format(s):")) {
-                    downloadedFormatId = line.substringAfter("Downloading 1 format(s):").trim()
-                } else if (line.contains("Downloading format")) {
-                    // Example: [download] Downloading format 22
-                    downloadedFormatId = line.substringAfter("Downloading format").trim().split(" ").firstOrNull()
-                }
+                    // Try to extract downloaded format ID from log
+                    // Example: [info] BaW_jenozKc: Downloading 1 format(s): 303+251
+                    if (line.contains("Downloading 1 format(s):")) {
+                        downloadedFormatId = line.substringAfter("Downloading 1 format(s):").trim()
+                    } else if (line.contains("Downloading format")) {
+                        // Example: [download] Downloading format 22
+                        downloadedFormatId = line.substringAfter("Downloading format").trim().split(" ").firstOrNull()
+                    }
 
-                progressTracker.onLine(line)?.let { emit(DownloadEvent.Progress(it)) }
+                    progressTracker.onLine(line)?.let { emit(DownloadEvent.Progress(it)) }
+                }
             }
+            process.awaitExit()
         }
-        val exitCode = process.waitFor()
         if (exitCode != 0) {
             val output = outputLines.takeLast(150).joinToString("\n")
             val phase = if (output.contains("Postprocessing") ||

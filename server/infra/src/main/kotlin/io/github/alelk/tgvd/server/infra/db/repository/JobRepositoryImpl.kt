@@ -15,6 +15,7 @@ import io.github.alelk.tgvd.domain.job.Job
 import io.github.alelk.tgvd.domain.job.JobPhase
 import io.github.alelk.tgvd.domain.job.JobRepository
 import io.github.alelk.tgvd.domain.job.JobStatus
+import io.github.alelk.tgvd.domain.job.JobStatusPatch
 import io.github.alelk.tgvd.domain.video.MediaSelection
 import io.github.alelk.tgvd.domain.video.VideoSource
 import io.github.alelk.tgvd.server.infra.db.catchingDb
@@ -36,8 +37,11 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.plus
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
+import org.jetbrains.exposed.v1.core.vendors.ForUpdateOption
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Clock
@@ -49,9 +53,16 @@ private const val ACTIVE_VIDEO_UNIQUE_INDEX = "idx_jobs_active_video"
 /** Stored values of the non-terminal statuses — through the status mapping, never as literals. */
 private val ACTIVE_STATUSES: List<String> = JobStatus.entries.filterNot { it.isTerminal }.map { it.toDbString() }
 
+/** Stored values of the statuses the processor works in (`downloading`, `post-processing`). */
+private val PROCESSING_STATUSES: List<String> = JobStatus.entries.filter { it.isProcessing }.map { it.toDbString() }
+
+private val PENDING: String = JobStatus.PENDING.toDbString()
+
 /**
  * Runs in the transaction of the caller (`TransactionRunner`); never opens one.
- * An insert stores the timestamps of the [Job]; status updates are stamped with [clock].
+ * An insert stores the timestamps of the [Job]; status writes are stamped with [clock].
+ * Status writes are conditional: [transition] is a compare-and-set, [claimNext] skips locked rows,
+ * [requeueInterrupted] touches only processing rows.
  */
 @OptIn(ExperimentalUuidApi::class)
 class JobRepositoryImpl(private val clock: Clock) : JobRepository {
@@ -115,49 +126,82 @@ class JobRepositoryImpl(private val clock: Clock) : JobRepository {
         job.right()
     }
 
-    override suspend fun updateStatus(
+    /**
+     * One `UPDATE … WHERE id = ? AND status IN (expected)`: the status check and the write are a single
+     * statement, so a concurrent move (a cancel committed while the processor reports progress) makes
+     * this write match no row instead of overwriting it. Only then the row is read, to report why.
+     */
+    override suspend fun transition(
         id: JobId,
-        status: JobStatus,
-        phase: JobPhase?,
-        progress: Int?,
-        errorMessage: String?,
+        expected: Set<JobStatus>,
+        to: JobStatus,
+        patch: JobStatusPatch,
     ): Either<DomainError, Job> = catchingDb {
         val timestamp = clock.now()
-
-        // On retry (PENDING): increment attempt first, then update status
-        if (status == JobStatus.PENDING) {
-            val currentAttempt = JobsTable.selectAll()
-                .where { JobsTable.id eq id.value }
-                .singleOrNull()
-                ?.get(JobsTable.attempt) ?: 0
-            JobsTable.update({ JobsTable.id eq id.value }) {
-                it[JobsTable.attempt] = currentAttempt + 1
-                it[JobsTable.status] = status.toDbString()
-                it[JobsTable.progress] = null
-                it[JobsTable.error] = null
-                it[startedAt] = null
-                it[finishedAt] = null
+        val requeued = to == JobStatus.PENDING
+        val updated =
+            JobsTable.update({
+                (JobsTable.id eq id.value) and (JobsTable.status inList expected.map { it.toDbString() })
+            }) {
+                it[status] = to.toDbString()
+                it[progress] = patch.phase?.let { phase ->
+                    JobProgressPm(phase = phase.toDbString(), percent = patch.progress ?: 0)
+                }
+                val error = patch.errorMessage?.let { message ->
+                    JobErrorPm(code = "ERROR", message = message, retryable = false)
+                }
+                if (requeued || error != null) it[JobsTable.error] = error
+                patch.videoInfo?.let { info -> it[rawInfo] = info.toPm() }
+                if (patch.newAttempt) it.update(attempt, attempt + 1)
                 it[updatedAt] = timestamp
-            }
-        } else {
-            JobsTable.update({ JobsTable.id eq id.value }) {
-                it[JobsTable.status] = status.toDbString()
-                it[JobsTable.progress] = phase?.let { p ->
-                    JobProgressPm(phase = p.toDbString(), percent = progress ?: 0)
-                }
-                if (errorMessage != null) {
-                    it[JobsTable.error] = JobErrorPm(code = "ERROR", message = errorMessage, retryable = false)
-                }
-                it[updatedAt] = timestamp
-                if (status == JobStatus.DOWNLOADING && phase == JobPhase.DOWNLOAD) {
-                    it[startedAt] = timestamp
-                }
-                if (status.isTerminal) {
-                    it[finishedAt] = timestamp
+                when {
+                    requeued -> {
+                        it[startedAt] = null
+                        it[finishedAt] = null
+                    }
+                    to.isTerminal -> it[finishedAt] = timestamp
                 }
             }
+        if (updated == 0) {
+            val actual = findById(id) ?: return@catchingDb DomainError.JobNotFound(id).left()
+            return@catchingDb DomainError.JobStatusConflict(id, actual.status).left()
         }
         findById(id)?.right() ?: DomainError.JobNotFound(id).left()
+    }
+
+    /**
+     * `SELECT … WHERE status = 'pending' ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED`, then the
+     * update of that locked row (partial index `idx_jobs_pending` from V3 serves the select). A row locked
+     * by a concurrent claim is skipped rather than waited for, so each claim gets a different job or none.
+     */
+    override suspend fun claimNext(): Job? {
+        val next =
+            JobsTable
+                .select(JobsTable.id)
+                .where { JobsTable.status eq PENDING }
+                .orderBy(JobsTable.createdAt, SortOrder.ASC)
+                .limit(1)
+                .forUpdate(ForUpdateOption.PostgreSQL.ForUpdate(ForUpdateOption.PostgreSQL.MODE.SKIP_LOCKED))
+                .singleOrNull()
+                ?.get(JobsTable.id)
+                ?: return null
+        val timestamp = clock.now()
+        val claimed =
+            JobsTable.update({ (JobsTable.id eq next) and (JobsTable.status eq PENDING) }) {
+                it[status] = JobStatus.DOWNLOADING.toDbString()
+                it[progress] = JobProgressPm(phase = JobPhase.DOWNLOAD.toDbString(), percent = 0)
+                it[startedAt] = timestamp
+                it[updatedAt] = timestamp
+            }
+        // The row is locked by this transaction, so the guard always matches; it stays as a second line.
+        return if (claimed == 1) findById(JobId(next.value)) else null
+    }
+
+    override suspend fun requeueInterrupted(): Int = JobsTable.update({ JobsTable.status inList PROCESSING_STATUSES }) {
+        it[status] = PENDING
+        it[progress] = null
+        it[startedAt] = null
+        it[updatedAt] = clock.now()
     }
 
     /** Columns that insert and update write alike. */

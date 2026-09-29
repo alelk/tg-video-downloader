@@ -10,6 +10,7 @@ import io.github.alelk.tgvd.server.infra.config.CorsConfig
 import io.github.alelk.tgvd.server.infra.config.TelegramConfig
 import io.github.alelk.tgvd.server.infra.db.DatabaseFactory
 import io.github.alelk.tgvd.server.infra.process.YtDlpBootstrap
+import io.github.alelk.tgvd.server.infra.service.DEFAULT_STOP_GRACE
 import io.github.alelk.tgvd.server.infra.service.JobProcessor
 import io.github.alelk.tgvd.server.telegram.TelegramMiniAppAutoReplyBot
 import io.github.alelk.tgvd.server.transport.auth.TelegramAuthPlugin
@@ -44,15 +45,22 @@ import io.ktor.server.resources.Resources
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.DisposableHandle
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.koin.core.module.Module
 import org.koin.ktor.ext.get
 import org.koin.ktor.plugin.Koin
 import kotlin.system.exitProcess
+import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
+
+/** Upper bound for the job processor's stop: its grace for the jobs plus time to requeue them. */
+private val JOB_PROCESSOR_STOP_TIMEOUT = DEFAULT_STOP_GRACE + 5.seconds
 
 /**
  * Start order: config → validation (fail-fast) → [module] (database + migrations, then Koin and HTTP).
@@ -238,8 +246,14 @@ private fun Application.configureJobProcessor(lifecycle: LifecycleSubscriptions)
             jobProcessor.start()
         }
     }
+    // Blocks the stop until the running jobs are cancelled and back in the queue (and before the pool
+    // closes on ApplicationStopped). Should even this time out, the next start requeues them.
     lifecycle.on(ApplicationStopping) {
-        jobProcessor.stop()
+        try {
+            runBlocking { withTimeout(JOB_PROCESSOR_STOP_TIMEOUT) { jobProcessor.stop() } }
+        } catch (e: TimeoutCancellationException) {
+            logger.warn(e) { "Job processor did not stop within $JOB_PROCESSOR_STOP_TIMEOUT" }
+        }
     }
 }
 

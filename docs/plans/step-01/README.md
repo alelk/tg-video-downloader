@@ -21,7 +21,7 @@ related: [ ../step-01-refactoring.md ]
 | 01.6  | [Тонкий transport I](01.6-thin-transport-jobs-preview.md)         | done        |
 | 01.7  | [Тонкий transport II](01.7-thin-transport-rest.md)                | done        |
 | 01.8  | [Транзакции и репозитории](01.8-transactions.md)                  | done        |
-| 01.9  | [Надёжная обработка задач](01.9-job-processing.md)                | not started |
+| 01.9  | [Надёжная обработка задач](01.9-job-processing.md)                | done        |
 | 01.10 | [Доставка: Docker и CI](01.10-delivery.md)                        | not started |
 | 01.11 | [Клиент и оболочка](01.11-client-and-shell.md)                    | not started |
 | 01.12 | [ScreenModel для Preview/Settings](01.12-screen-models.md)        | not started |

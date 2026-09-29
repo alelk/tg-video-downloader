@@ -105,9 +105,9 @@ ffmpeg:
 
 # Jobs
 jobs:
-  maxConcurrentDownloads: 2
+  maxConcurrentDownloads: 2            # jobs processed at once (claimed atomically, one by one)
   maxAttempts: 3                        # read, NOT used (no automatic retries)
-  pollIntervalMs: 5000
+  pollIntervalMs: 5000                  # claim new jobs / notice cancelled ones at most this late
   retryDelayMs: 30000                   # read, NOT used (no automatic retries)
 
 # Logging — read, NOT used: logging is configured by logback.xml (text lines with the correlation id)
@@ -409,6 +409,17 @@ before the server listens is logged and the process exits with code `1`.
    CORS → StatusPages → Resources; routing (`/health*` public, the API behind `TelegramAuthPlugin`);
 4. `startBackgroundServices = true`: yt-dlp bootstrap + `JobProcessor`, the auto-reply bot — subscribed
    to this application's lifecycle only; the pool is closed on `ApplicationStopped`.
+
+Job processing and the lifecycle (ARCHITECTURE §5.3):
+
+- start: jobs left `downloading`/`post-processing` by the previous process go back to `pending` (same
+  attempt), then polling every `jobs.pollIntervalMs`; a job cancelled through the API is stopped (its
+  yt-dlp/ffmpeg killed) on its next progress write or at the latest on the next poll;
+- stop (`ApplicationStopping`): running jobs are cancelled and returned to `pending` — up to 10 s for
+  them to wind down (15 s bound for the whole hook). A harder stop (`SIGKILL`, container stop timeout)
+  loses nothing: the next start requeues them;
+- **exactly one server instance per database** — a second instance's start would requeue the jobs
+  the first one is downloading.
 
 ---
 

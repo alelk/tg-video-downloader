@@ -272,6 +272,10 @@ sealed interface DomainError {
     // === Job ===
     data class JobAlreadyExists(val videoId: VideoId, val existingJobId: JobId, override val message: String = "Job already exists for video ${videoId.value}") : DomainError
     data class JobCannotBeCancelled(val id: JobId, val currentStatus: JobStatus, override val message: String = "Cannot cancel job in status $currentStatus") : DomainError
+    data class JobCannotBeRetried(val id: JobId, val currentStatus: JobStatus, override val message: String = "Cannot retry job in status $currentStatus") : DomainError
+    // A status compare-and-set found the job in another status; nothing written. HTTP: 409 CONFLICT
+    // (use-cases translate it to JobCannotBeCancelled/JobCannotBeRetried).
+    data class JobStatusConflict(val id: JobId, val actualStatus: JobStatus, override val message: String = "Job status changed concurrently, it is now $actualStatus") : DomainError
     data class DownloadFailed(val jobId: JobId, val cause: String, override val message: String = "Download failed: $cause") : DomainError
     data class PostProcessingFailed(val jobId: JobId, val phase: JobPhase, val cause: String, override val message: String = "Post-processing failed at $phase: $cause") : DomainError
     
@@ -1443,9 +1447,19 @@ domain/job/
 
 ```kotlin
 enum class JobStatus {
-    QUEUED, RUNNING, POST_PROCESSING, DONE, FAILED, CANCELLED;
-    fun isTerminal(): Boolean = this in listOf(DONE, FAILED, CANCELLED)
-    fun isActive(): Boolean = this in listOf(QUEUED, RUNNING, POST_PROCESSING)
+    PENDING, DOWNLOADING, POST_PROCESSING, COMPLETED, FAILED, CANCELLED;
+
+    val targets: Set<JobStatus>          // the transition table (ARCHITECTURE §5.3)
+    fun canMoveTo(target: JobStatus): Boolean
+    val isTerminal: Boolean              // COMPLETED, FAILED, CANCELLED
+    val isProcessing: Boolean            // DOWNLOADING, POST_PROCESSING
+    val isCancellable: Boolean           // = canMoveTo(CANCELLED)
+    val isRetryable: Boolean             // = isTerminal && canMoveTo(PENDING)
+
+    companion object {
+        fun sourcesOf(target: JobStatus): Set<JobStatus>
+        fun processingSourcesOf(target: JobStatus): Set<JobStatus> // the processor's CAS expectation
+    }
 }
 
 enum class JobPhase { DOWNLOAD, MERGE, CONVERT, TAG, MOVE }
@@ -1551,8 +1565,8 @@ another workspace is `JobNotFound` — exactly like a missing one.
 |--------------------|-------------|-------------------------------------------------------------------------|
 | `ListJobsUseCase`  | read-only   | `JobPage(items, total)`: newest first; filter by status name ignoring case (unknown name → empty); `offset`/`limit` in memory; `total` = filtered count |
 | `GetJobUseCase`    | read-only   | the job                                                                 |
-| `CancelJobUseCase` | read-write  | `CANCELLED`, or `JobCannotBeCancelled` for a finished job               |
-| `RetryJobUseCase`  | read-write  | `PENDING` (next attempt), or `JobCannotBeRetried` unless failed/cancelled |
+| `CancelJobUseCase` | read-write  | `CANCELLED` (CAS from `PENDING/DOWNLOADING/POST_PROCESSING`), or `JobCannotBeCancelled` with the actual status for a finished job — also when it finished between the read and the write |
+| `RetryJobUseCase`  | read-write  | `PENDING` with `attempt + 1` (CAS from `FAILED/CANCELLED`), or `JobCannotBeRetried` with the actual status |
 
 ### 8.5 JobRepository (port)
 
@@ -1560,13 +1574,23 @@ another workspace is `JobNotFound` — exactly like a missing one.
 interface JobRepository {
     suspend fun findById(id: JobId): Job?
     suspend fun findByWorkspace(workspaceId: WorkspaceId): List<Job>
-    suspend fun findByVideoId(videoId: VideoId): List<Job>
-    suspend fun findQueued(limit: Int = 10): List<Job>
-    suspend fun findByStatus(status: JobStatus, limit: Int = 50, offset: Int = 0): List<Job>
-    suspend fun save(job: Job): Job
-    suspend fun updateStatus(id: JobId, status: JobStatus): Either<DomainError, Job>
-    suspend fun updateError(id: JobId, error: JobError)
+    suspend fun findByVideoId(videoId: String, workspaceId: WorkspaceId): List<Job>
+    suspend fun findActive(): List<Job>
+    suspend fun save(job: Job): Either<DomainError, Job>
+
+    // Status writes — never unconditional:
+    suspend fun transition(id: JobId, expected: Set<JobStatus>, to: JobStatus,
+                           patch: JobStatusPatch = JobStatusPatch()): Either<DomainError, Job>
+    //   one UPDATE … WHERE id = ? AND status IN (expected); another status → JobStatusConflict(id, actual)
+    suspend fun claimNext(): Job?          // oldest PENDING → DOWNLOADING, FOR UPDATE SKIP LOCKED
+    suspend fun requeueInterrupted(): Int  // start-up: DOWNLOADING/POST_PROCESSING → PENDING, same attempt
 }
+
+// What a transition writes besides the status: phase/progress (no phase clears progress), an error
+// message, the video info (actual format), newAttempt (attempt + 1 in SQL — a retry).
+data class JobStatusPatch(val phase: JobPhase? = null, val progress: Int? = null,
+                          val errorMessage: String? = null, val videoInfo: VideoInfo? = null,
+                          val newAttempt: Boolean = false)
 ```
 
 ---

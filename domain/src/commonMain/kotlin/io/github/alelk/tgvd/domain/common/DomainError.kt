@@ -52,6 +52,16 @@ sealed interface DomainError {
         val currentStatus: JobStatus,
         override val message: String = "Cannot retry job in status $currentStatus",
     ) : DomainError
+
+    /**
+     * A compare-and-set of the job status found the job in [actualStatus], not in one of the expected
+     * statuses: someone else moved it first (a cancel, a retry, a shutdown); nothing was written.
+     */
+    data class JobStatusConflict(
+        val id: JobId,
+        val actualStatus: JobStatus,
+        override val message: String = "Job status changed concurrently, it is now $actualStatus",
+    ) : DomainError
     data class DownloadFailed(
         val jobId: JobId,
         val cause: String,

@@ -24,7 +24,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldNotContain
-import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlin.time.Clock
@@ -81,49 +80,15 @@ class JobRepositoryImplTest :
             reloaded shouldBe updated.copy(createdAt = saved.createdAt)
         }
 
-        test("updateStatus: phase/progress, started/finished stamps, retry increments attempt") {
-            val workspace = aWorkspace()
-            tx.inRwTransaction { workspaces.save(workspace) }.shouldBeRight()
-            val job = aJob(workspace.id, videoId = "job-status")
-            tx.inRwTransaction { repository.save(job) }.shouldBeRight()
-
-            val downloading =
-                tx.inRwTransaction {
-                    repository.updateStatus(job.id, JobStatus.DOWNLOADING, JobPhase.DOWNLOAD, 10)
-                }.shouldBeRight()
-            downloading.status shouldBe JobStatus.DOWNLOADING
-            downloading.phase shouldBe JobPhase.DOWNLOAD
-            downloading.progress shouldBe 10
-            downloading.startedAt.shouldNotBeNull()
-            downloading.finishedAt.shouldBeNull()
-
-            val failed =
-                tx.inRwTransaction {
-                    repository.updateStatus(job.id, JobStatus.FAILED, errorMessage = "boom")
-                }.shouldBeRight()
-            failed.status shouldBe JobStatus.FAILED
-            failed.phase.shouldBeNull()
-            failed.errorMessage shouldBe "boom"
-            failed.finishedAt.shouldNotBeNull()
-
-            val retried = tx.inRwTransaction { repository.updateStatus(job.id, JobStatus.PENDING) }.shouldBeRight()
-            retried.status shouldBe JobStatus.PENDING
-            retried.attempt shouldBe job.attempt + 1
-            retried.errorMessage.shouldBeNull()
-            retried.startedAt.shouldBeNull()
-            retried.finishedAt.shouldBeNull()
-        }
-
         test("queries: by workspace, by video id, active") {
             val workspace = aWorkspace()
             val other = aWorkspace()
             tx.inRwTransaction { workspaces.save(workspace) }.shouldBeRight()
             tx.inRwTransaction { workspaces.save(other) }.shouldBeRight()
             val pending = aJob(workspace.id, videoId = "job-q-1")
-            val done = aJob(workspace.id, videoId = "job-q-2")
+            val done = aJob(workspace.id, videoId = "job-q-2").copy(status = JobStatus.COMPLETED)
             val foreign = aJob(other.id, videoId = "job-q-3")
             listOf(pending, done, foreign).forEach { tx.inRwTransaction { repository.save(it) }.shouldBeRight() }
-            tx.inRwTransaction { repository.updateStatus(done.id, JobStatus.COMPLETED) }.shouldBeRight()
 
             tx.inRoTransaction { repository.findByWorkspace(workspace.id) }.map { it.id } shouldContainExactlyInAnyOrder
                 listOf(pending.id, done.id)

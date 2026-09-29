@@ -121,6 +121,28 @@ class JobUseCasesTest :
                 env.cancelJob(env.home.slug, alice, foreign.id) shouldBe DomainError.JobNotFound(foreign.id).left()
                 env.jobs.findById(foreign.id) shouldBe foreign
             }
+
+            test("cancels a downloading job without touching attempt") {
+                val env = Env()
+                val job = env.jobs.seed(aJob(env.home, status = JobStatus.DOWNLOADING))
+                val cancelled = env.cancelJob(env.home.slug, alice, job.id).shouldBeRight()
+                cancelled.status shouldBe JobStatus.CANCELLED
+                cancelled.attempt shouldBe job.attempt
+                cancelled.finishedAt shouldBe env.clock.now()
+            }
+
+            test("a job that completed after the read is JobCannotBeCancelled with the actual status, untouched") {
+                val env = Env()
+                val completed = env.jobs.seed(aJob(env.home, status = JobStatus.COMPLETED))
+                // The use-case reads a stale DOWNLOADING snapshot; the compare-and-set sees COMPLETED.
+                val stale = StaleReads(env.jobs, completed.copy(status = JobStatus.DOWNLOADING))
+                CancelJobUseCase(WorkspaceAccess(env.workspaces), stale, NoopTransactionRunner())(
+                    env.home.slug,
+                    alice,
+                    completed.id,
+                ) shouldBe DomainError.JobCannotBeCancelled(completed.id, JobStatus.COMPLETED).left()
+                env.jobs.findById(completed.id) shouldBe completed
+            }
         }
 
         context("RetryJobUseCase") {
@@ -145,5 +167,41 @@ class JobUseCasesTest :
                 env.retryJob(env.home.slug, alice, foreign.id) shouldBe DomainError.JobNotFound(foreign.id).left()
                 env.jobs.findById(foreign.id) shouldBe foreign
             }
+
+            test("a cancelled job is retried too; the error and the timestamps of the old attempt are cleared") {
+                val env = Env()
+                val job =
+                    env.jobs.seed(
+                        aJob(env.home, status = JobStatus.CANCELLED).copy(
+                            errorMessage = "old",
+                            startedAt = env.clock.now(),
+                            finishedAt = env.clock.now(),
+                        ),
+                    )
+                val retried = env.retryJob(env.home.slug, alice, job.id).shouldBeRight()
+                retried.status shouldBe JobStatus.PENDING
+                retried.attempt shouldBe job.attempt + 1
+                retried.errorMessage shouldBe null
+                retried.startedAt shouldBe null
+                retried.finishedAt shouldBe null
+            }
+
+            test("a job retried concurrently is JobCannotBeRetried with the actual status, attempt counted once") {
+                val env = Env()
+                val retried = env.jobs.seed(aJob(env.home, status = JobStatus.PENDING).copy(attempt = 1))
+                // The use-case reads a stale FAILED snapshot; the compare-and-set sees PENDING.
+                val stale = StaleReads(env.jobs, retried.copy(status = JobStatus.FAILED))
+                RetryJobUseCase(WorkspaceAccess(env.workspaces), stale, NoopTransactionRunner())(
+                    env.home.slug,
+                    alice,
+                    retried.id,
+                ) shouldBe DomainError.JobCannotBeRetried(retried.id, JobStatus.PENDING).left()
+                env.jobs.findById(retried.id) shouldBe retried
+            }
         }
     })
+
+/** Answers [findById] with a stale [snapshot] (the read of a use-case racing another writer); writes go to [jobs]. */
+private class StaleReads(private val jobs: FakeJobRepository, private val snapshot: Job) : JobRepository by jobs {
+    override suspend fun findById(id: JobId): Job? = if (id == snapshot.id) snapshot else jobs.findById(id)
+}

@@ -11,8 +11,11 @@ import io.github.alelk.tgvd.domain.tx.TransactionRunner
 import io.github.alelk.tgvd.domain.workspace.WorkspaceAccess
 
 /**
- * Puts a failed or cancelled job of the workspace [workspaceSlug] back to pending.
- * A job of another workspace is [DomainError.JobNotFound].
+ * Puts a failed or cancelled job of the workspace [workspaceSlug] back to pending as a new attempt
+ * (`attempt + 1`). A job of another workspace is [DomainError.JobNotFound].
+ *
+ * The write is a compare-and-set from the retryable statuses: a job that was retried concurrently is
+ * [DomainError.JobCannotBeRetried] with its actual status, and it is not touched.
  */
 class RetryJobUseCase(
     private val workspaceAccess: WorkspaceAccess,
@@ -28,7 +31,19 @@ class RetryJobUseCase(
             val workspace = workspaceAccess.requireMember(workspaceSlug, actor).bind()
             val job = jobRepository.findInWorkspace(jobId, workspace.id).bind()
             ensure(job.status.isRetryable) { DomainError.JobCannotBeRetried(jobId, job.status) }
-            jobRepository.updateStatus(jobId, JobStatus.PENDING).bind()
+            jobRepository
+                .transition(
+                    jobId,
+                    expected = JobStatus.entries.filterTo(mutableSetOf()) { it.isRetryable },
+                    to = JobStatus.PENDING,
+                    patch = JobStatusPatch(newAttempt = true),
+                ).mapLeft { error ->
+                    if (error is DomainError.JobStatusConflict) {
+                        DomainError.JobCannotBeRetried(jobId, error.actualStatus)
+                    } else {
+                        error
+                    }
+                }.bind()
         }
     }
 }
