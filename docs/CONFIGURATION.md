@@ -1,3 +1,10 @@
+---
+status: stable
+owner: Alex (alelk)
+updated: 2026-09-29
+related: [ DEPLOYMENT.md, SECURITY.md, ../server/app/src/main/resources/application.yaml ]
+---
+
 # Configuration
 
 > **Purpose**: All application configuration parameters.
@@ -24,12 +31,13 @@ server:
 
 # Telegram
 telegram:
-  botToken: "123456:ABC-DEF..."        # REQUIRED, via env
-  allowedUserIds:                       # by Telegram user ID (numeric)
-    - "123456789"
-  allowedUsernames:                     # by @username (more convenient — users know their own handle)
-    - "my_username"
-  devMode: false                        # NEVER true in production
+  botToken: "123456:ABC-DEF..."        # REQUIRED unless devMode (TELEGRAM_BOT_TOKEN) — see §7
+  allowedUserIds:                       # by Telegram user ID (numeric); TELEGRAM_ALLOWED_USER_IDS
+    - "123456789"                       # a comma-separated string works too: "123456789, 987654321"
+  allowedUsernames:                     # by @username (more convenient — users know their own handle);
+    - "my_username"                     # TELEGRAM_ALLOWED_USERNAMES; '@' and case are ignored
+                                        # both lists empty => ANY Telegram user (a WARN at start)
+  devMode: false                        # NEVER true in production (a WARN at start when true)
   miniAppAutoReply:
     enabled: false                       # true => bot replies to messages containing links
     botUsername: "my_downloader_bot"   # without @
@@ -98,11 +106,11 @@ ffmpeg:
 # Jobs
 jobs:
   maxConcurrentDownloads: 2
-  maxAttempts: 3
+  maxAttempts: 3                        # read, NOT used (no automatic retries)
   pollIntervalMs: 5000
-  retryDelayMs: 30000
+  retryDelayMs: 30000                   # read, NOT used (no automatic retries)
 
-# Logging
+# Logging — read, NOT used: logging is configured by logback.xml (text lines with the correlation id)
 logging:
   level: "INFO"
   format: "JSON"                        # JSON | TEXT
@@ -247,33 +255,48 @@ data class ProxyConfig(
 
 ## 4. Loading Configuration
 
+`server/app/.../config/ConfigLoader.kt`. Sources, first wins:
+
+1. environment variables (Hoplite env source: `A_B` → `a.b`, e.g. `SERVER_PORT` → `server.port`);
+2. the external file `APP_CONFIG` (default `/app/config/application.yaml`, optional — in Docker it is
+   the compose `configs.server-config`);
+3. `application-<APP_PROFILE>.yaml` on the classpath (default profile `local`, optional);
+4. `application.yaml` on the classpath — committed defaults.
+
+`${VAR:-default}` placeholders inside the YAML are resolved from the process environment. This is how
+`TELEGRAM_*` variables reach camelCase keys (`telegram.botToken`, `telegram.allowedUserIds`): the env
+source alone would map `TELEGRAM_BOT_TOKEN` to `telegram.bot.token`, which is no key.
+
 ```kotlin
-fun loadConfig(): AppConfig {
-    return ConfigLoaderBuilder.default()
+fun loadConfig(env: Map<String, String> = System.getenv()): AppConfig =
+    ConfigLoaderBuilder.default()
+        .addPropertySource(EnvironmentVariablesPropertySource(true, true, { env }))
+        .addFileSource(env["APP_CONFIG"] ?: "/app/config/application.yaml", optional = true)
+        .addResourceSource("/application-${env["APP_PROFILE"] ?: "local"}.yaml", optional = true)
         .addResourceSource("/application.yaml")
-        .addResourceOrFileSource("/application-${getProfile()}.yaml", optional = true)
-        .addEnvironmentSource()
         .build()
         .loadConfigOrThrow<AppConfig>()
-}
-
-private fun getProfile(): String {
-    return System.getenv("APP_PROFILE") ?: "local"
-}
+        .let { it.copy(telegram = it.telegram.withNormalizedAllowLists()) }
 ```
+
+**Allow-lists from the environment.** `allowedUserIds: "${TELEGRAM_ALLOWED_USER_IDS:-}"` (the same for
+usernames) in `application.yaml` and in the compose inline config. The value is one comma-separated
+string; after binding every entry is trimmed and blank entries are dropped, so an unset or empty
+variable is an **empty** list (never `[""]`, which would lock everybody out with `403`).
 
 ---
 
 ## 5. Environment Variables
 
-Hoplite automatically maps environment variables:
+Environment variables the server reads (see §4 for how each one reaches its key):
 
 | Env Variable                                    | Config Path                                       |
 |-------------------------------------------------|---------------------------------------------------|
 | `SERVER_PORT`                                   | `server.port`                                     |
-| `TELEGRAM_BOT_TOKEN`                            | `telegram.botToken`                               |
-| `TELEGRAM_ALLOWED_USER_IDS`                     | `telegram.allowedUserIds` (comma-separated)       |
-| `TELEGRAM_ALLOWED_USERNAMES`                    | `telegram.allowedUsernames` (comma-separated)     |
+| `TELEGRAM_BOT_TOKEN`                            | `telegram.botToken` (via `${…}` in the YAML)      |
+| `TELEGRAM_ALLOWED_USER_IDS`                     | `telegram.allowedUserIds` (comma-separated, `${…}`) |
+| `TELEGRAM_ALLOWED_USERNAMES`                    | `telegram.allowedUsernames` (comma-separated, `${…}`) |
+| `TELEGRAM_DEV_MODE`                             | `telegram.devMode` (compose inline config only)   |
 | `DB_URL`                                        | `db.url`                                          |
 | `DB_USER`                                       | `db.user`                                         |
 | `DB_PASSWORD`                                   | `db.password`                                     |
@@ -342,68 +365,50 @@ logging:
 
 ---
 
-## 7. Configuration Validation
+## 7. Configuration Validation (fail-fast)
 
-```kotlin
-fun AppConfig.validate() {
-    require(telegram.botToken.isNotBlank()) { "telegram.botToken is required" }
-    require(telegram.allowedUserIds.isNotEmpty()) { "telegram.allowedUserIds cannot be empty" }
-    require(storage.baseDirectories.isNotEmpty()) { "storage.baseDirectories cannot be empty" }
-    
-    if (!telegram.devMode) {
-        require(!telegram.botToken.startsWith("test")) { 
-            "Invalid botToken in production mode" 
-        }
-    }
-    
-    // Verify that base directories exist and are accessible
-    storage.baseDirectories.forEach { dir ->
-        val path = Path.of(dir)
-        require(Files.exists(path) && Files.isDirectory(path)) {
-            "storage.baseDirectories: $dir does not exist or is not a directory"
-        }
-    }
-    
-    // LLM: if provider is set, apiKey is required
-    if (llm.provider != LlmConfig.LlmProvider.NONE) {
-        require(!llm.apiKey.isNullOrBlank()) { "llm.apiKey is required when provider is ${llm.provider}" }
-    }
-    
-    // Proxy: if enabled, host and port are required
-    if (proxy.enabled) {
-        require(proxy.host.isNotBlank()) { "proxy.host is required when proxy is enabled" }
-        require(proxy.port in 1..65535) { "proxy.port must be 1-65535" }
-    }
-}
-```
+`server/app/.../config/ConfigValidation.kt`: `validateConfig(config)` returns every problem;
+`requireValidConfig` throws `InvalidConfigException` with **all** of them in one message. It runs in
+`main()` right after `loadConfig()` and again at the top of `Application.module()`.
+
+| Rule | Message names |
+|------|---------------|
+| `telegram.devMode = false` and `telegram.botToken` is empty or a development placeholder (`test-token`, `dev-token`) | `TELEGRAM_BOT_TOKEN` |
+
+The default in `application.yaml` is `botToken: "${TELEGRAM_BOT_TOKEN:-}"` — without the variable a
+non-dev server refuses to start. The compose inline config keeps `dev-token` with `devMode` defaulting
+to `true` (local-dev compose).
+
+Logged at start (not errors):
+
+- `telegram.devMode = true` → `WARN`: `X-Telegram-Init-Data: dev` is accepted without a signature.
+- both allow-lists empty → `WARN`: access is open to any Telegram user; otherwise `INFO` with the
+  number of ids/usernames (never the values).
+
+### 7.1 Keys that are read but not used
+
+Accepted for compatibility (G1: every key keeps its meaning and default), with no effect today:
+
+- `jobs.maxAttempts`, `jobs.retryDelayMs` — there are no automatic retries (a failed job is retried
+  by the user).
+- `logging.level`, `logging.format` — logging is configured by `logback.xml`.
 
 ---
 
 ## 8. Application Wiring
 
-```kotlin
-fun main() {
-    val config = loadConfig()
-    config.validate()
-    
-    embeddedServer(Netty, port = config.server.port, host = config.server.host) {
-        install(Koin) {
-            modules(
-                module {
-                    single { config }
-                    single { config.telegram }
-                    single { config.db }
-                    // ...
-                }
-            )
-        }
-        
-        configureFlyway()
-        configureSerialization()
-        configureRouting()
-    }.start(wait = true)
-}
-```
+`main()`: `loadConfig()` → `requireValidConfig()` → `embeddedServer { module(config) }`. Any exception
+before the server listens is logged and the process exits with code `1`.
+
+`Application.module(config, eagerDatabase, startBackgroundServices, overrides)`:
+
+1. `requireValidConfig(config)`, start-up `WARN`/`INFO` about Telegram access;
+2. `eagerDatabase = true`: Hikari pool → Flyway `migrate` → Exposed `Database` — **before** Koin and
+   routing; a failed migration throws and no route is installed (the pool is closed);
+3. Koin with the opened database; plugins ContentNegotiation → DefaultHeaders → CallId → CallLogging →
+   CORS → StatusPages → Resources; routing (`/health*` public, the API behind `TelegramAuthPlugin`);
+4. `startBackgroundServices = true`: yt-dlp bootstrap + `JobProcessor`, the auto-reply bot — subscribed
+   to this application's lifecycle only; the pool is closed on `ApplicationStopped`.
 
 ---
 

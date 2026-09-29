@@ -3,19 +3,19 @@ package io.github.alelk.tgvd.server.di
 import io.github.alelk.tgvd.domain.channel.ChannelRepository
 import io.github.alelk.tgvd.domain.job.JobOutputRepository
 import io.github.alelk.tgvd.domain.job.JobRepository
-import io.github.alelk.tgvd.domain.video.VideoDownloader
 import io.github.alelk.tgvd.domain.rule.RuleRepository
+import io.github.alelk.tgvd.domain.system.ReadinessProbe
 import io.github.alelk.tgvd.domain.system.YtDlpService
+import io.github.alelk.tgvd.domain.tx.TransactionRunner
+import io.github.alelk.tgvd.domain.video.VideoDownloader
 import io.github.alelk.tgvd.domain.video.VideoInfoCache
 import io.github.alelk.tgvd.domain.video.VideoInfoExtractor
 import io.github.alelk.tgvd.domain.workspace.WorkspaceRepository
-import io.github.alelk.tgvd.server.infra.config.DbConfig
 import io.github.alelk.tgvd.server.infra.config.FfmpegConfig
 import io.github.alelk.tgvd.server.infra.config.JobsConfig
 import io.github.alelk.tgvd.server.infra.config.ProxyConfig
 import io.github.alelk.tgvd.server.infra.config.YtDlpConfig
-import io.github.alelk.tgvd.domain.tx.TransactionRunner
-import io.github.alelk.tgvd.server.infra.db.DatabaseFactory
+import io.github.alelk.tgvd.server.infra.db.DatabaseReadinessProbe
 import io.github.alelk.tgvd.server.infra.db.ExposedTransactionRunner
 import io.github.alelk.tgvd.server.infra.db.repository.ChannelRepositoryImpl
 import io.github.alelk.tgvd.server.infra.db.repository.JobOutputRepositoryImpl
@@ -38,10 +38,11 @@ import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.dsl.module
 
-internal fun infraModule() = module {
-    // Database
-    single { DatabaseFactory(get<DbConfig>()) }
-    single { get<DatabaseFactory>().create() }
+internal fun infraModule(database: Database?) = module {
+    // Database: opened (pool + Flyway) by the application before Koin starts; absent when the server
+    // is booted without a database (API-surface test) — then only the readiness probe is usable.
+    if (database != null) single { database }
+    single<ReadinessProbe> { DatabaseReadinessProbe(database) }
     single<TransactionRunner> { ExposedTransactionRunner(db = get<Database>()) }
 
     // Mutable settings holder (initial values from config or DB, overridable via API; persisted across restarts)
@@ -91,4 +92,3 @@ internal fun infraModule() = module {
         )
     }
 }
-

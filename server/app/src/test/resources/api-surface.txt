@@ -13,6 +13,8 @@ GET /api/v1/workspaces/{workspaceSlug}/members
 GET /api/v1/workspaces/{workspaceSlug}/rules
 GET /api/v1/workspaces/{workspaceSlug}/rules/{id}
 GET /health
+GET /health/live
+GET /health/ready
 POST /api/v1/system/yt-dlp/update
 POST /api/v1/workspaces
 POST /api/v1/workspaces/{workspaceSlug}/channels

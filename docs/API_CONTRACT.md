@@ -1,3 +1,10 @@
+---
+status: stable
+owner: Alex (alelk)
+updated: 2026-09-29
+related: [ ARCHITECTURE.md, DEPLOYMENT.md ]
+---
+
 # API Contract
 
 > **Purpose**: Full HTTP API specification — endpoints, DTOs, sealed class serialization, error format.
@@ -91,7 +98,7 @@ data class ApiErrorDto(
 
 | Code                      | HTTP Status | Description                                          |
 |---------------------------|-------------|------------------------------------------------------|
-| `VALIDATION_ERROR`        | 400         | Input validation error                               |
+| `VALIDATION_ERROR`        | 400         | Input validation error; also a malformed request — a body that is not valid JSON for the DTO, a path/query parameter that does not convert (G10) |
 | `INVALID_URL`             | 400         | Invalid video URL                                    |
 | `UNAUTHORIZED`            | 401         | Invalid initData                                     |
 | `FORBIDDEN`               | 403         | User not in allowlist                                |
@@ -341,6 +348,14 @@ enum class MetadataSourceDto {
 ---
 
 ## 6. Endpoints
+
+### 6.0 Health (public, no `X-Telegram-Init-Data`)
+
+| Method + path      | Answer                                                            |
+|--------------------|-------------------------------------------------------------------|
+| `GET /health`      | `200 {"status":"ok"}`                                             |
+| `GET /health/live` | `200 {"status":"live"}`                                           |
+| `GET /health/ready`| `200 {"status":"ready"}` or `503 {"status":"not ready"}` (database) |
 
 ### 6.1 POST /api/v1/workspaces/{slug}/preview
 

@@ -57,9 +57,10 @@ fun testConfig(db: DbConfig): AppConfig = AppConfig(
 /**
  * The whole server (`module()`) over a fresh per-spec PostgreSQL database, background services off,
  * yt-dlp adapters replaced by fakes. Started in `beforeSpec`, stopped in `afterSpec`; one instance per
- * spec (Koin is global in the Ktor plugin, so two must never run at once).
+ * spec (Koin is global in the Ktor plugin, so two must never run at once). [configure] adjusts the
+ * [testConfig] of the spec (e.g. an allow-list).
  */
-class RouteTestApp {
+class RouteTestApp(private val configure: (AppConfig) -> AppConfig = { it }) {
     val extractor = FakeVideoInfoExtractor()
     val ytDlp = FakeYtDlpService()
     lateinit var dbConfig: DbConfig
@@ -79,7 +80,11 @@ class RouteTestApp {
         app =
             TestApplication {
                 application {
-                    serverModule(testConfig(dbConfig), startBackgroundServices = false, overrides = listOf(fakes))
+                    serverModule(
+                        configure(testConfig(dbConfig)),
+                        startBackgroundServices = false,
+                        overrides = listOf(fakes),
+                    )
                 }
             }
         app.start()
@@ -97,8 +102,8 @@ class RouteTestApp {
 }
 
 /** Registers a [RouteTestApp] on the spec's lifecycle. */
-fun FunSpec.routeTestApp(): RouteTestApp {
-    val app = RouteTestApp()
+fun FunSpec.routeTestApp(configure: (AppConfig) -> AppConfig = { it }): RouteTestApp {
+    val app = RouteTestApp(configure)
     beforeSpec { app.start() }
     afterSpec { app.stop() }
     return app

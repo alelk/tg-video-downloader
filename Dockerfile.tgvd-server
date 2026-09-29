@@ -98,7 +98,7 @@ ENV JAVA_OPTS="\
   -XX:+UseStringDeduplication \
   -Djava.security.egd=file:/dev/./urandom"
 
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
 
 # ---- Stage 3: Intel QSV/VAAPI variant (default) ----
 FROM base AS intel

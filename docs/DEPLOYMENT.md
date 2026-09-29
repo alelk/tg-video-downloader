@@ -1,3 +1,10 @@
+---
+status: stable
+owner: Alex (alelk)
+updated: 2026-09-29
+related: [ CONFIGURATION.md, SECURITY.md, ../docker-compose.yaml ]
+---
+
 # Deployment
 
 > **Purpose**: Docker, docker-compose, CI/CD, and production checklist.
@@ -161,10 +168,22 @@ volumes:
 
 ### 2.3 .env.example
 
+> **`TELEGRAM_DEV_MODE=true` is the default** in `docker-compose.yaml` and `.env.example` (the compose
+> file is for local development). With dev mode on, the header `X-Telegram-Init-Data: dev` is accepted
+> **without a signature** — anyone who can reach the server is the dev user. For any installation
+> reachable from outside set `TELEGRAM_DEV_MODE=false` and a real `TELEGRAM_BOT_TOKEN`. The server
+> logs a `WARN` at start while dev mode is on.
+
+`TELEGRAM_ALLOWED_USER_IDS` / `TELEGRAM_ALLOWED_USERNAMES` (comma-separated) reach the config through
+`application.yaml` and the compose inline config. Set → only those users get in (others: `403`);
+empty → any Telegram user (a `WARN` at start). Before this was fixed (stage 01.5) the variables did
+not reach the config at all, so an installation that sets them now **narrows** its access.
+
 ```bash
 # Telegram
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
 TELEGRAM_ALLOWED_USER_IDS=123456789,987654321
+TELEGRAM_ALLOWED_USERNAMES=my_username
 
 # Database
 DB_PASSWORD=your-secure-password
@@ -403,39 +422,33 @@ server {
 
 ## 6. Monitoring
 
-### 6.1 Health Endpoint
+### 6.1 Health Endpoints
 
-```kotlin
-fun Application.configureHealth() {
-    routing {
-        get("/health") {
-            // Check DB
-            val dbHealthy = try {
-                database.isConnected()
-            } catch (e: Exception) {
-                false
-            }
-            
-            if (dbHealthy) {
-                call.respond(HttpStatusCode.OK, mapOf("status" to "healthy"))
-            } else {
-                call.respond(HttpStatusCode.ServiceUnavailable, mapOf(
-                    "status" to "unhealthy",
-                    "db" to "disconnected"
-                ))
-            }
-        }
-        
-        get("/ready") {
-            call.respond(HttpStatusCode.OK, mapOf("status" to "ready"))
-        }
-    }
-}
-```
+Public (no Telegram auth), `server/transport/.../route/HealthRoutes.kt`:
 
-### 6.2 Logs
+| Path            | Answer                                                       | Use                                   |
+|-----------------|--------------------------------------------------------------|---------------------------------------|
+| `/health`       | `200 {"status":"ok"}` while the process answers (unchanged)  | Docker `HEALTHCHECK` in the images    |
+| `/health/live`  | `200 {"status":"live"}`                                      | liveness probe                        |
+| `/health/ready` | `200 {"status":"ready"}`; `503 {"status":"not ready"}` when `SELECT 1` fails or takes > 3 s | readiness probe, monitoring |
 
-Production logs in JSON format:
+### 6.2 Start-up and shutdown
+
+- **Fail-fast.** The server validates its config (e.g. no `TELEGRAM_BOT_TOKEN` with dev mode off) and
+  runs the Flyway migrations **before** it accepts HTTP. An invalid config, an unreachable database or
+  a failed migration ends the process with exit code `1` and the reason in the log — with
+  `restart: unless-stopped` the container restarts until the cause is fixed.
+- **Graceful shutdown.** All three server Dockerfiles use
+  `ENTRYPOINT ["sh","-c","exec java $JAVA_OPTS -jar /app/app.jar"]`: `exec` makes the JVM PID 1, so
+  `docker stop` (SIGTERM) reaches it and Ktor's shutdown hooks run.
+- **Exactly one server instance** per database. The job poller and the Telegram auto-reply bot (long
+  polling) are singletons; two instances would process the same jobs and conflict on `getUpdates`.
+
+### 6.3 Logs
+
+Every line carries the request's correlation id (`%X{correlationId}` in `logback.xml`; the same id is
+in the `X-Correlation-Id` response header and in every error body). `logging.level` / `logging.format`
+in the config are read but not used. Production logs in JSON format (example):
 
 ```yaml
 # logback.xml
@@ -484,7 +497,7 @@ find $BACKUP_DIR -name "*.sql.gz" -mtime +7 -delete
 - [ ] `telegram.devMode = false`
 - [ ] `telegram.botToken` via environment variable
 - [ ] `db.password` via environment variable
-- [ ] `telegram.allowedUserIds` configured
+- [ ] `TELEGRAM_ALLOWED_USER_IDS` and/or `TELEGRAM_ALLOWED_USERNAMES` set (no "open to any Telegram user" `WARN` in the log)
 - [ ] HTTPS via reverse proxy
 - [ ] Logs in JSON format
 - [ ] Health check configured
@@ -492,7 +505,7 @@ find $BACKUP_DIR -name "*.sql.gz" -mtime +7 -delete
 
 ### 8.2 After Deployment
 
-- [ ] Health endpoint returns 200
+- [ ] `/health/ready` returns 200
 - [ ] Logs show no errors
 - [ ] Mini App opens in Telegram
 - [ ] Preview works correctly

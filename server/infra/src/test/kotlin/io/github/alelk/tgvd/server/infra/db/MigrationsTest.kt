@@ -10,7 +10,7 @@ import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationState
 
 /**
- * An empty database brought up by the production start path ([DatabaseFactory.create]) ends up with
+ * An empty database brought up by the production start path ([DatabaseFactory.open]) ends up with
  * every file from `db/migration` applied, and Flyway `validate()` agrees with the checksums on disk.
  *
  * The test does not pin the exact count, so a new `V9…` only has to apply cleanly. It pins the
@@ -43,7 +43,7 @@ class MigrationsTest :
 
         test("running the start path again on a migrated database is a no-op") {
             val db = PostgresTestContainer.newMigratedDatabase()
-            DatabaseFactory(db.config).create()
+            DatabaseFactory(db.config).open().close()
 
             val info =
                 Flyway

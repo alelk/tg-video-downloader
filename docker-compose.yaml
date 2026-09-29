@@ -125,8 +125,8 @@ configs:
 
       telegram:
         botToken: "$${TELEGRAM_BOT_TOKEN:-dev-token}"
-        allowedUserIds: []
-        allowedUsernames: []
+        allowedUserIds: "$${TELEGRAM_ALLOWED_USER_IDS:-}"
+        allowedUsernames: "$${TELEGRAM_ALLOWED_USERNAMES:-}"
         devMode: $${TELEGRAM_DEV_MODE:-true}
         miniAppAutoReply:
           enabled: $${TELEGRAM_BOT_MINI_APP_ENABLED:-false}

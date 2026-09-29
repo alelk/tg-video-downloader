@@ -127,8 +127,9 @@ and frozen JSONB fixtures pin the wire and the stored data (fix the code, never 
 ## 10. Common traps
 
 - `.claude/skills/` is a git-ignored copy: never edit it; exceptions go to ADR-009.
-- Hoplite env variables nest on `_` in this version of the config loader, so
-  `TELEGRAM_ALLOWED_USER_IDS` does not reach `telegram.allowedUserIds` today (fixed in 01.5).
+- Hoplite's env source nests on `_` (`TELEGRAM_BOT_TOKEN` → `telegram.bot.token`, no such key): `TELEGRAM_*`
+  variables reach camelCase keys only through `${VAR:-}` placeholders in `application.yaml` and the
+  compose inline config. A new variable needs such a placeholder in both places.
 - `docker-compose.yaml` and `.env.example` default `TELEGRAM_DEV_MODE=true` (local-dev compose).
 - Known issues and their status: [`project-status.md`](project-status.md#known-issues).
 

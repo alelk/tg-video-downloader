@@ -51,12 +51,23 @@ object PostgresTestContainer {
     }
 
     /**
-     * Creates a new database and runs the production start path on it ([DatabaseFactory.create]:
+     * Creates a new database and runs the production start path on it ([DatabaseFactory.open]:
      * Hikari pool + Flyway migrations).
      */
     fun newMigratedDatabase(): MigratedTestDatabase {
         val config = newDatabaseConfig()
-        return MigratedTestDatabase(config, DatabaseFactory(config).create())
+        return MigratedTestDatabase(config, DatabaseFactory(config).open().database)
+    }
+
+    /**
+     * Drops the database of [config], terminating its open connections — the database becomes
+     * unreachable for a pool that still points to it.
+     */
+    fun dropDatabase(config: DbConfig) {
+        val name = config.url.substringAfterLast('/')
+        adminConnection().use { connection ->
+            connection.createStatement().use { it.execute("DROP DATABASE $name WITH (FORCE)") }
+        }
     }
 
     /** A plain JDBC connection to the database of [config] — for raw SQL in tests. */

@@ -19,7 +19,6 @@
     <ID>MaxLineLength:previewRoutes.kt$val channel = channelRepository.findByChannelId(ws.id, preview.videoInfo.channelId, preview.videoInfo.extractor)</ID>
     <ID>MaxLineLength:systemRoutes.kt$call.respond(HttpStatusCode.Forbidden, apiError("UPDATE_DISABLED", "Update is disabled by administrator", call.correlationId))</ID>
     <ID>NewLineAtEndOfFile:apiError.kt$io.github.alelk.tgvd.server.transport.error.apiError.kt</ID>
-    <ID>NewLineAtEndOfFile:configureDomainErrorHandling.kt$io.github.alelk.tgvd.server.transport.error.configureDomainErrorHandling.kt</ID>
     <ID>NewLineAtEndOfFile:correlationId.kt$io.github.alelk.tgvd.server.transport.util.correlationId.kt</ID>
     <ID>ReturnCount:TelegramAuthValidator.kt$TelegramAuthValidator$fun validate(initData: String): Either&lt;AuthError, TelegramUser></ID>
     <ID>SwallowedException:TelegramAuthValidator.kt$TelegramAuthValidator$e: Exception</ID>
@@ -35,10 +34,6 @@
     <ID>WildcardImport:channelRoutes.kt$import io.ktor.server.request.*</ID>
     <ID>WildcardImport:channelRoutes.kt$import io.ktor.server.resources.*</ID>
     <ID>WildcardImport:channelRoutes.kt$import io.ktor.server.routing.*</ID>
-    <ID>WildcardImport:configureDomainErrorHandling.kt$import io.ktor.http.*</ID>
-    <ID>WildcardImport:configureDomainErrorHandling.kt$import io.ktor.server.plugins.callid.*</ID>
-    <ID>WildcardImport:configureDomainErrorHandling.kt$import io.ktor.server.plugins.statuspages.*</ID>
-    <ID>WildcardImport:configureDomainErrorHandling.kt$import io.ktor.server.response.*</ID>
     <ID>WildcardImport:jobRoutes.kt$import io.github.alelk.tgvd.domain.job.*</ID>
     <ID>WildcardImport:jobRoutes.kt$import io.ktor.http.*</ID>
     <ID>WildcardImport:jobRoutes.kt$import io.ktor.server.request.*</ID>

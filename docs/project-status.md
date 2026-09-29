@@ -32,6 +32,11 @@ anything a user, client or deployed installation sees (except G10 and Fork 5,
   overrides)`; Testcontainers safety net (`postgres:16-alpine`, Docker now required by `./gradlew build`):
   migrations, repository round-trips, 52 frozen JSONB fixtures, `api-surface.txt` (27 routes), 17 golden
   JSON files, 27 route tests; 187 new tests (465 JVM tests in total).
+- 2026-09-29 — 01.5 done: fail-fast start (`validateConfig`, Flyway before Koin/routing, exit 1),
+  `/health/live` + `/health/ready` (`SELECT 1`), lifecycle handlers guarded per application instance,
+  `exec java` in the three server Dockerfiles, correlation id in log lines; **fix (Fork 5):**
+  `TELEGRAM_ALLOWED_USER_IDS`/`TELEGRAM_ALLOWED_USERNAMES` now reach the config (installations that set
+  them narrow access — release note); G10: malformed body/parameter → `400 VALIDATION_ERROR`; 499 JVM tests.
 
 ## Known issues
 
@@ -45,10 +50,6 @@ Deliberately not fixed in Step 01 unless the stage is named.
   access risk.
 - `VideoInfoCacheImpl.evictExpired` is never called — expired cache rows are not cleaned up.
 - `TELEGRAM_DEV_MODE=true` is the default in `docker-compose.yaml` and `.env.example` (local-dev
-  compose). Not changed; a startup `WARN` and a `DEPLOYMENT.md` warning come in 01.5.
-- `TELEGRAM_ALLOWED_USER_IDS` / `TELEGRAM_ALLOWED_USERNAMES` never reach the config (Hoplite splits
-  env names on `_`; `application.yaml` and the compose inline config hold literal `[]`). An
-  installation that sets them only in `.env` is open to every Telegram user. **Closed in 01.5**
-  (Fork 5, `fix:`).
+  compose). Not changed; since 01.5 the server logs a `WARN` at start and `DEPLOYMENT.md` warns.
 - `jobs.maxAttempts`, `jobs.retryDelayMs`, `logging.level`, `logging.format` are read from the
-  config but not used anywhere.
+  config but not used anywhere (documented as such in `CONFIGURATION.md` §7.1 since 01.5).

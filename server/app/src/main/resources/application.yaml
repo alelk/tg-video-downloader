@@ -4,9 +4,10 @@ server:
   baseUrl: "http://localhost:8080"
 
 telegram:
-  botToken: "${TELEGRAM_BOT_TOKEN:-test-token}"
-  allowedUserIds: []
-  allowedUsernames: []
+  botToken: "${TELEGRAM_BOT_TOKEN:-}" # required unless devMode (the server refuses to start without it)
+  # Comma-separated; empty = any Telegram user (a WARN is logged at start)
+  allowedUserIds: "${TELEGRAM_ALLOWED_USER_IDS:-}"
+  allowedUsernames: "${TELEGRAM_ALLOWED_USERNAMES:-}"
   devMode: false
   miniAppAutoReply:
     enabled: ${TELEGRAM_BOT_MINI_APP_ENABLED:-false}
@@ -61,10 +62,11 @@ postProcess:
 
 jobs:
   maxConcurrentDownloads: 2
-  maxAttempts: 3
+  maxAttempts: 3 # read, not used: there are no automatic retries
   pollIntervalMs: 5000
-  retryDelayMs: 30000
+  retryDelayMs: 30000 # read, not used: there are no automatic retries
 
+# read, not used: logging is configured by logback.xml
 logging:
   level: "INFO"
   format: "TEXT"
