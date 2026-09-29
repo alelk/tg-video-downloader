@@ -1,0 +1,11 @@
+{
+  "type": "music-video",
+  "artistOverride": "Rick Astley",
+  "artistPattern": "^(.+?) -",
+  "titleOverride": "Never Gonna Give You Up",
+  "titlePattern": "- (.+)$",
+  "defaultTags": [
+    "music",
+    "80s"
+  ]
+}

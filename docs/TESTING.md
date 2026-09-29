@@ -89,17 +89,32 @@ api/mapping/src/commonTest/kotlin/
 ### JVM Modules (server:*)
 
 ```
-server/infra/src/test/kotlin/.../server/infra/process/
-├── AudioTrackSelectorTest.kt
-├── SubtitleSelectorTest.kt
-└── YtDlpRunnerTest.kt
+server/infra/src/testFixtures/kotlin/.../server/infra/testing/
+└── PostgresTestContainer.kt        # one postgres:16-alpine per test JVM; a fresh database per spec
 
-server/app/src/test/kotlin/.../server/telegram/
-└── MiniAppDeepLinkTest.kt
+server/infra/src/test/kotlin/.../server/infra/
+├── db/MigrationsTest.kt            # empty DB → DatabaseFactory start path → Flyway validate(), ≥ V1…V8
+├── db/repository/*ImplTest.kt      # round-trips of every repository under ExposedTransactionRunner
+├── db/jsonb/JsonbFixturesTest.kt   # frozen JSONB fixtures (src/test/resources/jsonb-fixtures/)
+├── service/SystemSettingsHolderTest.kt
+└── process/…                       # AudioTrackSelector, SubtitleSelector, YtDlpRunner
+
+server/app/src/test/kotlin/.../server/
+├── ApiSurfaceTest.kt               # live routing tree == src/test/resources/api-surface.txt
+├── route/*RoutesTest.kt            # module() + Testcontainers + fakes, devMode (X-Telegram-Init-Data: dev)
+├── fakes/Fakes.kt                  # VideoInfoExtractor, VideoDownloader, YtDlpService
+└── telegram/MiniAppDeepLinkTest.kt
+
+api/contract/src/jvmTest/kotlin/.../api/contract/golden/
+└── GoldenJsonTest.kt               # golden wire JSON (src/jvmTest/resources/golden/), both directions
 ```
 
-> There are no repository, route or `TelegramAuthValidator` tests yet; the examples in §3.3 and §5
-> show the intended shape. They are added in Step 01 (stage 01.4).
+> **Docker is required** for `./gradlew build` (Testcontainers). The safety net of Step 01 (stage 01.4):
+> `api-surface.txt`, golden JSON and JSONB fixtures pin what clients and deployed databases already
+> hold — if one of them fails, fix the code, not the snapshot. Only additions are allowed (a new route
+> line, a new fixture file); JSONB fixtures and golden files are never regenerated.
+> Route tests build the server with `module(config, startBackgroundServices = false, overrides = fakes)`;
+> a second Telegram user is authenticated with a correctly signed `initData` (`signedInitData`).
 
 ---
 

@@ -119,8 +119,9 @@ command.
 ## 9. Testing
 
 Kotest `FunSpec`. Domain, contract and `features` tests live in `commonTest` (JVM runner via
-JUnit 5); fakes, not MockK, in `commonTest`. Server tests in `src/test` (JVM). Route and repository tests do
-not exist yet — they arrive in Step 01 (stage 01.4). Strategy: [`TESTING.md`](TESTING.md) and the
+JUnit 5); fakes, not MockK, in `commonTest`. Server tests in `src/test` (JVM): repositories, migrations
+and routes run on Testcontainers (`postgres:16-alpine`, Docker required); `api-surface.txt`, golden JSON
+and frozen JSONB fixtures pin the wire and the stored data (fix the code, never the snapshot). Strategy: [`TESTING.md`](TESTING.md) and the
 `kotlin-testing-strategy` skill.
 
 ## 10. Common traps

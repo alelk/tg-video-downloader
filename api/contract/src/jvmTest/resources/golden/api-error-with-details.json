@@ -1,0 +1,15 @@
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid slug",
+    "correlationId": "3f1c2d4e-5b6a-4c7d-8e9f-0a1b2c3d4e5f",
+    "details": {
+      "field": "slug",
+      "max": 50,
+      "nothing": null,
+      "list": [
+        true
+      ]
+    }
+  }
+}

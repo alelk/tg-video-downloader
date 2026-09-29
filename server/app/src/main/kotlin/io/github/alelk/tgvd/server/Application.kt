@@ -7,8 +7,11 @@ import com.sksamuel.hoplite.addResourceSource
 import io.github.alelk.tgvd.api.contract.common.apiJson
 import io.github.alelk.tgvd.server.di.serverModules
 import io.github.alelk.tgvd.server.infra.config.AppConfig
-import io.github.alelk.tgvd.server.infra.config.ProxyConfig
+import io.github.alelk.tgvd.server.infra.config.CorsConfig
 import io.github.alelk.tgvd.server.infra.config.TelegramConfig
+import io.github.alelk.tgvd.server.infra.process.YtDlpBootstrap
+import io.github.alelk.tgvd.server.infra.service.JobProcessor
+import io.github.alelk.tgvd.server.telegram.TelegramMiniAppAutoReplyBot
 import io.github.alelk.tgvd.server.transport.auth.TelegramAuthPlugin
 import io.github.alelk.tgvd.server.transport.auth.TelegramAuthValidator
 import io.github.alelk.tgvd.server.transport.error.configureDomainErrorHandling
@@ -18,27 +21,32 @@ import io.github.alelk.tgvd.server.transport.route.previewRoutes
 import io.github.alelk.tgvd.server.transport.route.ruleRoutes
 import io.github.alelk.tgvd.server.transport.route.systemRoutes
 import io.github.alelk.tgvd.server.transport.route.workspaceRoutes
-import io.github.alelk.tgvd.server.infra.process.YtDlpBootstrap
-import io.github.alelk.tgvd.server.infra.service.JobProcessor
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
-import io.ktor.server.application.*
-import io.ktor.server.engine.*
-import io.ktor.server.netty.*
-import io.ktor.server.plugins.callid.*
-import io.ktor.server.plugins.calllogging.*
-import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.plugins.cors.routing.*
-import io.ktor.server.plugins.defaultheaders.*
-import io.ktor.server.plugins.statuspages.*
-import io.ktor.server.resources.*
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
-import io.github.alelk.tgvd.server.telegram.TelegramMiniAppAutoReplyBot
-import io.ktor.client.engine.ProxyBuilder
-import io.ktor.client.engine.http
+import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
+import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationStarted
+import io.ktor.server.application.ApplicationStopping
+import io.ktor.server.application.install
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import io.ktor.server.plugins.callid.CallId
+import io.ktor.server.plugins.callid.callIdMdc
+import io.ktor.server.plugins.calllogging.CallLogging
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.cors.routing.CORS
+import io.ktor.server.plugins.defaultheaders.DefaultHeaders
+import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.resources.Resources
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
+import io.ktor.server.routing.route
+import io.ktor.server.routing.routing
 import kotlinx.coroutines.launch
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.koin.core.module.Module
+import org.koin.ktor.ext.get
 import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
 import kotlin.uuid.ExperimentalUuidApi
@@ -55,23 +63,53 @@ fun main() {
         port = config.server.port,
         host = config.server.host,
     ) {
-        configureApplication(config)
+        module(config)
     }.start(wait = true)
 }
 
-@OptIn(ExperimentalUuidApi::class)
-fun Application.configureApplication(config: AppConfig) {
+/**
+ * The whole server as one testable Ktor module.
+ *
+ * - [eagerDatabase] resolves the [Database] (connection pool + Flyway migrations) right after Koin is
+ *   installed instead of on the first request that needs it. The API-surface test passes `false` to
+ *   boot without PostgreSQL.
+ * - [startBackgroundServices] controls the yt-dlp bootstrap, the [JobProcessor] and the Telegram
+ *   Mini App auto-reply bot. Route tests pass `false`.
+ * - [overrides] are loaded after the server modules with overriding allowed, so tests can replace
+ *   external adapters (`VideoInfoExtractor`, `VideoDownloader`, `YtDlpService`) with fakes.
+ */
+fun Application.module(
+    config: AppConfig,
+    eagerDatabase: Boolean = true,
+    startBackgroundServices: Boolean = true,
+    overrides: List<Module> = emptyList(),
+) {
     install(Koin) {
         modules(serverModules(config))
+        if (overrides.isNotEmpty()) {
+            allowOverride(true)
+            modules(overrides)
+        }
     }
+    if (eagerDatabase) get<Database>()
 
+    configureHttp(config.cors)
+    configureRouting()
+
+    if (startBackgroundServices) {
+        configureJobProcessor()
+        configureTelegramMiniAppAutoReplyBot(config)
+    }
+}
+
+@OptIn(ExperimentalUuidApi::class)
+private fun Application.configureHttp(corsConfig: CorsConfig) {
     install(ContentNegotiation) {
         json(apiJson)
     }
 
-    if (config.cors.enabled) {
+    if (corsConfig.enabled) {
         install(CORS) {
-            val corsConfig = config.cors
             if (corsConfig.anyHost) {
                 anyHost()
             } else {
@@ -112,10 +150,6 @@ fun Application.configureApplication(config: AppConfig) {
     install(StatusPages) {
         configureDomainErrorHandling()
     }
-
-    configureRouting()
-    configureJobProcessor()
-    configureTelegramMiniAppAutoReplyBot(config)
 }
 
 private fun Application.configureJobProcessor() {
@@ -140,7 +174,7 @@ private fun Application.configureTelegramMiniAppAutoReplyBot(config: AppConfig) 
     val bot = TelegramMiniAppAutoReplyBot(
         botToken = config.telegram.botToken,
         config = botConfig,
-        proxyConfig = config.proxy
+        proxyConfig = config.proxy,
     )
 
     monitor.subscribe(ApplicationStarted) {
@@ -186,9 +220,9 @@ private fun loadConfig(): AppConfig {
 
     return ConfigLoaderBuilder.default()
         .addEnvironmentSource()
-        .addFileSource(externalConfig, optional = true)          // 1. External file (highest priority)
+        .addFileSource(externalConfig, optional = true) // 1. External file (highest priority)
         .addResourceSource("/application-$profile.yaml", optional = true) // 2. Profile-specific
-        .addResourceSource("/application.yaml")                           // 3. Defaults
+        .addResourceSource("/application.yaml") // 3. Defaults
         .build()
         .loadConfigOrThrow<AppConfig>()
 }

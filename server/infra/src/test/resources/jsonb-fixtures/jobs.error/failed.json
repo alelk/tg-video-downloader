@@ -1,0 +1,6 @@
+{
+  "code": "ERROR",
+  "message": "yt-dlp exited with code 1: ERROR: [youtube] abc: Video unavailable",
+  "details": null,
+  "retryable": false
+}

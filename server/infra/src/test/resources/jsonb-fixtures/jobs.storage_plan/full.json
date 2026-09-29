@@ -1,0 +1,51 @@
+{
+  "original": {
+    "path": "/media/music/Rick Astley/Never Gonna Give You Up [dQw4w9WgXcQ].mkv",
+    "format": "original/mkv",
+    "maxQuality": "hd_1080",
+    "encodeSettings": null,
+    "embedThumbnail": true,
+    "embedMetadata": true,
+    "embedSubtitles": true,
+    "normalizeAudio": false
+  },
+  "additional": [
+    {
+      "path": "/media/converted/Never Gonna Give You Up.mp4",
+      "format": "video/mp4",
+      "maxQuality": "hd_720",
+      "encodeSettings": {
+        "codec": "h265",
+        "hwAccel": "vaapi",
+        "preset": "slow",
+        "crf": 20,
+        "audioBitrate": "256k",
+        "audioCodec": "aac"
+      },
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": true
+    },
+    {
+      "path": "/media/audio/Never Gonna Give You Up.mp3",
+      "format": "audio/mp3",
+      "maxQuality": "sd_480",
+      "encodeSettings": null,
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": false
+    },
+    {
+      "path": "/media/covers/Never Gonna Give You Up.webp",
+      "format": "image/webp",
+      "maxQuality": "best",
+      "encodeSettings": null,
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": false
+    }
+  ]
+}

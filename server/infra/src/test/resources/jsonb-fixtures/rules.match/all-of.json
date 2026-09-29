@@ -1,0 +1,22 @@
+{
+  "type": "all-of",
+  "matches": [
+    {
+      "type": "channel-id",
+      "value": "UC1"
+    },
+    {
+      "type": "any-of",
+      "matches": [
+        {
+          "type": "has-tag",
+          "tag": "live"
+        },
+        {
+          "type": "title-regex",
+          "pattern": "Live"
+        }
+      ]
+    }
+  ]
+}

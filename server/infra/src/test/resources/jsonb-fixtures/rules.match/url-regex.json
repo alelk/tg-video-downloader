@@ -1,0 +1,4 @@
+{
+  "type": "url-regex",
+  "pattern": "^https://(www\\.)?youtube\\.com/"
+}

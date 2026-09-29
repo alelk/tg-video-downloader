@@ -1,0 +1,109 @@
+{
+  "videoId": "fixture-full",
+  "extractor": "youtube",
+  "title": "Never Gonna Give You Up",
+  "channelId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+  "channelName": "Rick Astley",
+  "uploadDate": "2009-10-25",
+  "durationSeconds": 212,
+  "webpageUrl": "https://www.youtube.com/watch?v=fixture-full",
+  "thumbnails": [
+    {
+      "url": "https://i.ytimg.com/vi/fixture-full/maxresdefault.jpg",
+      "width": 1280,
+      "height": 720
+    },
+    {
+      "url": "https://i.ytimg.com/vi/fixture-full/default.jpg",
+      "width": null,
+      "height": null
+    }
+  ],
+  "description": "The official video",
+  "availableFormats": [
+    {
+      "formatId": "137",
+      "extension": "mp4",
+      "width": 1920,
+      "height": 1080,
+      "fps": 29.97,
+      "tbr": 4400.5,
+      "vcodec": "avc1.640028",
+      "acodec": "none",
+      "formatNote": "1080p",
+      "filesize": 123456789,
+      "filesizeApprox": 123000000,
+      "language": "ru",
+      "languagePreference": 10,
+      "audioChannels": 2,
+      "audioTrackName": "Russian original",
+      "isOriginalAudio": true
+    },
+    {
+      "formatId": "140-0",
+      "extension": "m4a",
+      "width": null,
+      "height": null,
+      "fps": null,
+      "tbr": null,
+      "vcodec": "none",
+      "acodec": "mp4a.40.2",
+      "formatNote": null,
+      "filesize": null,
+      "filesizeApprox": null,
+      "language": "en",
+      "languagePreference": null,
+      "audioChannels": null,
+      "audioTrackName": null,
+      "isOriginalAudio": false
+    },
+    {
+      "formatId": "18",
+      "extension": "mp4",
+      "width": null,
+      "height": null,
+      "fps": null,
+      "tbr": null,
+      "vcodec": null,
+      "acodec": null,
+      "formatNote": null,
+      "filesize": null,
+      "filesizeApprox": null,
+      "language": null,
+      "languagePreference": null,
+      "audioChannels": null,
+      "audioTrackName": null,
+      "isOriginalAudio": false
+    }
+  ],
+  "actualFormat": {
+    "formatId": "137+140",
+    "extension": "mp4",
+    "width": 1920,
+    "height": 1080,
+    "fps": 29.97,
+    "tbr": 4400.5,
+    "vcodec": "avc1.640028",
+    "acodec": "none",
+    "formatNote": "1080p",
+    "filesize": 123456789,
+    "filesizeApprox": 123000000,
+    "language": "ru",
+    "languagePreference": 10,
+    "audioChannels": 2,
+    "audioTrackName": "Russian original",
+    "isOriginalAudio": true
+  },
+  "subtitleTracks": [
+    {
+      "language": "en",
+      "automatic": false,
+      "name": "English"
+    },
+    {
+      "language": "ru",
+      "automatic": true,
+      "name": null
+    }
+  ]
+}

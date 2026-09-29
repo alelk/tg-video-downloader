@@ -1,0 +1,54 @@
+{
+  "id": "0192f0c1-2b3c-7d4e-8f90-000000000003",
+  "status": "pending",
+  "source": {
+    "url": "https://rutube.ru/video/rt-1/",
+    "videoId": "rt-1",
+    "extractor": "rutube"
+  },
+  "videoInfo": {
+    "videoId": "rt-1",
+    "extractor": "rutube",
+    "title": "Clip",
+    "channelId": "rt-channel",
+    "channelName": "RuTube",
+    "uploadDate": null,
+    "durationSeconds": 0,
+    "webpageUrl": "https://rutube.ru/video/rt-1/",
+    "thumbnails": [],
+    "description": null,
+    "availableFormats": [],
+    "actualFormat": null,
+    "subtitleTracks": []
+  },
+  "ruleId": null,
+  "category": "other",
+  "metadata": {
+    "type": "other",
+    "title": "Clip",
+    "releaseDate": null,
+    "tags": [],
+    "comment": null
+  },
+  "storagePlan": {
+    "original": {
+      "path": "/media/clip.webm",
+      "format": "original/webm",
+      "maxQuality": null,
+      "encodeSettings": null,
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": false
+    },
+    "additional": []
+  },
+  "progress": null,
+  "error": null,
+  "attempt": 1,
+  "createdBy": null,
+  "createdAt": "2026-01-02T03:04:05Z",
+  "updatedAt": "2026-01-02T03:04:05Z",
+  "startedAt": null,
+  "finishedAt": null
+}

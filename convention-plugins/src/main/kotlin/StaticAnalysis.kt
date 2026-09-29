@@ -16,7 +16,7 @@ internal val KMP_DETEKT_SOURCES = listOf(
 internal val JS_SHELL_DETEKT_SOURCES = listOf("src/jsMain/kotlin")
 
 /** Detekt sources of a Kotlin/JVM module (tgvd.jvm and everything built on it). */
-internal val JVM_DETEKT_SOURCES = listOf("src/main/kotlin", "src/test/kotlin")
+internal val JVM_DETEKT_SOURCES = listOf("src/main/kotlin", "src/test/kotlin", "src/testFixtures/kotlin")
 
 /**
  * Detekt + ktlint wiring shared by the tgvd.kmp, tgvd.compose.js and tgvd.jvm conventions (the

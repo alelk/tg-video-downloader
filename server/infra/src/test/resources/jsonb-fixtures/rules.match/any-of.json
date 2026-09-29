@@ -1,0 +1,14 @@
+{
+  "type": "any-of",
+  "matches": [
+    {
+      "type": "channel-name",
+      "value": "A",
+      "ignoreCase": true
+    },
+    {
+      "type": "url-regex",
+      "pattern": "rutube\\.ru"
+    }
+  ]
+}

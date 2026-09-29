@@ -28,6 +28,10 @@ anything a user, client or deployed installation sees (except G10 and Fork 5,
 - 2026-09-29 — 01.3 done: Detekt 1.23.8 + ktlint (Gradle plugin 13.1.0, `intellij_idea`, 120 cols) in
   `tgvd.kmp` / `tgvd.compose.js` / `tgvd.jvm`, main + test sources, run by `./gradlew build` in all 11
   modules; per-module baselines (Detekt 496, ktlint 3211 findings) only shrink.
+- 2026-09-29 — 01.4 done: testable `Application.module(config, eagerDatabase, startBackgroundServices,
+  overrides)`; Testcontainers safety net (`postgres:16-alpine`, Docker now required by `./gradlew build`):
+  migrations, repository round-trips, 52 frozen JSONB fixtures, `api-surface.txt` (27 routes), 17 golden
+  JSON files, 27 route tests; 187 new tests (465 JVM tests in total).
 
 ## Known issues
 

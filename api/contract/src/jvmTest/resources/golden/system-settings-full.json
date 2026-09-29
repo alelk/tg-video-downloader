@@ -1,0 +1,55 @@
+{
+  "ytDlp": {
+    "cookiesFromBrowser": "firefox",
+    "cookiesContent": "# Netscape HTTP Cookie File",
+    "cookiesFile": "/data/cookies.txt",
+    "legacyServerConnect": true,
+    "noCheckCertificate": true,
+    "preferredFormats": "bestvideo[height<=1080]+bestaudio/best",
+    "formatSort": "res,tbr,fps",
+    "checkFormats": false,
+    "preferredAudioLanguages": [
+      "en",
+      "de"
+    ],
+    "maxAdditionalAudioTracks": 4,
+    "originalAudioLanguage": "ru",
+    "rateLimit": "5M",
+    "sleepInterval": 2,
+    "maxSleepInterval": 9,
+    "writeSubs": false,
+    "writeAutoSubs": false,
+    "preferredSubtitleLanguages": [
+      "de"
+    ],
+    "subLangs": "de,fr",
+    "embedSubs": true,
+    "sleepSubtitles": null,
+    "concurrentFragments": 8,
+    "socketTimeout": 60,
+    "youtubePlayerClient": "web",
+    "extractorArgs": "vk:nocheckcertificate=1",
+    "sponsorBlockRemove": "sponsor,selfpromo",
+    "userAgent": "Mozilla/5.0",
+    "extractorOverrides": {
+      "rutube": {
+        "legacyServerConnect": true,
+        "noCheckCertificate": null,
+        "proxyEnabled": false
+      },
+      "vk": {
+        "legacyServerConnect": null,
+        "noCheckCertificate": true,
+        "proxyEnabled": null
+      }
+    }
+  },
+  "proxy": {
+    "enabled": true,
+    "type": "SOCKS5",
+    "host": "10.0.0.1",
+    "port": 1080,
+    "username": "user",
+    "password": "secret"
+  }
+}

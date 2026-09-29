@@ -1,0 +1,173 @@
+{
+  "id": "0192f0c1-2b3c-7d4e-8f90-a1b2c3d4e5f6",
+  "status": "completed",
+  "source": {
+    "url": "https://youtu.be/dQw4w9WgXcQ",
+    "videoId": "dQw4w9WgXcQ",
+    "extractor": "youtube"
+  },
+  "videoInfo": {
+    "videoId": "dQw4w9WgXcQ",
+    "extractor": "youtube",
+    "title": "Never Gonna Give You Up",
+    "channelId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+    "channelName": "Rick Astley",
+    "uploadDate": "2009-10-25",
+    "durationSeconds": 212,
+    "webpageUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "thumbnails": [
+      {
+        "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+        "width": 1280,
+        "height": 720
+      },
+      {
+        "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg",
+        "width": null,
+        "height": null
+      }
+    ],
+    "description": "The official video",
+    "availableFormats": [
+      {
+        "formatId": "137",
+        "extension": "mp4",
+        "width": 1920,
+        "height": 1080,
+        "fps": 29.97,
+        "tbr": 4400.5,
+        "vcodec": "avc1.640028",
+        "acodec": "none",
+        "formatNote": "1080p",
+        "filesize": 123456789,
+        "filesizeApprox": 123000000,
+        "language": "en",
+        "languagePreference": 10,
+        "audioChannels": 2,
+        "audioTrackName": "English original",
+        "isOriginalAudio": true
+      },
+      {
+        "formatId": "140",
+        "extension": "m4a",
+        "width": null,
+        "height": null,
+        "fps": null,
+        "tbr": null,
+        "vcodec": "none",
+        "acodec": "mp4a.40.2",
+        "formatNote": null,
+        "filesize": null,
+        "filesizeApprox": null,
+        "language": "en",
+        "languagePreference": null,
+        "audioChannels": null,
+        "audioTrackName": null,
+        "isOriginalAudio": false
+      }
+    ],
+    "actualFormat": {
+      "formatId": "137+140",
+      "extension": "mp4",
+      "width": 1920,
+      "height": 1080,
+      "fps": 29.97,
+      "tbr": 4400.5,
+      "vcodec": "avc1.640028",
+      "acodec": "none",
+      "formatNote": "1080p",
+      "filesize": 123456789,
+      "filesizeApprox": 123000000,
+      "language": "en",
+      "languagePreference": 10,
+      "audioChannels": 2,
+      "audioTrackName": "English original",
+      "isOriginalAudio": true
+    },
+    "subtitleTracks": [
+      {
+        "language": "en",
+        "automatic": false,
+        "name": "English"
+      },
+      {
+        "language": "ru",
+        "automatic": true,
+        "name": null
+      }
+    ]
+  },
+  "ruleId": "0192f0c1-0000-7000-8000-000000000001",
+  "category": "series-episode",
+  "metadata": {
+    "type": "series-episode",
+    "seriesName": "The Show",
+    "season": "02",
+    "episode": "05",
+    "title": "Pilot",
+    "releaseDate": "2020-01-31",
+    "tags": [
+      "tv"
+    ],
+    "comment": "S02E05"
+  },
+  "storagePlan": {
+    "original": {
+      "path": "/media/music/Rick Astley/Never Gonna Give You Up.mkv",
+      "format": "original/mkv",
+      "maxQuality": "best",
+      "encodeSettings": null,
+      "embedThumbnail": true,
+      "embedMetadata": true,
+      "embedSubtitles": true,
+      "normalizeAudio": false
+    },
+    "additional": [
+      {
+        "path": "/media/converted/Never Gonna Give You Up.mp4",
+        "format": "video/mp4",
+        "maxQuality": "hd_1080",
+        "encodeSettings": {
+          "codec": "h265",
+          "hwAccel": "vaapi",
+          "preset": "slow",
+          "crf": 20,
+          "audioBitrate": "256k",
+          "audioCodec": "aac"
+        },
+        "embedThumbnail": false,
+        "embedMetadata": false,
+        "embedSubtitles": false,
+        "normalizeAudio": true
+      },
+      {
+        "path": "/media/audio/Never Gonna Give You Up.m4a",
+        "format": "audio/m4a",
+        "maxQuality": "hd_720",
+        "encodeSettings": null,
+        "embedThumbnail": false,
+        "embedMetadata": false,
+        "embedSubtitles": false,
+        "normalizeAudio": false
+      },
+      {
+        "path": "/media/covers/Never Gonna Give You Up.png",
+        "format": "image/png",
+        "maxQuality": "sd_480",
+        "encodeSettings": null,
+        "embedThumbnail": false,
+        "embedMetadata": false,
+        "embedSubtitles": false,
+        "normalizeAudio": false
+      }
+    ]
+  },
+  "progress": null,
+  "error": null,
+  "attempt": 2,
+  "createdBy": "42",
+  "createdAt": "2026-01-02T03:04:05.123456Z",
+  "updatedAt": "2026-01-02T03:05:00Z",
+  "startedAt": "2026-01-02T03:04:06Z",
+  "finishedAt": "2026-01-02T03:10:00Z"
+}

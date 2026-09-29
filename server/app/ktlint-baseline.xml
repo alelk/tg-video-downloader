@@ -1,28 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <baseline version="1.0">
-    <file name="src/main/kotlin/io/github/alelk/tgvd/server/Application.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="10" column="1" source="standard:no-unused-imports" />
-        <error line="24" column="1" source="standard:no-wildcard-imports" />
-        <error line="25" column="1" source="standard:no-wildcard-imports" />
-        <error line="26" column="1" source="standard:no-wildcard-imports" />
-        <error line="27" column="1" source="standard:no-wildcard-imports" />
-        <error line="28" column="1" source="standard:no-wildcard-imports" />
-        <error line="29" column="1" source="standard:no-wildcard-imports" />
-        <error line="30" column="1" source="standard:no-wildcard-imports" />
-        <error line="31" column="1" source="standard:no-wildcard-imports" />
-        <error line="32" column="1" source="standard:no-wildcard-imports" />
-        <error line="33" column="1" source="standard:no-wildcard-imports" />
-        <error line="34" column="1" source="standard:no-wildcard-imports" />
-        <error line="35" column="1" source="standard:no-wildcard-imports" />
-        <error line="36" column="1" source="standard:no-wildcard-imports" />
-        <error line="37" column="1" source="standard:no-wildcard-imports" />
-        <error line="39" column="1" source="standard:no-unused-imports" />
-        <error line="40" column="1" source="standard:no-unused-imports" />
-        <error line="143" column="35" source="standard:trailing-comma-on-call-site" />
-        <error line="189" column="57" source="standard:no-multi-spaces" />
-        <error line="191" column="49" source="standard:no-multi-spaces" />
-    </file>
     <file name="src/main/kotlin/io/github/alelk/tgvd/server/package-info.kt">
         <error line="1" column="1" source="standard:filename" />
         <error line="1" column="1" source="standard:no-empty-file" />

@@ -1,0 +1,19 @@
+[
+  {
+    "pathTemplate": "/media/{title}.mov",
+    "format": "video/mov",
+    "maxQuality": null,
+    "encodeSettings": {
+      "codec": "h264",
+      "hwAccel": null,
+      "preset": "medium",
+      "crf": 23,
+      "audioBitrate": "192k",
+      "audioCodec": null
+    },
+    "embedThumbnail": false,
+    "embedMetadata": false,
+    "embedSubtitles": false,
+    "normalizeAudio": false
+  }
+]

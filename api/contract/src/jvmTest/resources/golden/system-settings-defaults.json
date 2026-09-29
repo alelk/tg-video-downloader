@@ -1,0 +1,42 @@
+{
+  "ytDlp": {
+    "cookiesFromBrowser": null,
+    "cookiesContent": null,
+    "cookiesFile": null,
+    "legacyServerConnect": false,
+    "noCheckCertificate": false,
+    "preferredFormats": null,
+    "formatSort": null,
+    "checkFormats": true,
+    "preferredAudioLanguages": [],
+    "maxAdditionalAudioTracks": 2,
+    "originalAudioLanguage": null,
+    "rateLimit": null,
+    "sleepInterval": null,
+    "maxSleepInterval": null,
+    "writeSubs": true,
+    "writeAutoSubs": true,
+    "preferredSubtitleLanguages": [
+      "ru",
+      "en"
+    ],
+    "subLangs": null,
+    "embedSubs": false,
+    "sleepSubtitles": 3,
+    "concurrentFragments": 5,
+    "socketTimeout": 30,
+    "youtubePlayerClient": "ios",
+    "extractorArgs": null,
+    "sponsorBlockRemove": null,
+    "userAgent": null,
+    "extractorOverrides": {}
+  },
+  "proxy": {
+    "enabled": false,
+    "type": "HTTP",
+    "host": "127.0.0.1",
+    "port": 8080,
+    "username": null,
+    "password": null
+  }
+}

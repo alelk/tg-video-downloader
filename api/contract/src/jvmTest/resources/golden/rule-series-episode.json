@@ -1,0 +1,48 @@
+{
+  "id": "0192f0c1-0000-7000-8000-000000000001",
+  "name": "Series",
+  "enabled": false,
+  "priority": -1,
+  "match": {
+    "type": "any-of",
+    "matches": [
+      {
+        "type": "has-tag",
+        "tag": "tv"
+      }
+    ]
+  },
+  "category": "series-episode",
+  "metadataTemplate": {
+    "type": "series-episode",
+    "seriesNameOverride": "The Show",
+    "seasonPattern": "S(\\d+)",
+    "episodePattern": "E(\\d+)",
+    "titleOverride": "Pilot",
+    "titlePattern": "\\| (.+)$",
+    "defaultTags": [
+      "tv"
+    ]
+  },
+  "downloadPolicy": {
+    "maxQuality": "sd_480",
+    "downloadSubtitles": false,
+    "subtitleLanguages": [],
+    "writeThumbnail": false,
+    "audioLanguages": []
+  },
+  "outputs": [
+    {
+      "pathTemplate": "/tv/{title}.mov",
+      "format": "video/mov",
+      "maxQuality": null,
+      "encodeSettings": null,
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": false
+    }
+  ],
+  "createdAt": "2026-01-02T03:04:05.123456Z",
+  "updatedAt": "2026-01-03T00:00:00Z"
+}

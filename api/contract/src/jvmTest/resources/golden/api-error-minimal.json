@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Job not found: x",
+    "correlationId": "unknown",
+    "details": null
+  }
+}

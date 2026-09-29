@@ -1,0 +1,68 @@
+{
+  "id": "0192f0c1-0000-7000-8000-000000000003",
+  "name": "Anything",
+  "enabled": true,
+  "priority": 0,
+  "match": {
+    "type": "channel-id",
+    "value": "UC1"
+  },
+  "category": "other",
+  "metadataTemplate": {
+    "type": "other",
+    "titleOverride": null,
+    "titlePattern": null,
+    "defaultTags": []
+  },
+  "downloadPolicy": {
+    "maxQuality": "best",
+    "downloadSubtitles": null,
+    "subtitleLanguages": [],
+    "writeThumbnail": false,
+    "audioLanguages": null
+  },
+  "outputs": [
+    {
+      "pathTemplate": "/media/{title}.mp3",
+      "format": "audio/mp3",
+      "maxQuality": null,
+      "encodeSettings": null,
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": false
+    },
+    {
+      "pathTemplate": "/media/{title}.opus",
+      "format": "audio/opus",
+      "maxQuality": null,
+      "encodeSettings": null,
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": false
+    },
+    {
+      "pathTemplate": "/media/{title}.wav",
+      "format": "audio/wav",
+      "maxQuality": null,
+      "encodeSettings": null,
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": false
+    },
+    {
+      "pathTemplate": "/media/{title}.jpg",
+      "format": "image/jpg",
+      "maxQuality": null,
+      "encodeSettings": null,
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": false
+    }
+  ],
+  "createdAt": "2026-01-02T03:04:05Z",
+  "updatedAt": "2026-01-02T03:04:05Z"
+}

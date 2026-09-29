@@ -1,0 +1,11 @@
+{
+  "type": "series-episode",
+  "seriesNameOverride": "The Show",
+  "seasonPattern": "S(\\d+)",
+  "episodePattern": "E(\\d+)",
+  "titleOverride": "Pilot",
+  "titlePattern": "\\| (.+)$",
+  "defaultTags": [
+    "tv"
+  ]
+}

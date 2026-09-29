@@ -1,0 +1,128 @@
+{
+  "id": "0192f0c1-0000-7000-8000-000000000001",
+  "name": "Music videos",
+  "enabled": true,
+  "priority": 10,
+  "match": {
+    "type": "all-of",
+    "matches": [
+      {
+        "type": "channel-id",
+        "value": "UCuAXFkgsw1L7xaCfnd5JJOw"
+      },
+      {
+        "type": "channel-name",
+        "value": "Rick Astley",
+        "ignoreCase": true
+      },
+      {
+        "type": "channel-name",
+        "value": "rick astley",
+        "ignoreCase": false
+      },
+      {
+        "type": "any-of",
+        "matches": [
+          {
+            "type": "title-regex",
+            "pattern": "(?i)official"
+          },
+          {
+            "type": "url-regex",
+            "pattern": "youtube\\.com"
+          },
+          {
+            "type": "category-equals",
+            "category": "music-video"
+          },
+          {
+            "type": "category-equals",
+            "category": "series-episode"
+          },
+          {
+            "type": "category-equals",
+            "category": "other"
+          },
+          {
+            "type": "has-tag",
+            "tag": "music"
+          }
+        ]
+      }
+    ]
+  },
+  "category": "music-video",
+  "metadataTemplate": {
+    "type": "music-video",
+    "artistOverride": "Rick Astley",
+    "artistPattern": "^(.+?) -",
+    "titleOverride": "Never Gonna Give You Up",
+    "titlePattern": "- (.+)$",
+    "defaultTags": [
+      "music"
+    ]
+  },
+  "downloadPolicy": {
+    "maxQuality": "hd_1080",
+    "downloadSubtitles": true,
+    "subtitleLanguages": [
+      "en",
+      "ru"
+    ],
+    "writeThumbnail": true,
+    "audioLanguages": [
+      "en"
+    ]
+  },
+  "outputs": [
+    {
+      "pathTemplate": "/media/music/{artist}/{title} [{videoId}].{ext}",
+      "format": "original/mkv",
+      "maxQuality": "best",
+      "encodeSettings": null,
+      "embedThumbnail": true,
+      "embedMetadata": true,
+      "embedSubtitles": true,
+      "normalizeAudio": false
+    },
+    {
+      "pathTemplate": "/media/converted/{title}.avi",
+      "format": "video/avi",
+      "maxQuality": "hd_720",
+      "encodeSettings": {
+        "codec": "h265",
+        "hwAccel": "vaapi",
+        "preset": "slow",
+        "crf": 20,
+        "audioBitrate": "256k",
+        "audioCodec": "aac"
+      },
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": true
+    },
+    {
+      "pathTemplate": "/media/audio/{title}.flac",
+      "format": "audio/flac",
+      "maxQuality": null,
+      "encodeSettings": null,
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": false
+    },
+    {
+      "pathTemplate": "/media/covers/{title}.webp",
+      "format": "image/webp",
+      "maxQuality": null,
+      "encodeSettings": null,
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": false
+    }
+  ],
+  "createdAt": "2026-01-02T03:04:05.123456Z",
+  "updatedAt": "2026-01-03T00:00:00Z"
+}

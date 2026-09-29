@@ -1,0 +1,49 @@
+[
+  {
+    "pathTemplate": "/media/{channelName}/{title} [{videoId}].{ext}",
+    "format": "original/mkv",
+    "maxQuality": "best",
+    "encodeSettings": null,
+    "embedThumbnail": true,
+    "embedMetadata": true,
+    "embedSubtitles": true,
+    "normalizeAudio": false
+  },
+  {
+    "pathTemplate": "/media/converted/{title}.mp4",
+    "format": "video/mp4",
+    "maxQuality": "hd_720",
+    "encodeSettings": {
+      "codec": "av1",
+      "hwAccel": "nvenc",
+      "preset": "veryslow",
+      "crf": 30,
+      "audioBitrate": "128k",
+      "audioCodec": "libopus"
+    },
+    "embedThumbnail": false,
+    "embedMetadata": false,
+    "embedSubtitles": false,
+    "normalizeAudio": true
+  },
+  {
+    "pathTemplate": "/media/audio/{title}.opus",
+    "format": "audio/opus",
+    "maxQuality": null,
+    "encodeSettings": null,
+    "embedThumbnail": false,
+    "embedMetadata": false,
+    "embedSubtitles": false,
+    "normalizeAudio": false
+  },
+  {
+    "pathTemplate": "/media/covers/{title}.jpg",
+    "format": "image/jpg",
+    "maxQuality": null,
+    "encodeSettings": null,
+    "embedThumbnail": false,
+    "embedMetadata": false,
+    "embedSubtitles": false,
+    "normalizeAudio": false
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "videoId": "fixture-min",
+  "extractor": "rutube",
+  "title": "Minimal",
+  "channelId": "rt-1",
+  "channelName": "RuTube channel",
+  "uploadDate": null,
+  "durationSeconds": 0,
+  "webpageUrl": "https://rutube.ru/video/fixture-min/",
+  "thumbnails": [],
+  "description": null,
+  "availableFormats": [],
+  "actualFormat": null,
+  "subtitleTracks": []
+}

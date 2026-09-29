@@ -1,0 +1,54 @@
+{
+  "source": {
+    "url": "https://rutube.ru/video/rt-1/",
+    "videoId": "rt-1",
+    "extractor": "rutube"
+  },
+  "videoInfo": {
+    "videoId": "rt-1",
+    "extractor": "rutube",
+    "title": "Clip",
+    "channelId": "rt-channel",
+    "channelName": "RuTube",
+    "uploadDate": null,
+    "durationSeconds": 0,
+    "webpageUrl": "https://rutube.ru/video/rt-1/",
+    "thumbnails": [],
+    "description": null,
+    "availableFormats": [],
+    "actualFormat": null,
+    "subtitleTracks": []
+  },
+  "matchedRule": null,
+  "metadataSource": "fallback",
+  "category": "other",
+  "metadata": {
+    "type": "other",
+    "title": "Clip",
+    "releaseDate": "2024-12-01",
+    "tags": [
+      "a"
+    ],
+    "comment": "c"
+  },
+  "storagePlan": {
+    "original": {
+      "path": "/media/clip.webm",
+      "format": "original/webm",
+      "maxQuality": null,
+      "encodeSettings": null,
+      "embedThumbnail": false,
+      "embedMetadata": false,
+      "embedSubtitles": false,
+      "normalizeAudio": false
+    },
+    "additional": []
+  },
+  "appliedOverrides": {
+    "type": "other",
+    "title": "Clip"
+  },
+  "warnings": [],
+  "previousDownloads": [],
+  "defaultMediaSelection": null
+}

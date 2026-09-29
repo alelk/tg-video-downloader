@@ -1,0 +1,4 @@
+{
+  "type": "title-regex",
+  "pattern": "(?i)official (music )?video"
+}

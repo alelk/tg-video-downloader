@@ -1,0 +1,13 @@
+{
+  "maxQuality": "hd_1080",
+  "downloadSubtitles": true,
+  "subtitleLanguages": [
+    "en",
+    "ru"
+  ],
+  "writeThumbnail": true,
+  "audioLanguages": [
+    "en",
+    "de"
+  ]
+}

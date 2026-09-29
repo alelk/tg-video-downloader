@@ -41,6 +41,7 @@ dependencies {
     // Testing
     testImplementation(libs.bundles.testing)
     testImplementation(libs.bundles.testcontainers)
+    testImplementation(testFixtures(projects.server.infra))
     testImplementation(libs.ktor.server.test.host)
 }
 

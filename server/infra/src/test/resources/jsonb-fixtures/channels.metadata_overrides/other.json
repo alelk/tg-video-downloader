@@ -1,0 +1,8 @@
+{
+  "type": "other",
+  "titleOverride": "Clip",
+  "titlePattern": "(.+)",
+  "defaultTags": [
+    "misc"
+  ]
+}

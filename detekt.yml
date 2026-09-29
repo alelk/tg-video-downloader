@@ -20,6 +20,7 @@ complexity:
       - '**/*TestSupport.kt'
       - '**/src/*Test/kotlin/**/Fake*.kt'
       - '**/src/test/kotlin/**/Fake*.kt'
+      - '**/src/testFixtures/kotlin/**'
       - '**/domain-test-fixtures/**'
   TooManyFunctions:
     thresholdInFiles: 20

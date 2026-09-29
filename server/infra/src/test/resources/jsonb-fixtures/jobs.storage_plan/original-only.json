@@ -1,0 +1,13 @@
+{
+  "original": {
+    "path": "/media/other/clip.webm",
+    "format": "original/webm",
+    "maxQuality": null,
+    "encodeSettings": null,
+    "embedThumbnail": false,
+    "embedMetadata": false,
+    "embedSubtitles": false,
+    "normalizeAudio": false
+  },
+  "additional": []
+}
