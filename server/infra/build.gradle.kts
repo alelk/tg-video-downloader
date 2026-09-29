@@ -1,16 +1,11 @@
 plugins {
-    alias(libs.plugins.kotlinJvm)
-    alias(libs.plugins.kotlinSerialization)
+    id("tgvd.jvm.serialization")
 }
 
 description = "Server infrastructure: repositories, DB, external processes (yt-dlp, ffmpeg)"
 
-kotlin {
-    jvmToolchain(21)
-}
-
 dependencies {
-    api(project(":domain"))
+    api(projects.domain)
 
     // Database
     api(libs.bundles.exposed)
@@ -38,8 +33,3 @@ dependencies {
     testImplementation(libs.bundles.testcontainers)
     testImplementation(libs.ktor.client.mock)
 }
-
-tasks.test {
-    useJUnitPlatform()
-}
-

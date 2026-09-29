@@ -1,15 +1,10 @@
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.composeMultiplatform)
-    alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.kotlinSerialization)
+    id("tgvd.compose.js")
 }
 
 description = "Telegram Mini App: Compose Multiplatform Web UI"
 
 kotlin {
-    jvmToolchain(21)
-
     js(IR) {
         browser {
             commonWebpackConfig {
@@ -22,15 +17,11 @@ kotlin {
     sourceSets {
         jsMain {
             dependencies {
-                implementation(project(":features"))
-                implementation(project(":api:contract"))
-                implementation(project(":api:client"))
+                implementation(projects.features)
+                implementation(projects.api.contract)
+                implementation(projects.api.client)
 
-                // Compose (needed for renderComposable entry point)
-                implementation(compose.runtime)
-                implementation(compose.foundation)
-                implementation(compose.material3)
-                implementation(compose.ui)
+                // Compose runtime/foundation/material3/ui come from the tgvd.compose.js convention
 
                 // DI
                 implementation(libs.koin.core)

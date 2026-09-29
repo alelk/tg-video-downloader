@@ -37,18 +37,18 @@ related: [ PROJECT_CONTEXT.md, ../AGENTS.md, ADR/009-engineering-skills-baseline
 
 The project uses **Kotlin Multiplatform** to share code between the server (JVM), the Telegram Mini App (JS), and future native clients.
 
-| Module             | Kotlin Plugin   | Targets     | Rationale                                              |
-|--------------------|-----------------|-------------|--------------------------------------------------------|
-| `domain`           | `multiplatform` | `jvm`, `js` | Domain models shared between server and clients        |
-| `api:contract`     | `multiplatform` | `jvm`, `js` | DTOs shared via kotlinx.serialization                  |
-| `api:mapping`      | `multiplatform` | `jvm`, `js` | Mapping needed on both server and in features          |
-| `api:client`       | `multiplatform` | `jvm`, `js` | HTTP client works on both platforms                    |
-| `features`         | `multiplatform` | `jvm`, `js` | Compose UI shared between shell applications           |
-| `tgminiapp`        | `multiplatform` | `js`        | Telegram-specific shell, browser only                  |
-| `server:infra`     | `jvm`           | `jvm`       | DB, processes — JVM-only                               |
-| `server:transport` | `jvm`           | `jvm`       | Ktor Server — JVM-only                                 |
-| `server:di`        | `jvm`           | `jvm`       | Server-side DI wiring                                  |
-| `server:app`       | `jvm`           | `jvm`       | Entrypoint, JVM-only                                   |
+| Module             | Convention (§4.2)        | Targets     | Rationale                                              |
+|--------------------|--------------------------|-------------|--------------------------------------------------------|
+| `domain`           | `tgvd.kmp`               | `jvm`, `js` | Domain models shared between server and clients        |
+| `api:contract`     | `tgvd.kmp.serialization` | `jvm`, `js` | DTOs shared via kotlinx.serialization                  |
+| `api:mapping`      | `tgvd.kmp`               | `jvm`, `js` | Mapping needed on both server and in features          |
+| `api:client`       | `tgvd.kmp.serialization` | `jvm`, `js` | HTTP client works on both platforms                    |
+| `features`         | `tgvd.compose`           | `jvm`, `js` | Compose UI shared between shell applications           |
+| `tgminiapp`        | `tgvd.compose.js`        | `js`        | Telegram-specific shell, browser only                  |
+| `server:infra`     | `tgvd.jvm.serialization` | `jvm`       | DB, processes — JVM-only                               |
+| `server:transport` | `tgvd.jvm.serialization` | `jvm`       | Ktor Server — JVM-only                                 |
+| `server:di`        | `tgvd.jvm`               | `jvm`       | Server-side DI wiring                                  |
+| `server:app`       | `tgvd.jvm.serialization` | `jvm`       | Entrypoint, JVM-only                                   |
 
 ### 1.3 Kotlin Idioms
 
@@ -316,101 +316,100 @@ Do NOT use JVM-only classes in `commonMain`:
 
 ## 4. Gradle Modules
 
+Build logic lives in the included build [`convention-plugins/`](../convention-plugins/)
+(precompiled script plugins, id prefix `tgvd.`). A module's `plugins {}` block names one convention
+and its build file lists only dependencies (plus module-specific bits such as the `features`
+`BuildConfig` generator or the `tgminiapp` webpack output name). The root `build.gradle.kts` only
+sets `group` and `version` (from `app.version`); repositories are declared once, in
+`settings.gradle.kts`.
+
 ### 4.1 settings.gradle.kts
 
 ```kotlin
+pluginManagement {
+    includeBuild("convention-plugins")          // tgvd.* convention plugins
+    repositories { gradlePluginPortal(); mavenCentral(); google() }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        mavenCentral()
+        google()
+        // Node.js / Yarn distributions for Kotlin/JS (ivy), GitHub Packages for tg-mini-app,
+        // mavenLocal() last and only for io.github.alelk — see the file itself
+    }
+}
+
+// ../tg-mini-app checked out next to this repo → composite build instead of the Maven artifact
 rootProject.name = "tg-video-downloader"
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")   // projects.api.contract, never project(":…")
 
-// === Domain (KMP) ===
-include(":domain")
-include(":domain:domain-test-fixtures")
-
-// === API (KMP) ===
-include(":api:contract")
-include(":api:mapping")
-include(":api:client")
-
-// === Server (JVM only) ===
-include(":server:infra")
-include(":server:transport")
-include(":server:di")
-include(":server:app")
-
-// === UI (KMP) ===
-include(":features")
-include(":tgminiapp")
+include(":domain", ":domain:domain-test-fixtures")
+include(":api:contract", ":api:mapping", ":api:client")
+include(":server:infra", ":server:transport", ":server:di", ":server:app")
+include(":features", ":tgminiapp")
 ```
 
-### 4.2 build.gradle.kts Examples
+### 4.2 Convention plugins
+
+| Plugin id                | Applies                                                        | Used by                                   |
+|--------------------------|----------------------------------------------------------------|-------------------------------------------|
+| `tgvd.kmp`               | Kotlin Multiplatform: `jvm()` + `js(IR) { browser() }`, JDK 21 toolchain, JUnit Platform for tests, JS test runner disabled | `domain`, `domain-test-fixtures`, `api:mapping` |
+| `tgvd.kmp.serialization` | `tgvd.kmp` + kotlinx.serialization                             | `api:contract`, `api:client`              |
+| `tgvd.compose`           | `tgvd.kmp` + Compose Multiplatform + Compose compiler + common Compose deps | `features`                     |
+| `tgvd.compose.js`        | `js(IR) { browser() }` only + Compose + Compose compiler + serialization | `tgminiapp`                       |
+| `tgvd.jvm`               | Kotlin/JVM, JDK 21 toolchain, JUnit Platform for tests         | `server:di`                               |
+| `tgvd.jvm.serialization` | `tgvd.jvm` + kotlinx.serialization                             | `server:infra`, `server:transport`, `server:app` |
+
+- Kotlin-family and Compose plugins are applied **only** through these conventions (their markers
+  are on the convention build's classpath). `server:app` applies Ktor and Shadow by id
+  (`apply(plugin = …)`) from the same classpath, so the Kotlin Gradle plugin loads once.
+- Kotest runs on the JVM through JUnit 5 (`kotest-runner-junit5` in `jvmTest`/`test`); the Kotest
+  Gradle plugin and KSP are not used. The JS test runner is disabled; `compileTestKotlinJs` (part
+  of `./gradlew build`) keeps `commonMain`/`commonTest` free of JVM-only APIs.
+- The JDK toolchain version is `JVM_TOOLCHAIN_VERSION` in `convention-plugins/src/main/kotlin/BuildConventions.kt`.
+- `:server:app:shadowJar` (→ `server/app/build/libs/tgvd-server.jar`) is **not** part of `build`;
+  CI and the Dockerfiles call it explicitly.
 
 #### domain/build.gradle.kts
 
 ```kotlin
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
+    id("tgvd.kmp")
 }
 
 kotlin {
-    jvm()
-    js(IR) { browser() }
-
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.arrow.core)
+            api(libs.arrow.core)
+            api(libs.kotlinx.coroutines.core)
         }
         commonTest.dependencies {
             implementation(libs.kotest.framework.engine)
-            implementation(libs.kotest.assertions)
+            implementation(libs.kotest.assertions.core)
+            implementation(projects.domain.domainTestFixtures)
         }
         jvmTest.dependencies {
-            implementation(libs.kotest.runner.junit5)
+            implementation(libs.kotest.runner)       // kotest-runner-junit5
         }
     }
 }
 ```
 
-#### features/build.gradle.kts
+#### server/infra/build.gradle.kts
 
 ```kotlin
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.compose)
-    alias(libs.plugins.compose.compiler)
-}
-
-kotlin {
-    jvm()
-    js(IR) { browser() }
-
-    sourceSets {
-        commonMain.dependencies {
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material3)
-            implementation(projects.domain)
-            implementation(projects.api.client)
-            implementation(projects.api.mapping)
-            implementation(libs.koin.core)
-            implementation(libs.koin.compose)
-        }
-    }
-}
-```
-
-#### server:infra/build.gradle.kts
-
-```kotlin
-plugins {
-    alias(libs.plugins.kotlin.jvm)
+    id("tgvd.jvm.serialization")
 }
 
 dependencies {
-    implementation(projects.domain)
-    implementation(libs.exposed.core)
-    implementation(libs.exposed.jdbc)
-    implementation(libs.exposed.json)
-    implementation(libs.flyway.core)
+    api(projects.domain)
+    api(libs.bundles.exposed)
+    api(libs.flyway.core)
+    testImplementation(libs.bundles.testing)
+    testImplementation(libs.bundles.testcontainers)
 }
 ```
 

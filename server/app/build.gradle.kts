@@ -1,26 +1,27 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 plugins {
-    alias(libs.plugins.kotlinJvm)
-    alias(libs.plugins.kotlinSerialization)
-    alias(libs.plugins.ktor)
-    alias(libs.plugins.shadow)
+    id("tgvd.jvm.serialization")
 }
+
+// Ktor and Shadow are applied by id, without a version: their markers are on the convention-plugins
+// classpath (see convention-plugins/build.gradle.kts), so the Kotlin Gradle plugin is loaded only
+// once. A `plugins {}` block cannot resolve a version-less id from there, hence `apply(plugin = …)`.
+apply(plugin = "io.ktor.plugin")
+apply(plugin = "com.gradleup.shadow")
 
 description = "Server application: entrypoint and configuration"
 
-application {
+configure<JavaApplication> {
     mainClass.set("io.github.alelk.tgvd.server.ApplicationKt")
 }
 
-kotlin {
-    jvmToolchain(21)
-}
-
 dependencies {
-    implementation(project(":domain"))
-    implementation(project(":api:contract"))
-    implementation(project(":server:infra"))
-    implementation(project(":server:transport"))
-    implementation(project(":server:di"))
+    implementation(projects.domain)
+    implementation(projects.api.contract)
+    implementation(projects.server.infra)
+    implementation(projects.server.transport)
+    implementation(projects.server.di)
 
     // Ktor
     implementation(libs.ktor.server.netty)
@@ -43,11 +44,7 @@ dependencies {
     testImplementation(libs.ktor.server.test.host)
 }
 
-tasks.test {
-    useJUnitPlatform()
-}
-
-tasks.shadowJar {
+tasks.named<ShadowJar>("shadowJar") {
     archiveFileName.set("tgvd-server.jar")
 
     // Merge META-INF/services — required for Ktor plugins, SLF4J providers, Flyway, etc.
@@ -61,7 +58,13 @@ tasks.shadowJar {
     }
 }
 
-// Ensure `gradle build` produces the fat JAR
-tasks.build {
-    dependsOn(tasks.shadowJar)
+// shadowJar is deliberately NOT part of `build` (the gate compiles and tests; packaging is an explicit
+// step): CI and the Dockerfiles call `:server:app:shadowJar` themselves. Shadow 9 hooks it into
+// `assemble` twice — directly, and through the shadow distribution archives (shadowDistZip/Tar →
+// shadowJar) that the distribution plugin publishes to `archives`. Both hooks are removed here.
+tasks.named("assemble") {
+    setDependsOn(dependsOn.filterNot { it is TaskProvider<*> && it.name == "shadowJar" })
+}
+configurations.named("archives") {
+    artifacts.removeIf { it.buildDependencies.getDependencies(null).any { task -> task.name.startsWith("shadowDist") } }
 }

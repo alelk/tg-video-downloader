@@ -1,20 +1,10 @@
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.kotest)
-    alias(libs.plugins.ksp)
+    id("tgvd.kmp")
 }
 
 description = "Domain models, use-cases, and business logic (pure Kotlin, no frameworks)"
 
 kotlin {
-    jvmToolchain(21)
-
-    jvm()
-
-    js(IR) {
-        browser()
-    }
-
     sourceSets {
         commonMain {
             dependencies {
@@ -30,7 +20,7 @@ kotlin {
                 implementation(libs.kotest.framework.engine)
                 implementation(libs.kotest.assertions.core)
                 implementation(libs.kotest.property)
-                implementation(project(":domain:domain-test-fixtures"))
+                implementation(projects.domain.domainTestFixtures)
             }
         }
 
@@ -40,8 +30,4 @@ kotlin {
             }
         }
     }
-}
-
-tasks.withType<Test> {
-    useJUnitPlatform()
 }

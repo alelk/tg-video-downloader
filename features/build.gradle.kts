@@ -1,13 +1,11 @@
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.composeMultiplatform)
-    alias(libs.plugins.composeCompiler)
+    id("tgvd.compose")
 }
 
 description = "Shared UI components, screens, viewmodels (Compose Multiplatform KMP)"
 
 // ─── Generate BuildConfig with version from root project ───
-val generateBuildConfig by tasks.registering {
+val generateBuildConfig = tasks.register("generateBuildConfig") {
     val outputDir = layout.buildDirectory.dir("generated/buildconfig")
     val versionString = project.version.toString()
     outputs.dir(outputDir)
@@ -29,28 +27,15 @@ val generateBuildConfig by tasks.registering {
 }
 
 kotlin {
-    jvmToolchain(21)
-
-    jvm()
-
-    js(IR) {
-        browser()
-    }
-
     sourceSets {
         commonMain {
             kotlin.srcDir(generateBuildConfig.map { layout.buildDirectory.dir("generated/buildconfig") })
             dependencies {
-                implementation(project(":api:contract"))
-                implementation(project(":api:client"))
-                implementation(project(":domain"))
+                implementation(projects.api.contract)
+                implementation(projects.api.client)
+                implementation(projects.domain)
 
-                // Compose
-                implementation(compose.runtime)
-                implementation(compose.foundation)
-                implementation(compose.material3)
-                implementation(compose.ui)
-                implementation(compose.components.resources)
+                // Compose runtime/foundation/material3/ui/resources come from the tgvd.compose convention
 
                 // Lifecycle
                 implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -79,8 +64,4 @@ kotlin {
             }
         }
     }
-}
-
-tasks.withType<Test> {
-    useJUnitPlatform()
 }

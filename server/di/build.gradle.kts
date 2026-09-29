@@ -1,17 +1,13 @@
 plugins {
-    alias(libs.plugins.kotlinJvm)
+    id("tgvd.jvm")
 }
 
 description = "Server DI: Koin modules and dependency wiring"
 
-kotlin {
-    jvmToolchain(21)
-}
-
 dependencies {
-    api(project(":domain"))
-    api(project(":server:infra"))
-    api(project(":server:transport"))
+    api(projects.domain)
+    api(projects.server.infra)
+    api(projects.server.transport)
 
     // Koin
     api(libs.koin.core)
@@ -21,8 +17,3 @@ dependencies {
     testImplementation(libs.bundles.testing)
     testImplementation(libs.koin.test)
 }
-
-tasks.test {
-    useJUnitPlatform()
-}
-

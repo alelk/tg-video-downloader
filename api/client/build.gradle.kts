@@ -1,23 +1,14 @@
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.kotlinSerialization)
+    id("tgvd.kmp.serialization")
 }
 
 description = "API client: Ktor KMP HTTP client for API"
 
 kotlin {
-    jvmToolchain(21)
-
-    jvm()
-
-    js(IR) {
-        browser()
-    }
-
     sourceSets {
         commonMain {
             dependencies {
-                api(project(":api:contract"))
+                api(projects.api.contract)
 
                 api(libs.bundles.ktor.client)
                 api(libs.ktor.serialization.kotlinx.json)
@@ -51,4 +42,3 @@ kotlin {
         }
     }
 }
-

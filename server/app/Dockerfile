@@ -24,6 +24,8 @@ WORKDIR /build
 COPY gradle.properties settings.gradle.kts build.gradle.kts ./
 COPY gradle ./gradle
 COPY app.version ./
+# Included build with the tgvd.* convention plugins (settings.gradle.kts → pluginManagement)
+COPY convention-plugins ./convention-plugins
 
 # Sub-project build files (one per module — cached separately)
 COPY domain/build.gradle.kts              ./domain/

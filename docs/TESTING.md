@@ -21,40 +21,38 @@ related: [ PROJECT_CONTEXT.md, ../AGENTS.md ]
 | `jvmTest`    | Kotest runner-junit5, MockK                | Integration tests, mocking                           |
 | `jvmTest`    | Testcontainers                             | PostgreSQL in tests                                  |
 | `jvmTest`    | Ktor Test                                  | HTTP tests without a real server                     |
-| `jsTest`     | Kotest framework-engine                    | JS-specific edge cases (when necessary)              |
 
-> **Kotest 6** fully supports KMP (jvm, js, native) via `kotest-framework-engine` + Kotest Gradle plugin + KSP.
-> For JS/Native tests: annotation-based configuration does not work (Kotlin runtime limitation).
+> **Kotest 6 runs on the JVM only**, through JUnit 5 (`kotest-runner-junit5`). The Kotest Gradle
+> plugin and KSP are **not** used (their JS compiler plugin lags the Kotlin compiler). `commonTest`
+> is still compiled for JS — `compileTestKotlinJs` is part of `./gradlew build` and keeps shared
+> tests free of JVM-only APIs — but the JS test runner is disabled (ADR-009, G11).
+> Consequence: a test in `commonTest` must also *compile* for JS, but it only *runs* on the JVM.
 > **MockK** does not support JS. In `commonTest`, use **fake implementations** of interfaces for mocking.
 
 ### Dependencies
 
-```kotlin
-// build.gradle.kts (root or convention plugin)
-plugins {
-    id("com.google.devtools.ksp").version("<ksp-version>")
-    id("io.kotest").version("<kotest-version>")
-}
+JUnit Platform for every `Test` task is configured by the `tgvd.kmp` / `tgvd.jvm` convention
+plugins (`convention-plugins/`, see [ARCHITECTURE.md §4.2](ARCHITECTURE.md#42-convention-plugins));
+modules declare only dependencies.
 
-// KMP modules (domain, api:mapping, etc.)
+```kotlin
+// KMP modules (domain, api:contract, features)
 kotlin {
     sourceSets {
         commonTest.dependencies {
             implementation(libs.kotest.framework.engine)
-            implementation(libs.kotest.assertions)
+            implementation(libs.kotest.assertions.core)
         }
         jvmTest.dependencies {
-            implementation(libs.kotest.runner.junit5)  // JUnit5 runner for IDE
+            implementation(libs.kotest.runner)         // kotest-runner-junit5
         }
     }
 }
 
 // JVM modules (server:*)
 dependencies {
-    testImplementation(libs.kotest.runner.junit5)
-    testImplementation(libs.kotest.assertions)
-    testImplementation(libs.mockk)
-    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.bundles.testing)           // Kotest runner/assertions/property, MockK, coroutines-test
+    testImplementation(libs.bundles.testcontainers)    // Testcontainers 2.x: core, postgresql, junit-jupiter
     testImplementation(libs.ktor.server.test.host)
 }
 ```
@@ -86,7 +84,7 @@ api/mapping/src/commonTest/kotlin/
 ```
 
 > Tests mirror the package-by-feature structure of the domain.
-> `jvmTest/` and `jsTest/` are reserved for platform-specific edge cases.
+> `jvmTest/` is reserved for JVM-specific edge cases; `jsTest/` would compile but not run (no JS test runner).
 
 ### JVM Modules (server:*)
 
@@ -870,10 +868,7 @@ dependencies {
     testImplementation(libs.bundles.testing)          // Kotest runner/assertions/property, MockK, coroutines-test
     testImplementation(libs.ktor.server.test.host)
 }
-
-tasks.test {
-    useJUnitPlatform()
-}
+// useJUnitPlatform() comes from the tgvd.jvm convention plugin
 ```
 
 > `server:infra` and `server:app` add `libs.bundles.testcontainers`. There is no `e2e` tag filter

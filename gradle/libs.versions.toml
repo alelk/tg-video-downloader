@@ -18,19 +18,16 @@ hoplite = "2.9.0"
 arrow = "2.0.0"
 
 kotlin-logging = "7.0.14"
-slf4j = "2.0.17"
 logback = "1.5.26"
 logstash-logback-encoder = "9.0"
 
 kotest = "6.1.4" # https://mvnrepository.com/artifact/io.kotest/kotest-assertions-core-jvm
-ksp = "2.3.6"
+# Testcontainers 2.x: all artifacts share one version; modules are named testcontainers-<module>.
 testcontainers = "2.0.3"
-testcontainers-postgresql = "1.21.4"
 mockk = "1.14.9"
 
 # Compose Multiplatform
 composeMultiplatform = "1.10.0"
-composeHotReload = "1.0.0"
 androidx-lifecycle = "2.9.6"
 
 # Voyager (navigation)
@@ -81,7 +78,6 @@ ktor-resources = { module = "io.ktor:ktor-resources", version.ref = "ktor" }
 
 # Exposed (Database)
 exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
-exposed-dao = { module = "org.jetbrains.exposed:exposed-dao", version.ref = "exposed" }
 exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
 exposed-json = { module = "org.jetbrains.exposed:exposed-json", version.ref = "exposed" }
 exposed-kotlin-datetime = { module = "org.jetbrains.exposed:exposed-kotlin-datetime", version.ref = "exposed" }
@@ -104,7 +100,6 @@ hoplite-yaml = { module = "com.sksamuel.hoplite:hoplite-yaml", version.ref = "ho
 
 # Logging
 kotlin-logging = { module = "io.github.oshai:kotlin-logging", version.ref = "kotlin-logging" }
-slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "logstash-logback-encoder" }
 
@@ -135,10 +130,9 @@ kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = 
 kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 testcontainers-core = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
-testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers-postgresql" }
-testcontainers-junit = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers-postgresql" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
+testcontainers-junit = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
-kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 
 [bundles]
 ktor-server = [
@@ -160,7 +154,6 @@ ktor-client = [
 ]
 exposed = [
     "exposed-core",
-    "exposed-dao",
     "exposed-jdbc",
     "exposed-json",
     "exposed-kotlin-datetime",
@@ -186,13 +179,12 @@ testcontainers = [
 ]
 
 [plugins]
+# Kotlin-family and Compose plugins are applied ONLY through the tgvd.* convention plugins
+# (convention-plugins/build.gradle.kts puts their markers on one classpath); never alias() them in a module.
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-composeHotReload = { id = "org.jetbrains.compose.hot-reload", version.ref = "composeHotReload" }
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
-kotest = { id = "io.kotest", version.ref = "kotest" }
-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

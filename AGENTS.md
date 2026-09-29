@@ -27,6 +27,11 @@ Versions only in `gradle/libs.versions.toml`; product version only in `app.versi
 | `server/di/`             | server Koin modules                                             | jvm     |
 | `server/app/`            | `Application.kt` entrypoint, Telegram bot, `application.yaml`   | jvm     |
 
+Build logic lives in the included build `convention-plugins/` (`tgvd.kmp`, `tgvd.kmp.serialization`,
+`tgvd.compose`, `tgvd.compose.js`, `tgvd.jvm`, `tgvd.jvm.serialization`): a module applies one
+convention and lists its dependencies; repositories are only in `settings.gradle.kts`; project
+dependencies use `projects.x` accessors — [`ARCHITECTURE.md` §4](docs/ARCHITECTURE.md#4-gradle-modules).
+
 Web target is `js(IR)` (no wasm). LLM adapters don't exist yet: `LlmPort` is declared in
 `domain`, nothing implements it.
 

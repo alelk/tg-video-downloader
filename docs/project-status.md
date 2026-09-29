@@ -21,6 +21,10 @@ anything a user, client or deployed installation sees (except G10 and Fork 5,
 - 2026-09-29 — 01.1 done: ADR-009 (skills baseline, overrides, compatibility contract); `AGENTS.md`
   and `CLAUDE.md` rewritten; `docs/PROJECT_CONTEXT.md` and this file created; false facts fixed in
   `ARCHITECTURE.md` and `TESTING.md`.
+- 2026-09-29 — 01.2 done: included build `convention-plugins/` (`tgvd.*`), repositories only in
+  settings (`FAIL_ON_PROJECT_REPOS`), typesafe project accessors, no Kotest Gradle plugin/KSP (JS
+  test runner off, `compileTestKotlinJs` stays), Testcontainers 2.0.3 throughout, `shadowJar` out
+  of `build` (CI builds it explicitly); 278 JVM tests before and after.
 
 ## Known issues
 

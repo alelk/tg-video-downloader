@@ -64,13 +64,16 @@ jobs:
         if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'next')
         run: echo "app.version = $(cat app.version)"
 
+      # `build` is the gate (includes `check`); shadowJar is not part of `build`, so the fat JAR
+      # attached by semantic-release (server/app/build/libs/tgvd-server.jar) is built explicitly.
       - name: Build and Test
         env:
           GITHUB_USER: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >
           ./gradlew
-          build check
+          build
+          :server:app:shadowJar
           :tgminiapp:jsBrowserDistribution
           --no-daemon
 

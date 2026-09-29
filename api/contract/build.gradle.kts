@@ -1,21 +1,10 @@
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.kotlinSerialization)
-    alias(libs.plugins.kotest)
-    alias(libs.plugins.ksp)
+    id("tgvd.kmp.serialization")
 }
 
 description = "API contract: DTOs for HTTP API (shared between client and server)"
 
 kotlin {
-    jvmToolchain(21)
-
-    jvm()
-
-    js(IR) {
-        browser()
-    }
-
     sourceSets {
         commonMain {
             dependencies {
@@ -40,8 +29,4 @@ kotlin {
             }
         }
     }
-}
-
-tasks.withType<Test>() {
-    useJUnitPlatform()
 }
