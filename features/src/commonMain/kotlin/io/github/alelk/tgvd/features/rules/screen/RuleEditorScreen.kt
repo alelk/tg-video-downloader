@@ -1,12 +1,49 @@
 package io.github.alelk.tgvd.features.rules.screen
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toString
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -17,7 +54,18 @@ import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.api.contract.metadata.MetadataTemplateDto
 import io.github.alelk.tgvd.api.contract.rule.CreateRuleRequestDto
-import io.github.alelk.tgvd.api.contract.storage.*
+import io.github.alelk.tgvd.api.contract.storage.AudioFormatDto
+import io.github.alelk.tgvd.api.contract.storage.DownloadPolicyDto
+import io.github.alelk.tgvd.api.contract.storage.EncodePresetDto
+import io.github.alelk.tgvd.api.contract.storage.HwAccelDto
+import io.github.alelk.tgvd.api.contract.storage.ImageFormatDto
+import io.github.alelk.tgvd.api.contract.storage.MediaContainerDto
+import io.github.alelk.tgvd.api.contract.storage.OutputFormatDto
+import io.github.alelk.tgvd.api.contract.storage.OutputRuleDto
+import io.github.alelk.tgvd.api.contract.storage.TrackPreferencesDto
+import io.github.alelk.tgvd.api.contract.storage.VideoCodecDto
+import io.github.alelk.tgvd.api.contract.storage.VideoEncodeSettingsDto
+import io.github.alelk.tgvd.api.contract.storage.VideoQualityDto
 import io.github.alelk.tgvd.features.common.component.ErrorCard
 import io.github.alelk.tgvd.features.common.component.TrackPreferencesEditor
 import io.github.alelk.tgvd.features.common.component.TrackPreferencesForm
@@ -31,10 +79,7 @@ import io.github.alelk.tgvd.features.rules.model.toState
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
-class RuleEditorScreen(
-    private val ruleId: String?,
-    private val onSaved: () -> Unit,
-) : Screen {
+class RuleEditorScreen(private val ruleId: String?, private val onSaved: () -> Unit) : Screen {
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
@@ -84,55 +129,57 @@ class RuleEditorScreen(
         LaunchedEffect(ruleId) {
             if (ruleId != null) {
                 try {
-                    val rule = client.getRule(ruleId)
-                    name = rule.name
-                    enabled = rule.enabled
-                    priority = rule.priority.toString()
-                    category = rule.category
-                    matchState = rule.match.toState()
+                    client.getRule(ruleId).fold(
+                        ifLeft = { errorMessage = it.message ?: "Failed to load rule" },
+                        ifRight = { rule ->
+                            name = rule.name
+                            enabled = rule.enabled
+                            priority = rule.priority.toString()
+                            category = rule.category
+                            matchState = rule.match.toState()
 
-                    maxQuality = rule.downloadPolicy.maxQuality
-                    trackPreferences = TrackPreferencesForm.from(
-                        TrackPreferencesDto(
-                            audioLanguages = rule.downloadPolicy.audioLanguages,
-                            downloadSubtitles = rule.downloadPolicy.downloadSubtitles,
-                            subtitleLanguages = rule.downloadPolicy.subtitleLanguages,
-                        )
-                    )
-
-                    outputStates.clear()
-                    rule.outputs.forEach { out ->
-                        outputStates.add(
-                            OutputState(
-                                pathTemplate = out.pathTemplate,
-                                format = out.format,
-                                maxQuality = out.maxQuality,
-                                encodeSettings = out.encodeSettings,
-                                embedThumbnail = out.embedThumbnail,
-                                embedMetadata = out.embedMetadata,
-                                embedSubtitles = out.embedSubtitles,
-                                normalizeAudio = out.normalizeAudio,
+                            maxQuality = rule.downloadPolicy.maxQuality
+                            trackPreferences = TrackPreferencesForm.from(
+                                TrackPreferencesDto(
+                                    audioLanguages = rule.downloadPolicy.audioLanguages,
+                                    downloadSubtitles = rule.downloadPolicy.downloadSubtitles,
+                                    subtitleLanguages = rule.downloadPolicy.subtitleLanguages,
+                                ),
                             )
-                        )
-                    }
 
-                    titleOverride = rule.metadataTemplate.titleOverride ?: ""
-                    titlePattern = rule.metadataTemplate.titlePattern ?: ""
-                    defaultTags = rule.metadataTemplate.defaultTags.joinToString(", ")
-                    when (val mt = rule.metadataTemplate) {
-                        is MetadataTemplateDto.MusicVideo -> {
-                            artistOverride = mt.artistOverride ?: ""
-                            artistPattern = mt.artistPattern ?: ""
-                        }
-                        is MetadataTemplateDto.SeriesEpisode -> {
-                            seriesNameOverride = mt.seriesNameOverride ?: ""
-                            seasonPattern = mt.seasonPattern ?: ""
-                            episodePattern = mt.episodePattern ?: ""
-                        }
-                        is MetadataTemplateDto.Other -> {}
-                    }
-                } catch (e: Exception) {
-                    errorMessage = e.message ?: "Failed to load rule"
+                            outputStates.clear()
+                            rule.outputs.forEach { out ->
+                                outputStates.add(
+                                    OutputState(
+                                        pathTemplate = out.pathTemplate,
+                                        format = out.format,
+                                        maxQuality = out.maxQuality,
+                                        encodeSettings = out.encodeSettings,
+                                        embedThumbnail = out.embedThumbnail,
+                                        embedMetadata = out.embedMetadata,
+                                        embedSubtitles = out.embedSubtitles,
+                                        normalizeAudio = out.normalizeAudio,
+                                    ),
+                                )
+                            }
+
+                            titleOverride = rule.metadataTemplate.titleOverride ?: ""
+                            titlePattern = rule.metadataTemplate.titlePattern ?: ""
+                            defaultTags = rule.metadataTemplate.defaultTags.joinToString(", ")
+                            when (val mt = rule.metadataTemplate) {
+                                is MetadataTemplateDto.MusicVideo -> {
+                                    artistOverride = mt.artistOverride ?: ""
+                                    artistPattern = mt.artistPattern ?: ""
+                                }
+                                is MetadataTemplateDto.SeriesEpisode -> {
+                                    seriesNameOverride = mt.seriesNameOverride ?: ""
+                                    seasonPattern = mt.seasonPattern ?: ""
+                                    episodePattern = mt.episodePattern ?: ""
+                                }
+                                is MetadataTemplateDto.Other -> {}
+                            }
+                        },
+                    )
                 } finally {
                     isLoadingRule = false
                 }
@@ -219,8 +266,10 @@ class RuleEditorScreen(
                 }
                 if (downloadPolicyExpanded) {
                     DownloadPolicySection(
-                        maxQuality, { maxQuality = it },
-                        trackPreferences, { trackPreferences = it },
+                        maxQuality,
+                        { maxQuality = it },
+                        trackPreferences,
+                        { trackPreferences = it },
                     )
                 }
 
@@ -257,11 +306,25 @@ class RuleEditorScreen(
                 // Save
                 Button(
                     onClick = {
-                        if (name.isBlank()) { errorMessage = "Name is required"; return@Button }
-                        if (!matchState.isValid()) { errorMessage = "All match conditions must have values"; return@Button }
-                        if (outputStates.isEmpty()) { errorMessage = "At least one output is required"; return@Button }
-                        if (outputStates.any { it.pathTemplate.isBlank() }) { errorMessage = "All outputs must have a path template"; return@Button }
-                        isSaving = true; errorMessage = null
+                        if (name.isBlank()) {
+                            errorMessage = "Name is required"
+                            return@Button
+                        }
+                        if (!matchState.isValid()) {
+                            errorMessage = "All match conditions must have values"
+                            return@Button
+                        }
+                        if (outputStates.isEmpty()) {
+                            errorMessage = "At least one output is required"
+                            return@Button
+                        }
+                        if (outputStates.any { it.pathTemplate.isBlank() }) {
+                            errorMessage =
+                                "All outputs must have a path template"
+                            return@Button
+                        }
+                        isSaving = true
+                        errorMessage = null
                         scope.launch {
                             try {
                                 val request = CreateRuleRequestDto(
@@ -271,8 +334,15 @@ class RuleEditorScreen(
                                     match = matchState.toDto(),
                                     category = category,
                                     metadataTemplate = buildMetadataTemplate(
-                                        category, titleOverride, titlePattern, defaultTags,
-                                        artistOverride, artistPattern, seriesNameOverride, seasonPattern, episodePattern,
+                                        category,
+                                        titleOverride,
+                                        titlePattern,
+                                        defaultTags,
+                                        artistOverride,
+                                        artistPattern,
+                                        seriesNameOverride,
+                                        seasonPattern,
+                                        episodePattern,
                                     ),
                                     downloadPolicy = trackPreferences.toDto().let { tracks ->
                                         DownloadPolicyDto(
@@ -284,12 +354,18 @@ class RuleEditorScreen(
                                     },
                                     outputs = outputStates.map { it.toDto() },
                                 )
-                                if (ruleId != null) client.updateRule(ruleId, request)
-                                else client.createRule(request)
-                                onSaved()
-                                navigator.pop()
-                            } catch (e: Exception) {
-                                errorMessage = e.message ?: "Failed to save rule"
+                                val saved = if (ruleId != null) {
+                                    client.updateRule(ruleId, request)
+                                } else {
+                                    client.createRule(request)
+                                }
+                                saved.fold(
+                                    ifLeft = { errorMessage = it.message ?: "Failed to save rule" },
+                                    ifRight = {
+                                        onSaved()
+                                        navigator.pop()
+                                    },
+                                )
                             } finally {
                                 isSaving = false
                             }
@@ -358,7 +434,12 @@ private fun OutputsEditor(outputs: SnapshotStateList<OutputState>) {
                             }
                             if (outputs.size > 1) {
                                 IconButton(onClick = { outputs.removeAt(index) }, Modifier.size(32.dp)) {
-                                    Icon(TgvdIcons.Delete, "Remove", Modifier.size(18.dp), MaterialTheme.colorScheme.error)
+                                    Icon(
+                                        TgvdIcons.Delete,
+                                        "Remove",
+                                        Modifier.size(18.dp),
+                                        MaterialTheme.colorScheme.error,
+                                    )
                                 }
                             }
                         }
@@ -426,7 +507,10 @@ private fun OutputsEditor(outputs: SnapshotStateList<OutputState>) {
                                     VideoCodecDto.entries.forEach { c ->
                                         FilterChip(
                                             selected = curSettings.codec == c,
-                                            onClick = { outputs[index] = output.copy(encodeSettings = curSettings.copy(codec = c)) },
+                                            onClick = {
+                                                outputs[index] =
+                                                    output.copy(encodeSettings = curSettings.copy(codec = c))
+                                            },
                                             label = { Text(c.name, style = MaterialTheme.typography.bodySmall) },
                                         )
                                     }
@@ -440,14 +524,22 @@ private fun OutputsEditor(outputs: SnapshotStateList<OutputState>) {
                                 ) {
                                     FilterChip(
                                         selected = curSettings.hwAccel == null,
-                                        onClick = { outputs[index] = output.copy(encodeSettings = curSettings.copy(hwAccel = null)) },
+                                        onClick = {
+                                            outputs[index] =
+                                                output.copy(encodeSettings = curSettings.copy(hwAccel = null))
+                                        },
                                         label = { Text("Software", style = MaterialTheme.typography.bodySmall) },
                                     )
                                     HwAccelDto.entries.forEach { hw ->
                                         FilterChip(
                                             selected = curSettings.hwAccel == hw,
-                                            onClick = { outputs[index] = output.copy(encodeSettings = curSettings.copy(hwAccel = hw)) },
-                                            label = { Text(hwAccelLabel(hw), style = MaterialTheme.typography.bodySmall) },
+                                            onClick = {
+                                                outputs[index] =
+                                                    output.copy(encodeSettings = curSettings.copy(hwAccel = hw))
+                                            },
+                                            label = {
+                                                Text(hwAccelLabel(hw), style = MaterialTheme.typography.bodySmall)
+                                            },
                                         )
                                     }
                                 }
@@ -458,27 +550,61 @@ private fun OutputsEditor(outputs: SnapshotStateList<OutputState>) {
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     verticalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
-                                    listOf(EncodePresetDto.VERYFAST, EncodePresetDto.FAST, EncodePresetDto.MEDIUM, EncodePresetDto.SLOW, EncodePresetDto.VERYSLOW).forEach { p ->
+                                    listOf(
+                                        EncodePresetDto.VERYFAST,
+                                        EncodePresetDto.FAST,
+                                        EncodePresetDto.MEDIUM,
+                                        EncodePresetDto.SLOW,
+                                        EncodePresetDto.VERYSLOW,
+                                    ).forEach { p ->
                                         FilterChip(
                                             selected = curSettings.preset == p,
-                                            onClick = { outputs[index] = output.copy(encodeSettings = curSettings.copy(preset = p)) },
-                                            label = { Text(p.name.lowercase().replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodySmall) },
+                                            onClick = {
+                                                outputs[index] =
+                                                    output.copy(encodeSettings = curSettings.copy(preset = p))
+                                            },
+                                            label = {
+                                                Text(
+                                                    p.name.lowercase().replaceFirstChar {
+                                                        it.uppercase()
+                                                    },
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                )
+                                            },
                                         )
                                     }
                                 }
 
                                 // CRF slider
-                                Text("Quality (CRF: ${curSettings.crf}) — lower = better", style = MaterialTheme.typography.labelSmall)
+                                Text(
+                                    "Quality (CRF: ${curSettings.crf}) — lower = better",
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
                                 Slider(
                                     value = curSettings.crf.toFloat(),
-                                    onValueChange = { outputs[index] = output.copy(encodeSettings = curSettings.copy(crf = it.toInt())) },
+                                    onValueChange = {
+                                        outputs[index] =
+                                            output.copy(encodeSettings = curSettings.copy(crf = it.toInt()))
+                                    },
                                     valueRange = 0f..51f,
                                     steps = 50,
                                 )
                                 Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-                                    Text("Lossless (0)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("YouTube-like (23)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("Low (51)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        "Lossless (0)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        "YouTube-like (23)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        "Low (51)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
 
                                 // Audio bitrate
@@ -490,7 +616,10 @@ private fun OutputsEditor(outputs: SnapshotStateList<OutputState>) {
                                     listOf("96k", "128k", "192k", "256k", "320k").forEach { br ->
                                         FilterChip(
                                             selected = curSettings.audioBitrate == br,
-                                            onClick = { outputs[index] = output.copy(encodeSettings = curSettings.copy(audioBitrate = br)) },
+                                            onClick = {
+                                                outputs[index] =
+                                                    output.copy(encodeSettings = curSettings.copy(audioBitrate = br))
+                                            },
                                             label = { Text(br, style = MaterialTheme.typography.bodySmall) },
                                         )
                                     }
@@ -500,10 +629,22 @@ private fun OutputsEditor(outputs: SnapshotStateList<OutputState>) {
 
                         // Post-processing toggles
                         Text("Post-Processing", style = MaterialTheme.typography.labelMedium)
-                        ToggleRow("Embed Thumbnail", output.embedThumbnail) { outputs[index] = output.copy(embedThumbnail = it) }
-                        ToggleRow("Embed Metadata", output.embedMetadata) { outputs[index] = output.copy(embedMetadata = it) }
-                        ToggleRow("Embed Subtitles", output.embedSubtitles) { outputs[index] = output.copy(embedSubtitles = it) }
-                        ToggleRow("Normalize Audio", output.normalizeAudio) { outputs[index] = output.copy(normalizeAudio = it) }
+                        ToggleRow("Embed Thumbnail", output.embedThumbnail) {
+                            outputs[index] =
+                                output.copy(embedThumbnail = it)
+                        }
+                        ToggleRow("Embed Metadata", output.embedMetadata) {
+                            outputs[index] =
+                                output.copy(embedMetadata = it)
+                        }
+                        ToggleRow("Embed Subtitles", output.embedSubtitles) {
+                            outputs[index] =
+                                output.copy(embedSubtitles = it)
+                        }
+                        ToggleRow("Normalize Audio", output.normalizeAudio) {
+                            outputs[index] =
+                                output.copy(normalizeAudio = it)
+                        }
                     }
                 }
             }
@@ -512,11 +653,13 @@ private fun OutputsEditor(outputs: SnapshotStateList<OutputState>) {
         // Add output button
         OutlinedButton(
             onClick = {
-                outputs.add(OutputState(
-                    format = OutputFormatDto.ConvertedVideo(MediaContainerDto.MP4),
-                    embedThumbnail = true,
-                    embedMetadata = true,
-                ))
+                outputs.add(
+                    OutputState(
+                        format = OutputFormatDto.ConvertedVideo(MediaContainerDto.MP4),
+                        embedThumbnail = true,
+                        embedMetadata = true,
+                    ),
+                )
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -593,8 +736,10 @@ private fun SectionHeader(title: String, expanded: Boolean, onToggle: () -> Unit
 
 @Composable
 private fun DownloadPolicySection(
-    maxQuality: VideoQualityDto, onMaxQualityChange: (VideoQualityDto) -> Unit,
-    trackPreferences: TrackPreferencesForm, onTrackPreferencesChange: (TrackPreferencesForm) -> Unit,
+    maxQuality: VideoQualityDto,
+    onMaxQualityChange: (VideoQualityDto) -> Unit,
+    trackPreferences: TrackPreferencesForm,
+    onTrackPreferencesChange: (TrackPreferencesForm) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(start = 8.dp), Arrangement.spacedBy(8.dp)) {
         Text("Max Download Quality", style = MaterialTheme.typography.labelMedium)
@@ -603,14 +748,18 @@ private fun DownloadPolicySection(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             VideoQualityDto.entries.forEach { q ->
-                FilterChip(selected = maxQuality == q, onClick = { onMaxQualityChange(q) },
-                    label = { Text(qualityLabel(q), style = MaterialTheme.typography.bodySmall) })
+                FilterChip(
+                    selected = maxQuality == q,
+                    onClick = { onMaxQualityChange(q) },
+                    label = { Text(qualityLabel(q), style = MaterialTheme.typography.bodySmall) },
+                )
             }
         }
         TrackPreferencesEditor(trackPreferences, onTrackPreferencesChange, inheritFrom = "the global settings")
         Text(
             "Channel settings in the Channels tab take priority over these.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -618,31 +767,55 @@ private fun DownloadPolicySection(
 @Composable
 private fun MetadataTemplateSection(
     category: CategoryDto,
-    titleOverride: String, onTitleOverride: (String) -> Unit,
-    titlePattern: String, onTitlePattern: (String) -> Unit,
-    defaultTags: String, onDefaultTags: (String) -> Unit,
-    artistOverride: String, onArtistOverride: (String) -> Unit,
-    artistPattern: String, onArtistPattern: (String) -> Unit,
-    seriesNameOverride: String, onSeriesOverride: (String) -> Unit,
-    seasonPattern: String, onSeasonPattern: (String) -> Unit,
-    episodePattern: String, onEpisodePattern: (String) -> Unit,
+    titleOverride: String,
+    onTitleOverride: (String) -> Unit,
+    titlePattern: String,
+    onTitlePattern: (String) -> Unit,
+    defaultTags: String,
+    onDefaultTags: (String) -> Unit,
+    artistOverride: String,
+    onArtistOverride: (String) -> Unit,
+    artistPattern: String,
+    onArtistPattern: (String) -> Unit,
+    seriesNameOverride: String,
+    onSeriesOverride: (String) -> Unit,
+    seasonPattern: String,
+    onSeasonPattern: (String) -> Unit,
+    episodePattern: String,
+    onEpisodePattern: (String) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(start = 8.dp), Arrangement.spacedBy(8.dp)) {
         when (category) {
             CategoryDto.MUSIC_VIDEO -> {
-                OutlinedTextField(artistOverride, onArtistOverride, label = { Text("Artist Override") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                OutlinedTextField(artistPattern, onArtistPattern, label = { Text("Artist Pattern (regex)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(artistOverride, onArtistOverride, label = {
+                    Text("Artist Override")
+                }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(artistPattern, onArtistPattern, label = {
+                    Text("Artist Pattern (regex)")
+                }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             }
             CategoryDto.SERIES_EPISODE -> {
-                OutlinedTextField(seriesNameOverride, onSeriesOverride, label = { Text("Series Name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                OutlinedTextField(seasonPattern, onSeasonPattern, label = { Text("Season Pattern") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                OutlinedTextField(episodePattern, onEpisodePattern, label = { Text("Episode Pattern") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(seriesNameOverride, onSeriesOverride, label = {
+                    Text("Series Name")
+                }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(seasonPattern, onSeasonPattern, label = {
+                    Text("Season Pattern")
+                }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(episodePattern, onEpisodePattern, label = {
+                    Text("Episode Pattern")
+                }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             }
             CategoryDto.OTHER -> {}
         }
-        OutlinedTextField(titleOverride, onTitleOverride, label = { Text("Title Override") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-        OutlinedTextField(titlePattern, onTitlePattern, label = { Text("Title Pattern (regex)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-        OutlinedTextField(defaultTags, onDefaultTags, label = { Text("Default Tags (comma-separated)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        OutlinedTextField(titleOverride, onTitleOverride, label = {
+            Text("Title Override")
+        }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        OutlinedTextField(titlePattern, onTitlePattern, label = {
+            Text("Title Pattern (regex)")
+        }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        OutlinedTextField(defaultTags, onDefaultTags, label = {
+            Text("Default Tags (comma-separated)")
+        }, modifier = Modifier.fillMaxWidth(), singleLine = true)
     }
 }
 
@@ -664,23 +837,43 @@ private fun hwAccelLabel(hw: HwAccelDto) = when (hw) {
 }
 
 private fun buildMetadataTemplate(
-    category: CategoryDto, titleOverride: String, titlePattern: String, defaultTags: String,
-    artistOverride: String, artistPattern: String,
-    seriesNameOverride: String, seasonPattern: String, episodePattern: String,
+    category: CategoryDto,
+    titleOverride: String,
+    titlePattern: String,
+    defaultTags: String,
+    artistOverride: String,
+    artistPattern: String,
+    seriesNameOverride: String,
+    seasonPattern: String,
+    episodePattern: String,
 ): MetadataTemplateDto {
     val tags = defaultTags.split(",").map { it.trim() }.filter { it.isNotBlank() }
     return when (category) {
         CategoryDto.MUSIC_VIDEO -> MetadataTemplateDto.MusicVideo(
-            artistOverride = artistOverride.ifBlank { null }, artistPattern = artistPattern.ifBlank { null },
-            titleOverride = titleOverride.ifBlank { null }, titlePattern = titlePattern.ifBlank { null }, defaultTags = tags,
+            artistOverride = artistOverride.ifBlank { null },
+            artistPattern = artistPattern.ifBlank { null },
+            titleOverride = titleOverride.ifBlank {
+                null
+            },
+            titlePattern = titlePattern.ifBlank { null },
+            defaultTags = tags,
         )
         CategoryDto.SERIES_EPISODE -> MetadataTemplateDto.SeriesEpisode(
-            seriesNameOverride = seriesNameOverride.ifBlank { null }, seasonPattern = seasonPattern.ifBlank { null },
+            seriesNameOverride = seriesNameOverride.ifBlank { null },
+            seasonPattern = seasonPattern.ifBlank { null },
             episodePattern = episodePattern.ifBlank { null },
-            titleOverride = titleOverride.ifBlank { null }, titlePattern = titlePattern.ifBlank { null }, defaultTags = tags,
+            titleOverride = titleOverride.ifBlank {
+                null
+            },
+            titlePattern = titlePattern.ifBlank { null },
+            defaultTags = tags,
         )
         CategoryDto.OTHER -> MetadataTemplateDto.Other(
-            titleOverride = titleOverride.ifBlank { null }, titlePattern = titlePattern.ifBlank { null }, defaultTags = tags,
+            titleOverride = titleOverride.ifBlank {
+                null
+            },
+            titlePattern = titlePattern.ifBlank { null },
+            defaultTags = tags,
         )
     }
 }

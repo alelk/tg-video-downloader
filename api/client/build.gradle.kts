@@ -9,6 +9,8 @@ kotlin {
         commonMain {
             dependencies {
                 api(projects.api.contract)
+                // Every call returns Either<ApiError, T>
+                api(libs.arrow.core)
 
                 api(libs.bundles.ktor.client)
                 api(libs.ktor.serialization.kotlinx.json)
@@ -32,6 +34,8 @@ kotlin {
         jvmTest {
             dependencies {
                 implementation(libs.ktor.client.mock)
+                implementation(libs.kotest.runner)
+                implementation(libs.kotest.assertions.core)
             }
         }
 

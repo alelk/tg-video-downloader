@@ -1,10 +1,36 @@
 package io.github.alelk.tgvd.features.rules.screen
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -15,9 +41,11 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.rule.RuleDto
 import io.github.alelk.tgvd.api.contract.rule.RuleMatchDto
-import io.github.alelk.tgvd.features.common.component.*
-import io.github.alelk.tgvd.features.common.theme.*
+import io.github.alelk.tgvd.features.common.component.EmptyContent
+import io.github.alelk.tgvd.features.common.component.ErrorCard
+import io.github.alelk.tgvd.features.common.component.LoadingContent
 import io.github.alelk.tgvd.features.common.icon.TgvdIcons
+import io.github.alelk.tgvd.features.common.theme.StatusCancelled
 import io.github.alelk.tgvd.features.common.util.categoryLabel
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -40,11 +68,13 @@ class RuleListScreen : Screen {
             scope.launch {
                 try {
                     isLoading = rules.isEmpty()
-                    val response = client.getRules()
-                    rules = response.items
-                    errorMessage = null
-                } catch (e: Exception) {
-                    errorMessage = e.message ?: "Failed to load rules"
+                    client.getRules().fold(
+                        ifLeft = { errorMessage = it.message ?: "Failed to load rules" },
+                        ifRight = { response ->
+                            rules = response.items
+                            errorMessage = null
+                        },
+                    )
                 } finally {
                     isLoading = false
                 }
@@ -62,7 +92,7 @@ class RuleListScreen : Screen {
                 confirmButton = {
                     TextButton(onClick = {
                         scope.launch {
-                            runCatching { client.deleteRule(ruleId) }
+                            client.deleteRule(ruleId)
                             deleteConfirmId = null
                             loadRules()
                         }
@@ -97,13 +127,17 @@ class RuleListScreen : Screen {
 
                 when {
                     isLoading && rules.isEmpty() -> LoadingContent()
-                    rules.isEmpty() -> EmptyContent("No rules yet. Rules let you automate downloads for specific channels.")
+                    rules.isEmpty() -> EmptyContent(
+                        "No rules yet. Rules let you automate downloads for specific channels.",
+                    )
                     else -> {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(rules, key = { it.id }) { rule ->
                                 RuleCard(
                                     rule = rule,
-                                    onEdit = { navigator.push(RuleEditorScreen(ruleId = rule.id, onSaved = { loadRules() })) },
+                                    onEdit = {
+                                        navigator.push(RuleEditorScreen(ruleId = rule.id, onSaved = { loadRules() }))
+                                    },
                                     onDelete = { deleteConfirmId = rule.id },
                                 )
                             }
@@ -189,4 +223,3 @@ private fun describeMatch(match: RuleMatchDto): String = when (match) {
     is RuleMatchDto.AllOf -> "All of: ${match.matches.size} conditions"
     is RuleMatchDto.AnyOf -> "Any of: ${match.matches.size} conditions"
 }
-

@@ -1,11 +1,54 @@
 package io.github.alelk.tgvd.features.download.screen
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Label
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateSetOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -13,6 +56,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
+import io.github.alelk.tgvd.api.contract.channel.ChannelDto
 import io.github.alelk.tgvd.api.contract.common.CategoryDto
 import io.github.alelk.tgvd.api.contract.job.CreateJobRequestDto
 import io.github.alelk.tgvd.api.contract.preview.DownloadHistoryEntryDto
@@ -22,7 +66,6 @@ import io.github.alelk.tgvd.api.contract.preview.UserOverridesDto
 import io.github.alelk.tgvd.api.contract.storage.MediaContainerDto
 import io.github.alelk.tgvd.api.contract.storage.OutputFormatDto
 import io.github.alelk.tgvd.api.contract.storage.VideoQualityDto
-import io.github.alelk.tgvd.api.contract.channel.ChannelDto
 import io.github.alelk.tgvd.api.contract.video.MediaSelectionDto
 import io.github.alelk.tgvd.features.channels.screen.ChannelEditorScreen
 import io.github.alelk.tgvd.features.common.component.ErrorCard
@@ -31,17 +74,55 @@ import io.github.alelk.tgvd.features.common.component.SectionCard
 import io.github.alelk.tgvd.features.common.icon.TgvdIcons
 import io.github.alelk.tgvd.features.common.util.categoryLabel
 import io.github.alelk.tgvd.features.common.util.formatDuration
-import io.github.alelk.tgvd.features.generated.resources.Res
-import io.github.alelk.tgvd.features.generated.resources.*
 import io.github.alelk.tgvd.features.download.model.PreviewEditorValues
 import io.github.alelk.tgvd.features.download.model.groupSubtitleOptions
-import io.github.alelk.tgvd.features.download.model.maxAvailableQualityLabel as calculateMaxAvailableQualityLabel
 import io.github.alelk.tgvd.features.download.model.selectAudioOptions
+import io.github.alelk.tgvd.features.generated.resources.Res
+import io.github.alelk.tgvd.features.generated.resources.action_back
+import io.github.alelk.tgvd.features.generated.resources.channels_add_to_directory
+import io.github.alelk.tgvd.features.generated.resources.channels_edit_in_directory
+import io.github.alelk.tgvd.features.generated.resources.label_channel
+import io.github.alelk.tgvd.features.generated.resources.label_duration
+import io.github.alelk.tgvd.features.generated.resources.label_platform
+import io.github.alelk.tgvd.features.generated.resources.label_title
+import io.github.alelk.tgvd.features.generated.resources.label_upload_date
+import io.github.alelk.tgvd.features.generated.resources.preview_additional
+import io.github.alelk.tgvd.features.generated.resources.preview_audio_tracks
+import io.github.alelk.tgvd.features.generated.resources.preview_auto_subtitles
+import io.github.alelk.tgvd.features.generated.resources.preview_creating
+import io.github.alelk.tgvd.features.generated.resources.preview_download_button
+import io.github.alelk.tgvd.features.generated.resources.preview_download_cancelled
+import io.github.alelk.tgvd.features.generated.resources.preview_download_failed
+import io.github.alelk.tgvd.features.generated.resources.preview_download_history
+import io.github.alelk.tgvd.features.generated.resources.preview_download_quality_best
+import io.github.alelk.tgvd.features.generated.resources.preview_downloaded
+import io.github.alelk.tgvd.features.generated.resources.preview_max_available_quality
+import io.github.alelk.tgvd.features.generated.resources.preview_media_tracks
+import io.github.alelk.tgvd.features.generated.resources.preview_original
+import io.github.alelk.tgvd.features.generated.resources.preview_refetch
+import io.github.alelk.tgvd.features.generated.resources.preview_select_audio
+import io.github.alelk.tgvd.features.generated.resources.preview_storage_container
+import io.github.alelk.tgvd.features.generated.resources.preview_storage_from_rule
+import io.github.alelk.tgvd.features.generated.resources.preview_storage_max_quality
+import io.github.alelk.tgvd.features.generated.resources.preview_storage_no_rule
+import io.github.alelk.tgvd.features.generated.resources.preview_storage_path
+import io.github.alelk.tgvd.features.generated.resources.preview_storage_plan
+import io.github.alelk.tgvd.features.generated.resources.preview_storage_quality_1080p
+import io.github.alelk.tgvd.features.generated.resources.preview_storage_quality_480p
+import io.github.alelk.tgvd.features.generated.resources.preview_storage_quality_720p
+import io.github.alelk.tgvd.features.generated.resources.preview_storage_quality_best
+import io.github.alelk.tgvd.features.generated.resources.preview_subtitle_tracks
+import io.github.alelk.tgvd.features.generated.resources.preview_title
+import io.github.alelk.tgvd.features.generated.resources.preview_video_info
+import io.github.alelk.tgvd.features.generated.resources.rule_collapse
+import io.github.alelk.tgvd.features.generated.resources.rule_expand
+import io.github.alelk.tgvd.features.generated.resources.validation_field_has_errors
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import io.github.alelk.tgvd.features.download.model.maxAvailableQualityLabel as calculateMaxAvailableQualityLabel
 
 private val metadataTypes = CategoryDto.entries.toList()
 
@@ -60,12 +141,16 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
 
         // Current server response
         var preview by remember { mutableStateOf(initialPreview) }
-        val selectedAudioIds = remember { mutableStateListOf<String>().apply {
-            addAll(initialPreview.defaultMediaSelection?.audioFormatIds.orEmpty())
-        } }
-        val selectedSubtitleLanguages = remember { mutableStateListOf<String>().apply {
-            addAll(initialPreview.defaultMediaSelection?.subtitleLanguages.orEmpty())
-        } }
+        val selectedAudioIds = remember {
+            mutableStateListOf<String>().apply {
+                addAll(initialPreview.defaultMediaSelection?.audioFormatIds.orEmpty())
+            }
+        }
+        val selectedSubtitleLanguages = remember {
+            mutableStateListOf<String>().apply {
+                addAll(initialPreview.defaultMediaSelection?.subtitleLanguages.orEmpty())
+            }
+        }
         var mediaSelectionEdited by remember { mutableStateOf(false) }
         var subtitlesExpanded by remember { mutableStateOf(false) }
 
@@ -76,13 +161,11 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
         fun reloadChannel() {
             scope.launch {
                 try {
-                    val result = client.getChannels(
+                    // Non-critical: on error the channel is simply treated as not registered
+                    client.getChannels(
                         channelId = preview.videoInfo.channelId,
                         extractor = preview.videoInfo.extractor,
-                    )
-                    existingChannel = result.items.firstOrNull()
-                } catch (_: Exception) {
-                    // Ignore — non-critical
+                    ).onRight { result -> existingChannel = result.items.firstOrNull() }
                 } finally {
                     channelChecked = true
                 }
@@ -171,15 +254,15 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                 val overrides = buildOverrides() ?: return@launch
                 isRefreshing = true
                 try {
-                    val response = client.preview(
-                        PreviewRequestDto(url = preview.source.url, overrides = overrides)
+                    client.preview(PreviewRequestDto(url = preview.source.url, overrides = overrides)).fold(
+                        // Don't overwrite form on error — just show warning
+                        ifLeft = { errorMessage = "Re-preview failed: ${it.message}" },
+                        ifRight = { response ->
+                            // Verify response matches our current overrides (race condition guard)
+                            applyServerResponse(response)
+                            errorMessage = null
+                        },
                     )
-                    // Verify response matches our current overrides (race condition guard)
-                    applyServerResponse(response)
-                    errorMessage = null
-                } catch (e: Exception) {
-                    // Don't overwrite form on error — just show warning
-                    errorMessage = "Re-preview failed: ${e.message}"
                 } finally {
                     isRefreshing = false
                 }
@@ -193,14 +276,14 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
             errorMessage = null
             rePreviewJob = scope.launch {
                 try {
-                    val response = client.preview(
-                        PreviewRequestDto(url = preview.source.url, force = true)
+                    client.preview(PreviewRequestDto(url = preview.source.url, force = true)).fold(
+                        ifLeft = { errorMessage = "Refetch failed: ${it.message}" },
+                        ifRight = { response ->
+                            userEdits.clear()
+                            mediaSelectionEdited = false
+                            applyServerResponse(response)
+                        },
                     )
-                    userEdits.clear()
-                    mediaSelectionEdited = false
-                    applyServerResponse(response)
-                } catch (e: Exception) {
-                    errorMessage = "Refetch failed: ${e.message}"
                 } finally {
                     isRefreshing = false
                 }
@@ -281,19 +364,31 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                 var menuExpanded by remember { mutableStateOf(false) }
                                 Box {
                                     IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(32.dp)) {
-                                        Icon(TgvdIcons.MoreVert, contentDescription = "Channel options", modifier = Modifier.size(20.dp))
+                                        Icon(
+                                            TgvdIcons.MoreVert,
+                                            contentDescription = "Channel options",
+                                            modifier = Modifier.size(20.dp),
+                                        )
                                     }
                                     DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                                         DropdownMenuItem(
                                             text = { Text(stringResource(Res.string.channels_edit_in_directory)) },
                                             onClick = {
                                                 menuExpanded = false
-                                                navigator.push(ChannelEditorScreen(
-                                                    channelId = ch.id,
-                                                    onSaved = { reloadChannel() },
-                                                ))
+                                                navigator.push(
+                                                    ChannelEditorScreen(
+                                                        channelId = ch.id,
+                                                        onSaved = { reloadChannel() },
+                                                    ),
+                                                )
                                             },
-                                            leadingIcon = { Icon(TgvdIcons.Edit, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    TgvdIcons.Edit,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                )
+                                            },
                                         )
                                     }
                                 }
@@ -306,7 +401,10 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
-                            InfoRow(stringResource(Res.string.label_duration), formatDuration(preview.videoInfo.durationSeconds))
+                            InfoRow(
+                                stringResource(Res.string.label_duration),
+                                formatDuration(preview.videoInfo.durationSeconds),
+                            )
                         }
                         maxAvailableQualityLabel?.let { q ->
                             SuggestionChip(
@@ -342,14 +440,17 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                         prefillExtractor = preview.videoInfo.extractor,
                                         prefillChannelName = preview.videoInfo.channelName,
                                         onSaved = { reloadChannel() },
-                                    )
+                                    ),
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Icon(TgvdIcons.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(stringResource(Res.string.channels_add_to_directory), style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                stringResource(Res.string.channels_add_to_directory),
+                                style = MaterialTheme.typography.labelMedium,
+                            )
                         }
                     }
                 }
@@ -358,13 +459,19 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                     Spacer(modifier = Modifier.height(12.dp))
                     SectionCard(title = stringResource(Res.string.preview_media_tracks)) {
                         if (audioOptions.isNotEmpty()) {
-                            Text(stringResource(Res.string.preview_audio_tracks), style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                stringResource(Res.string.preview_audio_tracks),
+                                style = MaterialTheme.typography.titleSmall,
+                            )
                             audioOptions.forEach { track ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().clickable {
                                         mediaSelectionEdited = true
-                                        if (track.formatId in selectedAudioIds) selectedAudioIds.remove(track.formatId)
-                                        else selectedAudioIds.add(track.formatId)
+                                        if (track.formatId in selectedAudioIds) {
+                                            selectedAudioIds.remove(track.formatId)
+                                        } else {
+                                            selectedAudioIds.add(track.formatId)
+                                        }
                                     },
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
@@ -372,16 +479,30 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                         checked = track.formatId in selectedAudioIds,
                                         onCheckedChange = { checked ->
                                             mediaSelectionEdited = true
-                                            if (checked) selectedAudioIds.add(track.formatId)
-                                            else selectedAudioIds.remove(track.formatId)
+                                            if (checked) {
+                                                selectedAudioIds.add(track.formatId)
+                                            } else {
+                                                selectedAudioIds.remove(track.formatId)
+                                            }
                                         },
                                     )
-                                    Text(listOfNotNull(track.language, track.audioTrackName, track.tbr?.let { "${it.toInt()} kb/s" })
-                                        .distinct().joinToString(" · ").ifBlank { track.formatId })
+                                    Text(
+                                        listOfNotNull(
+                                            track.language,
+                                            track.audioTrackName,
+                                            track.tbr?.let {
+                                                "${it.toInt()} kb/s"
+                                            },
+                                        )
+                                            .distinct().joinToString(" · ").ifBlank { track.formatId },
+                                    )
                                 }
                             }
                             if (selectedAudioIds.isEmpty()) {
-                                Text(stringResource(Res.string.preview_select_audio), color = MaterialTheme.colorScheme.error)
+                                Text(
+                                    stringResource(Res.string.preview_select_audio),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
                             }
                         }
                         if (subtitleOptions.isNotEmpty()) {
@@ -392,7 +513,10 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(stringResource(Res.string.preview_subtitle_tracks), style = MaterialTheme.typography.titleSmall)
+                                    Text(
+                                        stringResource(Res.string.preview_subtitle_tracks),
+                                        style = MaterialTheme.typography.titleSmall,
+                                    )
                                     Text(
                                         selectedSubtitleLanguages.joinToString(", ").ifEmpty { "None selected" },
                                         style = MaterialTheme.typography.bodySmall,
@@ -408,8 +532,13 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                     Row(
                                         modifier = Modifier.fillMaxWidth().clickable {
                                             mediaSelectionEdited = true
-                                            if (language in selectedSubtitleLanguages) selectedSubtitleLanguages.remove(language)
-                                            else selectedSubtitleLanguages.add(language)
+                                            if (language in
+                                                selectedSubtitleLanguages
+                                            ) {
+                                                selectedSubtitleLanguages.remove(language)
+                                            } else {
+                                                selectedSubtitleLanguages.add(language)
+                                            }
                                         },
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
@@ -417,11 +546,24 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                             checked = language in selectedSubtitleLanguages,
                                             onCheckedChange = { checked ->
                                                 mediaSelectionEdited = true
-                                                if (checked) selectedSubtitleLanguages.add(language)
-                                                else selectedSubtitleLanguages.remove(language)
+                                                if (checked) {
+                                                    selectedSubtitleLanguages.add(language)
+                                                } else {
+                                                    selectedSubtitleLanguages.remove(language)
+                                                }
                                             },
                                         )
-                                        Text(language + if (tracks.all { it.automatic }) " (${stringResource(Res.string.preview_auto_subtitles)})" else "")
+                                        Text(
+                                            language +
+                                                if (tracks.all {
+                                                        it.automatic
+                                                    }
+                                                ) {
+                                                    " (${stringResource(Res.string.preview_auto_subtitles)})"
+                                                } else {
+                                                    ""
+                                                },
+                                        )
                                     }
                                 }
                             }
@@ -439,7 +581,13 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
 
                 // Metadata (editable)
                 SectionCard(
-                    title = if (preview.matchedRule != null) "Metadata (rule: ${preview.matchedRule?.name ?: ""})" else "Metadata",
+                    title = if (preview.matchedRule !=
+                        null
+                    ) {
+                        "Metadata (rule: ${preview.matchedRule?.name ?: ""})"
+                    } else {
+                        "Metadata"
+                    },
                     icon = TgvdIcons.Label,
                 ) {
                     // Category / Metadata type selector (unified)
@@ -480,7 +628,9 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         isError = "title" in fieldErrors,
-                        supportingText = fieldErrors["title"]?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                        supportingText = fieldErrors["title"]?.let {
+                            { Text(it, color = MaterialTheme.colorScheme.error) }
+                        },
                     )
 
                     // Type-specific fields
@@ -498,7 +648,9 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 isError = "artist" in fieldErrors,
-                                supportingText = fieldErrors["artist"]?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                                supportingText = fieldErrors["artist"]?.let {
+                                    { Text(it, color = MaterialTheme.colorScheme.error) }
+                                },
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(
@@ -512,7 +664,9 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 isError = "album" in fieldErrors,
-                                supportingText = fieldErrors["album"]?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                                supportingText = fieldErrors["album"]?.let {
+                                    { Text(it, color = MaterialTheme.colorScheme.error) }
+                                },
                             )
                         }
                         CategoryDto.SERIES_EPISODE -> {
@@ -528,7 +682,9 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 isError = "seriesName" in fieldErrors,
-                                supportingText = fieldErrors["seriesName"]?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                                supportingText = fieldErrors["seriesName"]?.let {
+                                    { Text(it, color = MaterialTheme.colorScheme.error) }
+                                },
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -543,7 +699,9 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                     singleLine = true,
                                     modifier = Modifier.weight(1f),
                                     isError = "season" in fieldErrors,
-                                    supportingText = fieldErrors["season"]?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                                    supportingText = fieldErrors["season"]?.let {
+                                        { Text(it, color = MaterialTheme.colorScheme.error) }
+                                    },
                                 )
                                 OutlinedTextField(
                                     value = episode,
@@ -556,7 +714,9 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                     singleLine = true,
                                     modifier = Modifier.weight(1f),
                                     isError = "episode" in fieldErrors,
-                                    supportingText = fieldErrors["episode"]?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                                    supportingText = fieldErrors["episode"]?.let {
+                                        { Text(it, color = MaterialTheme.colorScheme.error) }
+                                    },
                                 )
                             }
                         }
@@ -585,10 +745,11 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (noRule)
+                        containerColor = if (noRule) {
                             MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        },
                     ),
                 ) {
                     // Header row — always visible, tap to expand
@@ -613,7 +774,7 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                     stringResource(Res.string.preview_storage_plan),
                                     style = MaterialTheme.typography.titleSmall,
                                 )
-                    if (!storagePlanExpanded) {
+                                if (!storagePlanExpanded) {
                                     // Compact summary when collapsed
                                     val qualitySuffix = originalMaxQuality?.let { " · ${qualityLabel(it)}" } ?: ""
                                     Text(
@@ -644,10 +805,11 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                             }
                             Icon(
                                 if (storagePlanExpanded) TgvdIcons.ExpandLess else TgvdIcons.ExpandMore,
-                                contentDescription = if (storagePlanExpanded)
+                                contentDescription = if (storagePlanExpanded) {
                                     stringResource(Res.string.rule_collapse)
-                                else
-                                    stringResource(Res.string.rule_expand),
+                                } else {
+                                    stringResource(Res.string.rule_expand)
+                                },
                                 modifier = Modifier.size(20.dp),
                             )
                         }
@@ -657,7 +819,6 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                     if (storagePlanExpanded) {
                         HorizontalDivider()
                         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-
                             // — Original output —
                             Text(
                                 stringResource(Res.string.preview_original),
@@ -815,20 +976,24 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                                         metadata = values.toMetadata(),
                                         storagePlan = values.toStoragePlan(preview.storagePlan.original),
                                         mediaSelection = MediaSelectionDto(
-                                            audioFormatIds = selectedAudioIds.toList().takeIf { audioOptions.isNotEmpty() },
+                                            audioFormatIds = selectedAudioIds.toList().takeIf {
+                                                audioOptions.isNotEmpty()
+                                            },
                                             subtitleLanguages = selectedSubtitleLanguages.toList(),
                                         ),
-                                    )
+                                    ),
+                                ).fold(
+                                    ifLeft = { errorMessage = it.message ?: "Failed to create job" },
+                                    ifRight = { navigator.pop() },
                                 )
-                                navigator.pop()
-                            } catch (e: Exception) {
-                                errorMessage = e.message ?: "Failed to create job"
                             } finally {
                                 isCreating = false
                             }
                         }
                     },
-                    enabled = !isCreating && !isRefreshing && fieldErrors.isEmpty() &&
+                    enabled = !isCreating &&
+                        !isRefreshing &&
+                        fieldErrors.isEmpty() &&
                         (audioOptions.isEmpty() || selectedAudioIds.isNotEmpty()),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -836,7 +1001,15 @@ class PreviewScreen(private val initialPreview: PreviewResponseDto) : Screen {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(8.dp))
                     }
-                    Text(if (isCreating) stringResource(Res.string.preview_creating) else stringResource(Res.string.preview_download_button))
+                    Text(
+                        if (isCreating) {
+                            stringResource(
+                                Res.string.preview_creating,
+                            )
+                        } else {
+                            stringResource(Res.string.preview_download_button)
+                        },
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -892,8 +1065,11 @@ private fun DownloadHistoryCard(entries: List<DownloadHistoryEntryDto>) {
                             val q = latest.maxQuality?.let { historyQualityLabel(it) }
                                 ?: stringResource(Res.string.preview_download_quality_best)
                             val fmt = latest.formatSummary.uppercase()
-                            if (completedCount > 1) "$date · $q · $fmt (+${completedCount - 1})"
-                            else "$date · $q · $fmt"
+                            if (completedCount > 1) {
+                                "$date · $q · $fmt (+${completedCount - 1})"
+                            } else {
+                                "$date · $q · $fmt"
+                            }
                         } else {
                             "${entries.size} attempt(s)"
                         }
@@ -907,10 +1083,11 @@ private fun DownloadHistoryCard(entries: List<DownloadHistoryEntryDto>) {
             }
             Icon(
                 if (expanded) TgvdIcons.ExpandLess else TgvdIcons.ExpandMore,
-                contentDescription = if (expanded)
+                contentDescription = if (expanded) {
                     stringResource(Res.string.rule_collapse)
-                else
-                    stringResource(Res.string.rule_expand),
+                } else {
+                    stringResource(Res.string.rule_expand)
+                },
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -995,9 +1172,7 @@ private fun historyQualityLabel(quality: VideoQualityDto): String = when (qualit
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun mutableStateSetOf(vararg elements: String): MutableSet<String> {
-    return remember { mutableSetOf(*elements) }
-}
+private fun mutableStateSetOf(vararg elements: String): MutableSet<String> = remember { mutableSetOf(*elements) }
 
 /** Human-readable label for a VideoQualityDto value */
 @Composable

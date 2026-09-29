@@ -1,11 +1,37 @@
 package io.github.alelk.tgvd.features.channels.screen
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -15,9 +41,22 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.channel.ChannelDto
-import io.github.alelk.tgvd.features.common.component.*
+import io.github.alelk.tgvd.features.common.component.EmptyContent
+import io.github.alelk.tgvd.features.common.component.ErrorCard
+import io.github.alelk.tgvd.features.common.component.LoadingContent
 import io.github.alelk.tgvd.features.common.icon.TgvdIcons
-import io.github.alelk.tgvd.features.generated.resources.*
+import io.github.alelk.tgvd.features.generated.resources.Res
+import io.github.alelk.tgvd.features.generated.resources.action_cancel
+import io.github.alelk.tgvd.features.generated.resources.action_delete
+import io.github.alelk.tgvd.features.generated.resources.action_edit
+import io.github.alelk.tgvd.features.generated.resources.channels_add
+import io.github.alelk.tgvd.features.generated.resources.channels_delete_confirm
+import io.github.alelk.tgvd.features.generated.resources.channels_empty
+import io.github.alelk.tgvd.features.generated.resources.channels_empty_filtered
+import io.github.alelk.tgvd.features.generated.resources.channels_filter_all
+import io.github.alelk.tgvd.features.generated.resources.channels_filter_by_tag
+import io.github.alelk.tgvd.features.generated.resources.channels_has_overrides
+import io.github.alelk.tgvd.features.generated.resources.channels_title
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -42,11 +81,13 @@ class ChannelListScreen : Screen {
             scope.launch {
                 try {
                     isLoading = channels.isEmpty()
-                    val response = client.getChannels(tag = selectedTag)
-                    channels = response.items
-                    errorMessage = null
-                } catch (e: Exception) {
-                    errorMessage = e.message ?: "Failed to load channels"
+                    client.getChannels(tag = selectedTag).fold(
+                        ifLeft = { errorMessage = it.message ?: "Failed to load channels" },
+                        ifRight = { response ->
+                            channels = response.items
+                            errorMessage = null
+                        },
+                    )
                 } finally {
                     isLoading = false
                 }
@@ -55,12 +96,8 @@ class ChannelListScreen : Screen {
 
         fun loadTags() {
             scope.launch {
-                try {
-                    val response = client.getChannelTags()
-                    allTags = response.tags
-                } catch (_: Exception) {
-                    // Tags are optional, ignore errors
-                }
+                // Tags are optional: an error leaves the current list
+                client.getChannelTags().onRight { response -> allTags = response.tags }
             }
         }
 
@@ -82,7 +119,7 @@ class ChannelListScreen : Screen {
                 confirmButton = {
                     TextButton(onClick = {
                         scope.launch {
-                            runCatching { client.deleteChannel(channelId) }
+                            client.deleteChannel(channelId)
                             deleteConfirmId = null
                             loadChannels()
                             loadTags()
@@ -104,10 +141,12 @@ class ChannelListScreen : Screen {
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = {
-                        navigator.push(ChannelEditorScreen(channelId = null, onSaved = {
-                            loadChannels()
-                            loadTags()
-                        }))
+                        navigator.push(
+                            ChannelEditorScreen(channelId = null, onSaved = {
+                                loadChannels()
+                                loadTags()
+                            }),
+                        )
                     },
                 ) {
                     Icon(TgvdIcons.Add, contentDescription = stringResource(Res.string.channels_add))
@@ -153,8 +192,11 @@ class ChannelListScreen : Screen {
                 when {
                     isLoading && channels.isEmpty() -> LoadingContent()
                     channels.isEmpty() -> EmptyContent(
-                        if (selectedTag != null) stringResource(Res.string.channels_empty_filtered, selectedTag!!)
-                        else stringResource(Res.string.channels_empty)
+                        if (selectedTag != null) {
+                            stringResource(Res.string.channels_empty_filtered, selectedTag!!)
+                        } else {
+                            stringResource(Res.string.channels_empty)
+                        },
                     )
                     else -> {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -162,10 +204,12 @@ class ChannelListScreen : Screen {
                                 ChannelCard(
                                     channel = channel,
                                     onEdit = {
-                                        navigator.push(ChannelEditorScreen(channelId = channel.id, onSaved = {
-                                            loadChannels()
-                                            loadTags()
-                                        }))
+                                        navigator.push(
+                                            ChannelEditorScreen(channelId = channel.id, onSaved = {
+                                                loadChannels()
+                                                loadTags()
+                                            }),
+                                        )
                                     },
                                     onDelete = { deleteConfirmId = channel.id },
                                 )
@@ -245,13 +289,20 @@ private fun ChannelCard(channel: ChannelDto, onEdit: () -> Unit, onDelete: () ->
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 IconButton(onClick = onEdit) {
-                    Icon(TgvdIcons.Edit, contentDescription = stringResource(Res.string.action_edit), tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        TgvdIcons.Edit,
+                        contentDescription = stringResource(Res.string.action_edit),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(TgvdIcons.Delete, contentDescription = stringResource(Res.string.action_delete), tint = MaterialTheme.colorScheme.error)
+                    Icon(
+                        TgvdIcons.Delete,
+                        contentDescription = stringResource(Res.string.action_delete),
+                        tint = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
         }
     }
 }
-

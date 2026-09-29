@@ -1,8 +1,26 @@
 package io.github.alelk.tgvd.features.download.screen
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -46,7 +64,10 @@ class UrlInputScreen : Screen {
 
             OutlinedTextField(
                 value = url,
-                onValueChange = { url = it; errorMessage = null },
+                onValueChange = {
+                    url = it
+                    errorMessage = null
+                },
                 label = { Text("Video URL") },
                 placeholder = { Text("https://youtube.com/watch?v=...") },
                 modifier = Modifier.fillMaxWidth(),
@@ -61,7 +82,9 @@ class UrlInputScreen : Screen {
                                         url = text.trim()
                                         errorMessage = null
                                     } else {
-                                        errorMessage = "Clipboard is unavailable in this Telegram context. Try launching Mini App from attachment menu."
+                                        errorMessage =
+                                            "Clipboard is unavailable in this Telegram context. " +
+                                            "Try launching Mini App from attachment menu."
                                     }
                                 }
                             },
@@ -89,10 +112,10 @@ class UrlInputScreen : Screen {
                     errorMessage = null
                     scope.launch {
                         try {
-                            val result = client.preview(PreviewRequestDto(url = url))
-                            navigator.push(PreviewScreen(result))
-                        } catch (e: Exception) {
-                            errorMessage = e.message ?: "Failed to preview"
+                            client.preview(PreviewRequestDto(url = url)).fold(
+                                ifLeft = { errorMessage = it.message ?: "Failed to preview" },
+                                ifRight = { result -> navigator.push(PreviewScreen(result)) },
+                            )
                         } finally {
                             isLoading = false
                         }

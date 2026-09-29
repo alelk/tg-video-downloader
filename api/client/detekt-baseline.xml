@@ -2,28 +2,7 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>MaxLineLength:TgVideoDownloaderClient.kt$TgVideoDownloaderClient$suspend fun getChannels(tag: String? = null, channelId: String? = null, extractor: String? = null): ChannelListResponseDto</ID>
-    <ID>MaxLineLength:TgVideoDownloaderClientImpl.kt$TgVideoDownloaderClientImpl$client</ID>
     <ID>TooManyFunctions:TgVideoDownloaderClient.kt$TgVideoDownloaderClient</ID>
     <ID>TooManyFunctions:TgVideoDownloaderClientImpl.kt$TgVideoDownloaderClientImpl : TgVideoDownloaderClient</ID>
-    <ID>WildcardImport:TgVideoDownloaderClient.kt$import io.github.alelk.tgvd.api.contract.channel.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClient.kt$import io.github.alelk.tgvd.api.contract.job.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClient.kt$import io.github.alelk.tgvd.api.contract.preview.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClient.kt$import io.github.alelk.tgvd.api.contract.rule.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClient.kt$import io.github.alelk.tgvd.api.contract.system.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClient.kt$import io.github.alelk.tgvd.api.contract.workspace.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClientImpl.kt$import io.github.alelk.tgvd.api.contract.channel.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClientImpl.kt$import io.github.alelk.tgvd.api.contract.job.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClientImpl.kt$import io.github.alelk.tgvd.api.contract.preview.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClientImpl.kt$import io.github.alelk.tgvd.api.contract.rule.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClientImpl.kt$import io.github.alelk.tgvd.api.contract.system.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClientImpl.kt$import io.github.alelk.tgvd.api.contract.workspace.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClientImpl.kt$import io.ktor.client.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClientImpl.kt$import io.ktor.client.call.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClientImpl.kt$import io.ktor.client.plugins.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClientImpl.kt$import io.ktor.client.plugins.resources.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClientImpl.kt$import io.ktor.client.request.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClientImpl.kt$import io.ktor.client.statement.*</ID>
-    <ID>WildcardImport:TgVideoDownloaderClientImpl.kt$import io.ktor.http.*</ID>
   </CurrentIssues>
 </SmellBaseline>

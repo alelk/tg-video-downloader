@@ -64,6 +64,11 @@ anything a user, client or deployed installation sees (except G10 and Fork 5,
   did not build before); `.dockerignore` drops `.claude`, `data/`, `output/`, yt-dlp binaries; CI split
   into a read-only `ci` gate and a `release` job with write rights, `concurrency`, timeouts,
   `setup-gradle`; `docker-publish` with `packages: write` per job; compose `stop_grace_period: 20s`.
+- 2026-09-29 — 01.11 done: `TgVideoDownloaderClient` returns `Either<ApiError, T>` (`Http`/`Network`/`Decoding`,
+  one conversion point `ApiCall.kt`, cancellation rethrown), `ApiException` removed; all 23 `catch`/`runCatching`
+  sites in `features` fold the result with the same user-visible messages; `WorkspaceGate` and the root
+  `TgvdApp` moved to `features/app`, the shell keeps `main`, Koin and Telegram/JS interop only
+  (`ShellSourceGuardTest`); 727 JVM tests.
 
 ## Known issues
 

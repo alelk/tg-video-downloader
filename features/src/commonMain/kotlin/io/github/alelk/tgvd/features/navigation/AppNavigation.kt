@@ -4,14 +4,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import cafe.adriel.voyager.navigator.tab.CurrentTab
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
-import io.github.alelk.tgvd.api.client.ApiException
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.workspace.CreateWorkspaceRequestDto
 import io.github.alelk.tgvd.features.channels.screen.ChannelsTab
@@ -78,16 +86,14 @@ fun AppNavigation() {
                 createError = null
                 scope.launch {
                     try {
-                        val created = client.createWorkspace(
-                            CreateWorkspaceRequestDto(slug = slug, name = name)
+                        client.createWorkspace(CreateWorkspaceRequestDto(slug = slug, name = name)).fold(
+                            ifLeft = { createError = it.message ?: "Failed to create workspace" },
+                            ifRight = { created ->
+                                workspaceState.workspaces = workspaceState.workspaces + created
+                                workspaceState.selectWorkspace(created)
+                                showCreateDialog = false
+                            },
                         )
-                        workspaceState.workspaces = workspaceState.workspaces + created
-                        workspaceState.selectWorkspace(created)
-                        showCreateDialog = false
-                    } catch (e: ApiException) {
-                        createError = e.message ?: "API error: ${e.code}"
-                    } catch (e: Exception) {
-                        createError = e.message ?: "Failed to create workspace"
                     } finally {
                         isCreating = false
                     }

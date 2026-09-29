@@ -161,7 +161,13 @@ Test support:
 
 **Purpose**: Typed HTTP client for UI and tests.
 
-**Dependencies**: `api:contract`, Ktor Client.
+**Dependencies**: `api:contract`, Ktor Client, Arrow.
+
+Every `TgVideoDownloaderClient` method returns `Either<ApiError, T>` and never throws (except coroutine
+cancellation). `ApiError` is sealed: `Http(status, code, message, correlationId)` for a non-2xx response
+(from `ApiErrorDto`, or `HTTP_<status>` when the body is not one), `Network` when no response arrived
+(including the Ktor JS engine's `kotlin.Error("Fail to fetch")`), `Decoding` for an undecodable 2xx body.
+The single conversion point is `ApiCall.kt`; screens `fold` the result (no `try/catch`, no `runCatching`).
 
 ---
 
@@ -174,13 +180,18 @@ Test support:
 
 **Purpose**: Reusable UI components (Compose Multiplatform).
 
-**Contains**: Screens, components, state holders / ViewModels, navigation.
+**Contains**: Screens, components, state holders / ViewModels, navigation, and the app root
+(`app/TgvdApp.kt` — theme + `WorkspaceGate` + navigation; `app/WorkspaceGate.kt` — loads or creates the
+workspace before the UI renders).
 
 **Dependencies**: `domain`, `api:contract`, `api:client`, Compose Multiplatform, Voyager, Koin.
 
 **Does NOT contain**: Platform-specific code (Telegram interop, Android Activity, etc.)
 
 ```
+├── app/
+│   ├── TgvdApp.kt                   ← the root composable a shell renders
+│   └── WorkspaceGate.kt             ← load/create workspace, restore selection, scope the client
 ├── common/
 │   ├── component/
 │   │   ├── WorkspaceTopBar.kt       ← current workspace in TopBar, switch via bottom sheet
@@ -211,11 +222,16 @@ Test support:
 
 **Purpose**: Telegram Mini App shell (thin wrapper).
 
-**Contains**: `Main.kt`, `LocalStoragePreferences.kt`, TelegramWebApp interop, DI wiring (including the API client).
+**Contains**: `Main.kt` (entry point, Koin modules incl. the API client, a single `TgvdApp(...)` call),
+`LocalStoragePreferences.kt`, `TelegramTheme.kt` (Telegram colors → `TelegramThemeColors`),
+`TelegramPlatform.kt` (`PlatformCallbacks`: haptics, deep-link URL, clipboard). `initData` is read on
+every request through the client's provider.
 
 **Dependencies**: `features`, `api:contract`, `api:client`, Compose Multiplatform (web), Koin.
 
 **Does NOT contain**: Business logic, screens, components — all of that lives in `features`.
+Guarded by `ShellSourceGuardTest` (`features/src/jvmTest`): no `@Composable` declarations and no Compose
+foundation/material imports in `tgminiapp/src`.
 
 **Persistence**: Implements `PreferencesStorage` via the browser's `localStorage`. The selected workspace is persisted across sessions.
 
@@ -277,7 +293,7 @@ jobs. yt-dlp and ffmpeg processes die with the job's coroutine (`process/Cancell
 | `domain`           | Kotlin stdlib, Arrow, kotlinx-coroutines               | Everything else                |
 | `api:contract`     | Kotlin stdlib, kotlinx.serialization                   | domain, server:*, features     |
 | `api:mapping`      | domain, api:contract, Arrow                            | server:*, api:client, features |
-| `api:client`       | api:contract, Ktor Client                              | domain, server:*, features     |
+| `api:client`       | api:contract, Ktor Client, Arrow                       | domain, server:*, features     |
 | `features`         | domain, api:contract, api:client, Compose, Koin        | server:*                       |
 | `tgminiapp`        | features, api:contract, api:client                     | server:*, domain directly      |
 | `server:infra`     | domain                                                 | api:*, transport, di, app      |

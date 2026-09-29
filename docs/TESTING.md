@@ -113,6 +113,14 @@ api/mapping/src/commonTest/kotlin/io/github/alelk/tgvd/api/mapping/
 ├── channel/ChannelMappingTest.kt   # query filter precedence, blank ids, malformed tags
 ├── workspace/WorkspaceMappingTest.kt
 └── system/SystemSettingsMappingTest.kt  # secrets never sent, proxy type parsing, update response
+
+api/client/src/jvmTest/kotlin/io/github/alelk/tgvd/api/client/
+└── TgVideoDownloaderClientImplTest.kt  # ktor-client-mock: 2xx decode, ApiErrorDto → ApiError.Http, non-DTO error
+                                        # body, IOException / kotlin.Error → Network, broken JSON → Decoding,
+                                        # 204, initData per request, cancellation is rethrown
+
+features/src/jvmTest/kotlin/io/github/alelk/tgvd/features/architecture/
+└── ShellSourceGuardTest.kt         # fitness: no @Composable and no Compose foundation/material imports in tgminiapp/src
 ```
 
 > Tests mirror the package-by-feature structure of the domain.

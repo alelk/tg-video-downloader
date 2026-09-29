@@ -1,21 +1,57 @@
 package io.github.alelk.tgvd.features.settings.screen
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toString
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import arrow.core.raise.either
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.system.ProxySettingsDto
 import io.github.alelk.tgvd.api.contract.system.SystemSettingsDto
 import io.github.alelk.tgvd.api.contract.system.YtDlpSettingsDto
 import io.github.alelk.tgvd.api.contract.system.YtDlpStatusDto
 import io.github.alelk.tgvd.features.common.BuildConfig
-import io.github.alelk.tgvd.features.common.component.*
+import io.github.alelk.tgvd.features.common.component.ErrorCard
+import io.github.alelk.tgvd.features.common.component.InfoRow
+import io.github.alelk.tgvd.features.common.component.SectionCard
 import io.github.alelk.tgvd.features.common.state.WorkspaceState
 import io.github.alelk.tgvd.features.common.theme.StatusCompleted
 import kotlinx.coroutines.launch
@@ -103,86 +139,147 @@ fun SettingsScreen() {
         scope.launch {
             try {
                 isLoading = ytDlpStatus == null
-                ytDlpStatus = client.getYtDlpStatus()
+                either {
+                    ytDlpStatus = client.getYtDlpStatus().bind()
+                    client.getSettings().bind()
+                }.fold(
+                    ifLeft = { errorMessage = it.message ?: "Failed to load settings" },
+                    ifRight = { settings ->
+                        val ytDlp = settings.ytDlp
 
-                val settings = client.getSettings()
-                val ytDlp = settings.ytDlp
+                        // Cookies source priority: browser > content (if previously set) > file
+                        cookiesFromBrowser = ytDlp.cookiesFromBrowser ?: ""
+                        cookiesContent = ytDlp.cookiesContent ?: ""
+                        cookiesFile = ytDlp.cookiesFile ?: ""
+                        cookiesSource = when {
+                            ytDlp.cookiesFromBrowser?.isNotBlank() == true -> CookiesSource.BROWSER
+                            ytDlp.cookiesFile?.isNotBlank() == true -> CookiesSource.FILE
+                            else -> CookiesSource.BROWSER
+                        }
 
-                // Cookies source priority: browser > content (if previously set) > file
-                cookiesFromBrowser = ytDlp.cookiesFromBrowser ?: ""
-                cookiesContent = ytDlp.cookiesContent ?: ""
-                cookiesFile = ytDlp.cookiesFile ?: ""
-                cookiesSource = when {
-                    ytDlp.cookiesFromBrowser?.isNotBlank() == true -> CookiesSource.BROWSER
-                    ytDlp.cookiesFile?.isNotBlank() == true        -> CookiesSource.FILE
-                    else                                           -> CookiesSource.BROWSER
-                }
+                        // SSL
+                        legacyServerConnect = ytDlp.legacyServerConnect
+                        noCheckCertificate = ytDlp.noCheckCertificate
 
-                // SSL
-                legacyServerConnect = ytDlp.legacyServerConnect
-                noCheckCertificate = ytDlp.noCheckCertificate
+                        // Formats
+                        preferredFormats = ytDlp.preferredFormats ?: ""
+                        formatSort = ytDlp.formatSort ?: ""
+                        checkFormats = ytDlp.checkFormats
+                        preferredAudioLanguages = ytDlp.preferredAudioLanguages.joinToString(", ")
+                        maxAdditionalAudioTracks = ytDlp.maxAdditionalAudioTracks.toString()
+                        originalAudioLanguage = ytDlp.originalAudioLanguage ?: ""
 
-                // Formats
-                preferredFormats = ytDlp.preferredFormats ?: ""
-                formatSort = ytDlp.formatSort ?: ""
-                checkFormats = ytDlp.checkFormats
-                preferredAudioLanguages = ytDlp.preferredAudioLanguages.joinToString(", ")
-                maxAdditionalAudioTracks = ytDlp.maxAdditionalAudioTracks.toString()
-                originalAudioLanguage = ytDlp.originalAudioLanguage ?: ""
+                        // Rate limiting
+                        rateLimit = ytDlp.rateLimit ?: ""
+                        sleepInterval = ytDlp.sleepInterval?.toString() ?: ""
+                        maxSleepInterval = ytDlp.maxSleepInterval?.toString() ?: ""
 
-                // Rate limiting
-                rateLimit = ytDlp.rateLimit ?: ""
-                sleepInterval = ytDlp.sleepInterval?.toString() ?: ""
-                maxSleepInterval = ytDlp.maxSleepInterval?.toString() ?: ""
+                        // Subtitles
+                        writeSubs = ytDlp.writeSubs
+                        writeAutoSubs = ytDlp.writeAutoSubs
+                        subLangs = ytDlp.preferredSubtitleLanguages.joinToString(", ")
+                        embedSubs = ytDlp.embedSubs
+                        sleepSubtitles = ytDlp.sleepSubtitles?.toString() ?: ""
 
-                // Subtitles
-                writeSubs = ytDlp.writeSubs
-                writeAutoSubs = ytDlp.writeAutoSubs
-                subLangs = ytDlp.preferredSubtitleLanguages.joinToString(", ")
-                embedSubs = ytDlp.embedSubs
-                sleepSubtitles = ytDlp.sleepSubtitles?.toString() ?: ""
+                        // Advanced
+                        concurrentFragments = ytDlp.concurrentFragments.toString()
+                        socketTimeout = ytDlp.socketTimeout.toString()
+                        youtubePlayerClient = ytDlp.youtubePlayerClient
+                        extractorArgs = ytDlp.extractorArgs ?: ""
+                        sponsorBlockRemove = ytDlp.sponsorBlockRemove ?: ""
+                        userAgent = ytDlp.userAgent ?: ""
 
-                // Advanced
-                concurrentFragments = ytDlp.concurrentFragments.toString()
-                socketTimeout = ytDlp.socketTimeout.toString()
-                youtubePlayerClient = ytDlp.youtubePlayerClient
-                extractorArgs = ytDlp.extractorArgs ?: ""
-                sponsorBlockRemove = ytDlp.sponsorBlockRemove ?: ""
-                userAgent = ytDlp.userAgent ?: ""
+                        // Proxy
+                        proxyEnabled = settings.proxy.enabled
+                        proxyType = settings.proxy.type
+                        proxyHost = settings.proxy.host
+                        proxyPort = settings.proxy.port.toString()
+                        proxyUsername = settings.proxy.username ?: ""
+                        proxyPassword = "" // masked on server
 
-                // Proxy
-                proxyEnabled = settings.proxy.enabled
-                proxyType = settings.proxy.type
-                proxyHost = settings.proxy.host
-                proxyPort = settings.proxy.port.toString()
-                proxyUsername = settings.proxy.username ?: ""
-                proxyPassword = "" // masked on server
+                        // Auto-expand collapsible sections if they have non-default values
+                        // Only expand if currently collapsed — respect user's manual collapse
+                        if (!subsExpanded) {
+                            subsExpanded =
+                                writeSubs ||
+                                writeAutoSubs ||
+                                subLangs.isNotBlank() ||
+                                embedSubs ||
+                                sleepSubtitles.isNotBlank()
+                        }
+                        if (!advancedExpanded) {
+                            advancedExpanded = rateLimit.isNotBlank() ||
+                                sleepInterval.isNotBlank() ||
+                                maxSleepInterval.isNotBlank() ||
+                                (concurrentFragments.toIntOrNull() ?: 5) != 5 ||
+                                (socketTimeout.toIntOrNull() ?: 30) != 30 ||
+                                youtubePlayerClient != "ios" ||
+                                extractorArgs.isNotBlank() ||
+                                sponsorBlockRemove.isNotBlank() ||
+                                userAgent.isNotBlank()
+                        }
 
-                // Auto-expand collapsible sections if they have non-default values
-                // Only expand if currently collapsed — respect user's manual collapse
-                if (!subsExpanded) {
-                    subsExpanded = writeSubs || writeAutoSubs || subLangs.isNotBlank() || embedSubs || sleepSubtitles.isNotBlank()
-                }
-                if (!advancedExpanded) {
-                    advancedExpanded = rateLimit.isNotBlank()
-                        || sleepInterval.isNotBlank()
-                        || maxSleepInterval.isNotBlank()
-                        || (concurrentFragments.toIntOrNull() ?: 5) != 5
-                        || (socketTimeout.toIntOrNull() ?: 30) != 30
-                        || youtubePlayerClient != "ios"
-                        || extractorArgs.isNotBlank()
-                        || sponsorBlockRemove.isNotBlank()
-                        || userAgent.isNotBlank()
-                }
-
-                errorMessage = null
-            } catch (e: Exception) {
-                errorMessage = e.message ?: "Failed to load settings"
+                        errorMessage = null
+                    },
+                )
             } finally {
                 isLoading = false
             }
         }
     }
+
+    /** Cookies: only the active source is sent. */
+    fun activeCookies(source: CookiesSource, value: String): String? =
+        if (cookiesSource == source) value.takeIf { it.isNotBlank() } else null
+
+    fun buildSettingsRequest() = SystemSettingsDto(
+        ytDlp = YtDlpSettingsDto(
+            // Cookies — send only the active source
+            cookiesFromBrowser = activeCookies(CookiesSource.BROWSER, cookiesFromBrowser),
+            cookiesContent = activeCookies(CookiesSource.TEXT, cookiesContent),
+            cookiesFile = activeCookies(CookiesSource.FILE, cookiesFile),
+            // SSL
+            legacyServerConnect = legacyServerConnect,
+            noCheckCertificate = noCheckCertificate,
+            // Formats
+            preferredFormats = preferredFormats.takeIf { it.isNotBlank() },
+            formatSort = formatSort.takeIf { it.isNotBlank() },
+            checkFormats = checkFormats,
+            preferredAudioLanguages = preferredAudioLanguages.split(',')
+                .map { it.trim() }.filter { it.isNotBlank() }.distinct(),
+            maxAdditionalAudioTracks = (maxAdditionalAudioTracks.toIntOrNull() ?: 2).coerceIn(0, 8),
+            originalAudioLanguage = originalAudioLanguage.takeIf { it.isNotBlank() },
+            // Rate limiting
+            rateLimit = rateLimit.takeIf { it.isNotBlank() },
+            sleepInterval = sleepInterval.toIntOrNull(),
+            maxSleepInterval = maxSleepInterval.toIntOrNull(),
+            // Subtitles
+            writeSubs = writeSubs,
+            writeAutoSubs = writeAutoSubs,
+            preferredSubtitleLanguages = subLangs.split(',')
+                .map { it.trim().replace('_', '-').lowercase() }
+                .filter { it.isNotBlank() }
+                .distinct(),
+            subLangs = null,
+            embedSubs = embedSubs,
+            sleepSubtitles = sleepSubtitles.toIntOrNull(),
+            // Advanced
+            concurrentFragments = concurrentFragments.toIntOrNull() ?: 5,
+            socketTimeout = socketTimeout.toIntOrNull() ?: 30,
+            youtubePlayerClient = youtubePlayerClient,
+            extractorArgs = extractorArgs.takeIf { it.isNotBlank() },
+            sponsorBlockRemove = sponsorBlockRemove.takeIf { it.isNotBlank() },
+            userAgent = userAgent.takeIf { it.isNotBlank() },
+        ),
+        proxy = ProxySettingsDto(
+            enabled = proxyEnabled,
+            type = proxyType,
+            host = proxyHost,
+            port = proxyPort.toIntOrNull() ?: 8080,
+            username = proxyUsername.takeIf { it.isNotBlank() },
+            password = proxyPassword.takeIf { it.isNotBlank() },
+        ),
+    )
 
     fun saveSettings() {
         scope.launch {
@@ -190,58 +287,10 @@ fun SettingsScreen() {
             successMessage = null
             errorMessage = null
             try {
-                val request = SystemSettingsDto(
-                    ytDlp = YtDlpSettingsDto(
-                        // Cookies — send only the active source
-                        cookiesFromBrowser = if (cookiesSource == CookiesSource.BROWSER) cookiesFromBrowser.takeIf { it.isNotBlank() } else null,
-                        cookiesContent     = if (cookiesSource == CookiesSource.TEXT)    cookiesContent.takeIf { it.isNotBlank() } else null,
-                        cookiesFile        = if (cookiesSource == CookiesSource.FILE)    cookiesFile.takeIf { it.isNotBlank() } else null,
-                        // SSL
-                        legacyServerConnect = legacyServerConnect,
-                        noCheckCertificate  = noCheckCertificate,
-                        // Formats
-                        preferredFormats  = preferredFormats.takeIf { it.isNotBlank() },
-                        formatSort        = formatSort.takeIf { it.isNotBlank() },
-                        checkFormats      = checkFormats,
-                        preferredAudioLanguages = preferredAudioLanguages.split(',')
-                            .map { it.trim() }.filter { it.isNotBlank() }.distinct(),
-                        maxAdditionalAudioTracks = (maxAdditionalAudioTracks.toIntOrNull() ?: 2).coerceIn(0, 8),
-                        originalAudioLanguage = originalAudioLanguage.takeIf { it.isNotBlank() },
-                        // Rate limiting
-                        rateLimit        = rateLimit.takeIf { it.isNotBlank() },
-                        sleepInterval    = sleepInterval.toIntOrNull(),
-                        maxSleepInterval = maxSleepInterval.toIntOrNull(),
-                        // Subtitles
-                        writeSubs     = writeSubs,
-                        writeAutoSubs = writeAutoSubs,
-                        preferredSubtitleLanguages = subLangs.split(',')
-                            .map { it.trim().replace('_', '-').lowercase() }
-                            .filter { it.isNotBlank() }
-                            .distinct(),
-                        subLangs      = null,
-                        embedSubs     = embedSubs,
-                        sleepSubtitles = sleepSubtitles.toIntOrNull(),
-                        // Advanced
-                        concurrentFragments = concurrentFragments.toIntOrNull() ?: 5,
-                        socketTimeout       = socketTimeout.toIntOrNull() ?: 30,
-                        youtubePlayerClient = youtubePlayerClient,
-                        extractorArgs       = extractorArgs.takeIf { it.isNotBlank() },
-                        sponsorBlockRemove  = sponsorBlockRemove.takeIf { it.isNotBlank() },
-                        userAgent           = userAgent.takeIf { it.isNotBlank() },
-                    ),
-                    proxy = ProxySettingsDto(
-                        enabled  = proxyEnabled,
-                        type     = proxyType,
-                        host     = proxyHost,
-                        port     = proxyPort.toIntOrNull() ?: 8080,
-                        username = proxyUsername.takeIf { it.isNotBlank() },
-                        password = proxyPassword.takeIf { it.isNotBlank() },
-                    ),
+                client.updateSettings(buildSettingsRequest()).fold(
+                    ifLeft = { errorMessage = it.message ?: "Failed to save settings" },
+                    ifRight = { successMessage = "Settings saved" },
                 )
-                client.updateSettings(request)
-                successMessage = "Settings saved"
-            } catch (e: Exception) {
-                errorMessage = e.message ?: "Failed to save settings"
             } finally {
                 isSaving = false
             }
@@ -293,9 +342,14 @@ fun SettingsScreen() {
                             onClick = {
                                 isUpdating = true
                                 scope.launch {
-                                    try { client.updateYtDlp(); loadData() }
-                                    catch (e: Exception) { errorMessage = e.message ?: "Update failed" }
-                                    finally { isUpdating = false }
+                                    try {
+                                        client.updateYtDlp().fold(
+                                            ifLeft = { errorMessage = it.message ?: "Update failed" },
+                                            ifRight = { loadData() },
+                                        )
+                                    } finally {
+                                        isUpdating = false
+                                    }
                                 }
                             },
                             enabled = !isUpdating,
@@ -367,11 +421,16 @@ fun SettingsScreen() {
                             modifier = Modifier.menuAnchor().fillMaxWidth(),
                             singleLine = true,
                         )
-                        ExposedDropdownMenu(expanded = browserExpanded, onDismissRequest = { browserExpanded = false }) {
+                        ExposedDropdownMenu(expanded = browserExpanded, onDismissRequest = {
+                            browserExpanded = false
+                        }) {
                             browserOptions.forEach { browser ->
                                 DropdownMenuItem(
                                     text = { Text(browser.ifBlank { "None" }) },
-                                    onClick = { cookiesFromBrowser = browser; browserExpanded = false },
+                                    onClick = {
+                                        cookiesFromBrowser = browser
+                                        browserExpanded = false
+                                    },
                                 )
                             }
                         }
@@ -393,9 +452,14 @@ fun SettingsScreen() {
                     if (cookieHintExpanded) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            ),
                         ) {
-                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
                                 Text(
                                     "How to export cookies (Netscape format):",
                                     style = MaterialTheme.typography.labelMedium,
@@ -403,13 +467,13 @@ fun SettingsScreen() {
                                 )
                                 Text(
                                     "1. Install the \"Get cookies.txt LOCALLY\" extension\n" +
-                                    "   Chrome: chrome.google.com/webstore → search \"Get cookies.txt\"\n" +
-                                    "   Firefox: addons.mozilla.org → search \"cookies.txt\"\n\n" +
-                                    "2. Open the site (e.g. youtube.com) and sign in\n\n" +
-                                    "3. Click the extension icon → Export → Netscape format\n\n" +
-                                    "4. Copy all the text and paste it into the field below\n\n" +
-                                    "Tip: use a private/incognito window for a clean export.\n" +
-                                    "Docs: github.com/yt-dlp/yt-dlp#cookies",
+                                        "   Chrome: chrome.google.com/webstore → search \"Get cookies.txt\"\n" +
+                                        "   Firefox: addons.mozilla.org → search \"cookies.txt\"\n\n" +
+                                        "2. Open the site (e.g. youtube.com) and sign in\n\n" +
+                                        "3. Click the extension icon → Export → Netscape format\n\n" +
+                                        "4. Copy all the text and paste it into the field below\n\n" +
+                                        "Tip: use a private/incognito window for a clean export.\n" +
+                                        "Docs: github.com/yt-dlp/yt-dlp#cookies",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 )
@@ -456,18 +520,34 @@ fun SettingsScreen() {
 
         // ── SSL ───────────────────────────────────────────────────────────────
         SectionCard(title = "SSL / TLS") {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Legacy server connect", style = MaterialTheme.typography.bodyMedium)
-                    Text("Fix SSL errors on some sites (e.g. RuTube)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Fix SSL errors on some sites (e.g. RuTube)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 Switch(checked = legacyServerConnect, onCheckedChange = { legacyServerConnect = it })
             }
             Spacer(modifier = Modifier.height(4.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("No check certificate", style = MaterialTheme.typography.bodyMedium)
-                    Text("Disable TLS validation — use with caution!", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Text(
+                        "Disable TLS validation — use with caution!",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
                 Switch(checked = noCheckCertificate, onCheckedChange = { noCheckCertificate = it })
             }
@@ -494,7 +574,12 @@ fun SettingsScreen() {
                 onValueChange = { originalAudioLanguage = it },
                 label = { Text("Original audio language (override)") },
                 placeholder = { Text("ru") },
-                supportingText = { Text("Guarantees this language is used as the original/default track, even if YouTube reports a dub as default. Leave empty to trust auto-detection.") },
+                supportingText = {
+                    Text(
+                        "Guarantees this language is used as the original/default track, " +
+                            "even if YouTube reports a dub as default. Leave empty to trust auto-detection.",
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
@@ -504,7 +589,12 @@ fun SettingsScreen() {
                 onValueChange = { preferredAudioLanguages = it },
                 label = { Text("Additional audio languages") },
                 placeholder = { Text("ru, en") },
-                supportingText = { Text("Comma-separated BCP 47 language codes, in priority order. Empty = original track only. Rules and channels can override this.") },
+                supportingText = {
+                    Text(
+                        "Comma-separated BCP 47 language codes, in priority order. Empty = original track only. " +
+                            "Rules and channels can override this.",
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
@@ -513,7 +603,12 @@ fun SettingsScreen() {
                 value = maxAdditionalAudioTracks,
                 onValueChange = { maxAdditionalAudioTracks = it.filter(Char::isDigit) },
                 label = { Text("Maximum additional tracks") },
-                supportingText = { Text("0–8; the original track is not counted. Set to 0 to download only the original audio, with no translations.") },
+                supportingText = {
+                    Text(
+                        "0–8; the original track is not counted. Set to 0 to download only the original audio, " +
+                            "with no translations.",
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
@@ -551,10 +646,18 @@ fun SettingsScreen() {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Check formats", style = MaterialTheme.typography.bodyMedium)
-                    Text("Verify format availability before download (may fail on some sites)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Verify format availability before download (may fail on some sites)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 Switch(checked = checkFormats, onCheckedChange = { checkFormats = it })
             }
@@ -575,11 +678,19 @@ fun SettingsScreen() {
 
             if (subsExpanded) {
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text("Download subtitles", style = MaterialTheme.typography.bodyMedium)
                     Switch(checked = writeSubs, onCheckedChange = { writeSubs = it })
                 }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text("Auto-generated subtitles", style = MaterialTheme.typography.bodyMedium)
                     Switch(checked = writeAutoSubs, onCheckedChange = { writeAutoSubs = it })
                 }
@@ -595,10 +706,18 @@ fun SettingsScreen() {
                         supportingText = { Text("Comma-separated language codes") },
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Embed subtitles", style = MaterialTheme.typography.bodyMedium)
-                            Text("Requires ffmpeg", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "Requires ffmpeg",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                         Switch(checked = embedSubs, onCheckedChange = { embedSubs = it })
                     }
@@ -611,7 +730,12 @@ fun SettingsScreen() {
                             placeholder = { Text("3") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            supportingText = { Text("Pause before each subtitle request — avoids YouTube 429 when fetching both regular and auto captions") },
+                            supportingText = {
+                                Text(
+                                    "Pause before each subtitle request — avoids YouTube 429 " +
+                                        "when fetching both regular and auto captions",
+                                )
+                            },
                         )
                     }
                 }
@@ -640,19 +764,32 @@ fun SettingsScreen() {
                     )
                     ExposedDropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }) {
                         proxyTypes.forEach { type ->
-                            DropdownMenuItem(text = { Text(type) }, onClick = { proxyType = type; typeExpanded = false })
+                            DropdownMenuItem(text = { Text(type) }, onClick = {
+                                proxyType = type
+                                typeExpanded = false
+                            })
                         }
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = proxyHost, onValueChange = { proxyHost = it }, label = { Text("Host") }, singleLine = true, modifier = Modifier.weight(2f))
-                    OutlinedTextField(value = proxyPort, onValueChange = { proxyPort = it }, label = { Text("Port") }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = proxyHost, onValueChange = {
+                        proxyHost = it
+                    }, label = { Text("Host") }, singleLine = true, modifier = Modifier.weight(2f))
+                    OutlinedTextField(value = proxyPort, onValueChange = {
+                        proxyPort = it
+                    }, label = { Text("Port") }, singleLine = true, modifier = Modifier.weight(1f))
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = proxyUsername, onValueChange = { proxyUsername = it }, label = { Text("Username") }, singleLine = true, modifier = Modifier.weight(1f))
-                    OutlinedTextField(value = proxyPassword, onValueChange = { proxyPassword = it }, label = { Text("Password") }, placeholder = { Text("unchanged") }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = proxyUsername, onValueChange = {
+                        proxyUsername = it
+                    }, label = { Text("Username") }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = proxyPassword, onValueChange = {
+                        proxyPassword = it
+                    }, label = {
+                        Text("Password")
+                    }, placeholder = { Text("unchanged") }, singleLine = true, modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -664,7 +801,11 @@ fun SettingsScreen() {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Rate limiting, performance, site-specific", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "Rate limiting, performance, site-specific",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 TextButton(onClick = { advancedExpanded = !advancedExpanded }) {
                     Text(if (advancedExpanded) "Collapse" else "Expand")
                 }
@@ -745,14 +886,14 @@ fun SettingsScreen() {
                         supportingText = {
                             Text(
                                 when (youtubePlayerClient) {
-                                    "ios"         -> "No JS runtime (deno) needed"
-                                    "android"     -> "No JS runtime (deno) needed"
-                                    "web"         -> "Requires deno installed on server"
-                                    "mweb"        -> "No JS runtime needed, lower quality"
+                                    "ios" -> "No JS runtime (deno) needed"
+                                    "android" -> "No JS runtime (deno) needed"
+                                    "web" -> "Requires deno installed on server"
+                                    "mweb" -> "No JS runtime needed, lower quality"
                                     "tv_embedded" -> "No JS runtime needed"
-                                    ""            -> "yt-dlp default (web) — requires deno"
-                                    else          -> ""
-                                }
+                                    "" -> "yt-dlp default (web) — requires deno"
+                                    else -> ""
+                                },
                             )
                         },
                     )
@@ -762,17 +903,20 @@ fun SettingsScreen() {
                                 text = {
                                     Text(
                                         when (client) {
-                                            "ios"         -> "ios  (recommended, no deno needed)"
-                                            "android"     -> "android  (no deno needed)"
-                                            "web"         -> "web  (most formats, requires deno)"
-                                            "mweb"        -> "mweb  (mobile, no deno)"
+                                            "ios" -> "ios  (recommended, no deno needed)"
+                                            "android" -> "android  (no deno needed)"
+                                            "web" -> "web  (most formats, requires deno)"
+                                            "mweb" -> "mweb  (mobile, no deno)"
                                             "tv_embedded" -> "tv_embedded  (no deno)"
-                                            ""            -> "yt-dlp default (web, requires deno)"
-                                            else          -> client
-                                        }
+                                            "" -> "yt-dlp default (web, requires deno)"
+                                            else -> client
+                                        },
                                     )
                                 },
-                                onClick = { youtubePlayerClient = client; ytClientExpanded = false },
+                                onClick = {
+                                    youtubePlayerClient = client
+                                    ytClientExpanded = false
+                                },
                             )
                         }
                     }
@@ -790,8 +934,8 @@ fun SettingsScreen() {
                     supportingText = {
                         Text(
                             "--extractor-args for non-YouTube extractors. " +
-                            "For YouTube player client use the dropdown above. " +
-                            "If this field contains 'player_client', it takes full priority."
+                                "For YouTube player client use the dropdown above. " +
+                                "If this field contains 'player_client', it takes full priority.",
                         )
                     },
                 )

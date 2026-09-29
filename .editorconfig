@@ -13,3 +13,5 @@ indent_size = 4
 max_line_length = 120
 # intellij_idea, not ktlint_official: see docs/plans/step-01/01.3-static-analysis.md, Executor notes.
 ktlint_code_style = intellij_idea
+# Composable functions are PascalCase by Compose convention (Detekt FunctionNaming is off for the same reason).
+ktlint_function_naming_ignore_when_annotated_with = Composable

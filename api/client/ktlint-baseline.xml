@@ -1,57 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <baseline version="1.0">
-    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/client/ApiException.kt">
-        <error line="12" column="5" source="standard:class-signature" />
-        <error line="13" column="5" source="standard:class-signature" />
-        <error line="13" column="29" source="standard:class-signature" />
-        <error line="19" column="1" source="standard:no-consecutive-blank-lines" />
-    </file>
-    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/client/TgVideoDownloaderClient.kt">
-        <error line="3" column="1" source="standard:no-wildcard-imports" />
-        <error line="4" column="1" source="standard:no-wildcard-imports" />
-        <error line="5" column="1" source="standard:no-wildcard-imports" />
-        <error line="6" column="1" source="standard:no-wildcard-imports" />
-        <error line="7" column="1" source="standard:no-wildcard-imports" />
-        <error line="8" column="1" source="standard:no-wildcard-imports" />
-        <error line="38" column="29" source="standard:function-signature" />
-        <error line="38" column="50" source="standard:function-signature" />
-        <error line="38" column="77" source="standard:function-signature" />
-        <error line="38" column="102" source="standard:function-signature" />
-        <error line="38" column="120" source="standard:max-line-length" />
-        <error line="50" column="1" source="standard:no-consecutive-blank-lines" />
-    </file>
-    <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/client/TgVideoDownloaderClientImpl.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="3" column="1" source="standard:no-wildcard-imports" />
-        <error line="5" column="1" source="standard:no-wildcard-imports" />
-        <error line="6" column="1" source="standard:no-wildcard-imports" />
-        <error line="7" column="1" source="standard:no-wildcard-imports" />
-        <error line="8" column="1" source="standard:no-wildcard-imports" />
-        <error line="9" column="1" source="standard:no-wildcard-imports" />
-        <error line="12" column="1" source="standard:no-wildcard-imports" />
-        <error line="13" column="1" source="standard:no-wildcard-imports" />
-        <error line="14" column="1" source="standard:no-wildcard-imports" />
-        <error line="15" column="1" source="standard:no-wildcard-imports" />
-        <error line="18" column="1" source="standard:no-wildcard-imports" />
-        <error line="19" column="1" source="standard:no-wildcard-imports" />
-        <error line="20" column="1" source="standard:no-wildcard-imports" />
-        <error line="44" column="41" source="standard:annotation" />
-        <error line="44" column="69" source="standard:annotation" />
-        <error line="63" column="69" source="standard:function-signature" />
-        <error line="68" column="93" source="standard:function-signature" />
-        <error line="97" column="21" source="standard:argument-list-wrapping" />
-        <error line="97" column="54" source="standard:argument-list-wrapping" />
-        <error line="97" column="80" source="standard:argument-list-wrapping" />
-        <error line="97" column="101" source="standard:argument-list-wrapping" />
-        <error line="97" column="112" source="standard:argument-list-wrapping" />
-        <error line="97" column="115" source="standard:argument-list-wrapping" />
-        <error line="97" column="117" source="standard:argument-list-wrapping" />
-        <error line="97" column="118" source="standard:argument-list-wrapping" />
-        <error line="97" column="119" source="standard:argument-list-wrapping" />
-        <error line="97" column="121" source="standard:max-line-length" />
-        <error line="101" column="59" source="standard:function-signature" />
-        <error line="176" column="60" source="standard:function-signature" />
-    </file>
     <file name="src/commonMain/kotlin/io/github/alelk/tgvd/api/client/package-info.kt">
         <error line="1" column="1" source="standard:filename" />
         <error line="1" column="1" source="standard:no-empty-file" />

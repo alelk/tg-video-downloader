@@ -21,7 +21,7 @@ val generateBuildConfig = tasks.register("generateBuildConfig") {
             |object BuildConfig {
             |    const val APP_VERSION: String = "$versionString"
             |}
-            """.trimMargin()
+            """.trimMargin(),
         )
     }
 }
@@ -64,4 +64,13 @@ kotlin {
             }
         }
     }
+}
+
+// ShellSourceGuardTest (jvmTest) scans the tgminiapp shell's sources: declare them as a test input,
+// otherwise an up-to-date/cached test result would hide a new violation in the shell.
+tasks.named<Test>("jvmTest") {
+    inputs
+        .dir(layout.projectDirectory.dir("../tgminiapp/src"))
+        .withPropertyName("shellSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }

@@ -1,12 +1,42 @@
 package io.github.alelk.tgvd.features.channels.screen
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Label
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
@@ -69,31 +99,33 @@ class ChannelEditorScreen(
         LaunchedEffect(channelId) {
             if (channelId != null) {
                 try {
-                    val channel = client.getChannel(channelId)
-                    name = channel.name
-                    platformChannelId = channel.channelId
-                    extractor = channel.extractor
-                    tagsText = channel.tags.joinToString(", ")
-                    notes = channel.notes ?: ""
-                    trackPreferences = TrackPreferencesForm.from(channel.trackPreferences)
-                    channel.metadataOverrides?.let { overrides ->
-                        hasOverrides = true
-                        when (overrides) {
-                            is MetadataTemplateDto.MusicVideo -> {
-                                overrideCategory = CategoryDto.MUSIC_VIDEO
-                                artistOverride = overrides.artistOverride ?: ""
+                    client.getChannel(channelId).fold(
+                        ifLeft = { errorMessage = it.message ?: "Failed to load channel" },
+                        ifRight = { channel ->
+                            name = channel.name
+                            platformChannelId = channel.channelId
+                            extractor = channel.extractor
+                            tagsText = channel.tags.joinToString(", ")
+                            notes = channel.notes ?: ""
+                            trackPreferences = TrackPreferencesForm.from(channel.trackPreferences)
+                            channel.metadataOverrides?.let { overrides ->
+                                hasOverrides = true
+                                when (overrides) {
+                                    is MetadataTemplateDto.MusicVideo -> {
+                                        overrideCategory = CategoryDto.MUSIC_VIDEO
+                                        artistOverride = overrides.artistOverride ?: ""
+                                    }
+                                    is MetadataTemplateDto.SeriesEpisode -> {
+                                        overrideCategory = CategoryDto.SERIES_EPISODE
+                                        seriesNameOverride = overrides.seriesNameOverride ?: ""
+                                    }
+                                    is MetadataTemplateDto.Other -> {
+                                        overrideCategory = CategoryDto.OTHER
+                                    }
+                                }
                             }
-                            is MetadataTemplateDto.SeriesEpisode -> {
-                                overrideCategory = CategoryDto.SERIES_EPISODE
-                                seriesNameOverride = overrides.seriesNameOverride ?: ""
-                            }
-                            is MetadataTemplateDto.Other -> {
-                                overrideCategory = CategoryDto.OTHER
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    errorMessage = e.message ?: "Failed to load channel"
+                        },
+                    )
                 } finally {
                     isLoading = false
                 }
@@ -122,7 +154,7 @@ class ChannelEditorScreen(
             errorMessage = null
             scope.launch {
                 try {
-                    if (isCreate) {
+                    val saved = if (isCreate) {
                         client.createChannel(
                             CreateChannelDto(
                                 channelId = platformChannelId,
@@ -132,7 +164,7 @@ class ChannelEditorScreen(
                                 metadataOverrides = buildOverrides(),
                                 notes = notes.takeIf { it.isNotBlank() },
                                 trackPreferences = trackPreferences.toDto(),
-                            )
+                            ),
                         )
                     } else {
                         client.updateChannel(
@@ -143,13 +175,16 @@ class ChannelEditorScreen(
                                 metadataOverrides = buildOverrides(),
                                 notes = notes.takeIf { it.isNotBlank() },
                                 trackPreferences = trackPreferences.toDto(),
-                            )
+                            ),
                         )
                     }
-                    onSaved?.invoke()
-                    navigator.pop()
-                } catch (e: Exception) {
-                    errorMessage = e.message ?: "Failed to save channel"
+                    saved.fold(
+                        ifLeft = { errorMessage = it.message ?: "Failed to save channel" },
+                        ifRight = {
+                            onSaved?.invoke()
+                            navigator.pop()
+                        },
+                    )
                 } finally {
                     isSaving = false
                 }
@@ -169,7 +204,10 @@ class ChannelEditorScreen(
             },
         ) { paddingValues ->
             if (isLoading) {
-                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    contentAlignment = androidx.compose.ui.Alignment.Center,
+                ) {
                     CircularProgressIndicator()
                 }
                 return@Scaffold
@@ -221,7 +259,11 @@ class ChannelEditorScreen(
                     val predefinedTags = listOf("music-video", "series")
                     val currentTags = parseTags().toSet()
 
-                    Text("Quick add", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Quick add",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         predefinedTags.forEach { tag ->
@@ -355,14 +397,25 @@ class ChannelEditorScreen(
                 // Save button
                 Button(
                     onClick = { save() },
-                    enabled = !isSaving && name.isNotBlank() && platformChannelId.isNotBlank() && extractor.isNotBlank(),
+                    enabled = !isSaving &&
+                        name.isNotBlank() &&
+                        platformChannelId.isNotBlank() &&
+                        extractor.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     if (isSaving) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(8.dp))
                     }
-                    Text(if (isSaving) "Saving..." else if (isCreate) "Add Channel" else "Save")
+                    Text(
+                        if (isSaving) {
+                            "Saving..."
+                        } else if (isCreate) {
+                            "Add Channel"
+                        } else {
+                            "Save"
+                        },
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -370,4 +423,3 @@ class ChannelEditorScreen(
         }
     }
 }
-
