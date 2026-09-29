@@ -56,6 +56,7 @@ kotlin {
             dependencies {
                 implementation(libs.kotest.framework.engine)
                 implementation(libs.kotest.assertions.core)
+                implementation(libs.kotlinx.coroutines.test)
             }
         }
         jvmTest {
@@ -66,11 +67,15 @@ kotlin {
     }
 }
 
-// ShellSourceGuardTest (jvmTest) scans the tgminiapp shell's sources: declare them as a test input,
-// otherwise an up-to-date/cached test result would hide a new violation in the shell.
+// ShellSourceGuardTest and UiConventionsTest (jvmTest) scan source files: declare them as test inputs,
+// otherwise an up-to-date/cached test result would hide a new violation.
 tasks.named<Test>("jvmTest") {
     inputs
         .dir(layout.projectDirectory.dir("../tgminiapp/src"))
         .withPropertyName("shellSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs
+        .dir(layout.projectDirectory.dir("src/commonMain/kotlin"))
+        .withPropertyName("uiSources")
         .withPathSensitivity(PathSensitivity.RELATIVE)
 }

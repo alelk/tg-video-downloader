@@ -180,9 +180,20 @@ The single conversion point is `ApiCall.kt`; screens `fold` the result (no `try/
 
 **Purpose**: Reusable UI components (Compose Multiplatform).
 
-**Contains**: Screens, components, state holders / ViewModels, navigation, and the app root
+**Contains**: Screens, components, state holders, navigation, and the app root
 (`app/TgvdApp.kt` — theme + `WorkspaceGate` + navigation; `app/WorkspaceGate.kt` — loads or creates the
 workspace before the UI renders).
+
+**Screen state (G12, Fork 3).** Voyager stays; a screen's state holder is a Voyager `ScreenModel` built by
+Koin (`koinScreenModel`, factories in `di/FeaturesModule.kt`) on the base `common/FeatureScreenModel.kt`: one
+`StateFlow` state implementing `common/Async.kt` (`loading` / `busy` / `error`), one-shot effects through a
+`Channel`, one `onEvent`, and `runRequest`/`launchRequest` that lower the in-flight flag on success, failure
+and cancellation. A screen is split into `XxxEntry` (acquires the model, collects state, turns effects into
+navigation), `XxxContent` (pure render of the state + `onEvent` + navigation lambdas), `XxxScreenModel`,
+`XxxUiState` (screen models mapped from the DTOs) / `XxxEvent`, and section files. Preview
+(`download/screen/Preview*`) and Settings (`settings/screen/Settings*`, form model `settings/model/SettingsForm.kt`)
+follow it; the other screens still call the client from composition and are listed in the
+`UiConventionsTest` ratchet (`features/src/jvmTest`), which only shrinks.
 
 **Dependencies**: `domain`, `api:contract`, `api:client`, Compose Multiplatform, Voyager, Koin.
 
@@ -193,6 +204,8 @@ workspace before the UI renders).
 │   ├── TgvdApp.kt                   ← the root composable a shell renders
 │   └── WorkspaceGate.kt             ← load/create workspace, restore selection, scope the client
 ├── common/
+│   ├── Async.kt                     ← loading / busy / error — the fields every screen state shares
+│   ├── FeatureScreenModel.kt        ← ScreenModel base: StateFlow state, Channel effects, runRequest
 │   ├── component/
 │   │   ├── WorkspaceTopBar.kt       ← current workspace in TopBar, switch via bottom sheet
 │   │   ├── CreateWorkspaceDialog.kt ← dialog for creating a new workspace
@@ -205,11 +218,16 @@ workspace before the UI renders).
 ├── navigation/
 │   └── AppNavigation.kt             ← Scaffold with TopBar (workspace) + BottomBar (tabs)
 ├── download/
+│   ├── model/                       ← PreviewEditorValues, media options (pure)
+│   └── screen/                      ← UrlInputScreen; PreviewScreen (Voyager screen) → PreviewEntry →
+│                                      PreviewContent + sections; PreviewScreenModel, PreviewUiState, PreviewEvent
 ├── jobs/
 ├── rules/
 ├── settings/
+│   ├── model/SettingsForm.kt        ← editable fields ↔ SystemSettingsDto
+│   └── screen/                      ← SettingsTab → SettingsEntry → SettingsContent + sections; SettingsScreenModel
 └── di/
-    └── FeaturesModule.kt
+    └── FeaturesModule.kt            ← WorkspaceState, LocaleState, screen-model factories
 ```
 
 > This is the key module for multiplatform support. A new UI shell (web, macOS, Android) simply depends on `features` and adds only platform-specific glue.

@@ -69,6 +69,11 @@ anything a user, client or deployed installation sees (except G10 and Fork 5,
   sites in `features` fold the result with the same user-visible messages; `WorkspaceGate` and the root
   `TgvdApp` moved to `features/app`, the shell keeps `main`, Koin and Telegram/JS interop only
   (`ShellSourceGuardTest`); 727 JVM tests.
+- 2026-09-29 — 01.12 done: Preview and Settings run on Voyager `ScreenModel`s (`koinScreenModel`, base
+  `FeatureScreenModel`: `StateFlow` state with `Async` loading/busy/error, `Channel` effects, one `onEvent`,
+  flags lowered on every outcome) and are split into Entry/Content/ScreenModel/UiState/Event/section files (all
+  ≤ 216 lines); screen-model tests on a fake client; `UiConventionsTest` ratchet on direct client injection
+  (8 known screens); pixel-identical UI in a headless before/after comparison; 753 JVM tests.
 
 ## Known issues
 

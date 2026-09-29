@@ -119,9 +119,22 @@ api/client/src/jvmTest/kotlin/io/github/alelk/tgvd/api/client/
                                         # body, IOException / kotlin.Error → Network, broken JSON → Decoding,
                                         # 204, initData per request, cancellation is rethrown
 
+features/src/commonTest/kotlin/io/github/alelk/tgvd/features/
+├── fakes/FakeTgVideoDownloaderClient.kt  # settable results + recorded calls; `gate` holds calls in flight
+├── fixtures/PreviewFixtures.kt     # aPreviewResponse, anAudioFormat, aChannelDto, aJobDto…
+├── download/model/                 # PreviewEditorValues, media options (pure)
+├── download/screen/PreviewScreenModelTest.kt   # kotlinx-coroutines-test: channel check, debounced re-preview,
+│                                   # refetch, job creation → JobCreated, failures lower the flags
+├── settings/model/SettingsFormTest.kt          # DTO ↔ form round trip, active cookies source, defaults
+└── settings/screen/SettingsScreenModelTest.kt  # load → form, load failure, save → Saved, yt-dlp update
+
 features/src/jvmTest/kotlin/io/github/alelk/tgvd/features/architecture/
-└── ShellSourceGuardTest.kt         # fitness: no @Composable and no Compose foundation/material imports in tgminiapp/src
+├── ShellSourceGuardTest.kt         # fitness: no @Composable and no Compose foundation/material imports in tgminiapp/src
+└── UiConventionsTest.kt            # fitness: no koinInject<TgVideoDownloaderClient>() outside the KNOWN_* ratchet
 ```
+
+Screen-model tests set `Dispatchers.setMain(StandardTestDispatcher())` (Voyager's `screenModelScope` runs on
+`Dispatchers.Main.immediate`) and drive time with `runTest`/`advanceUntilIdle`.
 
 > Tests mirror the package-by-feature structure of the domain.
 > `jvmTest/` is reserved for JVM-specific edge cases and source-scanning fitness tests (they need `java.io.File`); `jsTest/` would compile but not run (no JS test runner).
