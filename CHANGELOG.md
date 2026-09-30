@@ -1,5 +1,13 @@
 # TGVD CHANGELOG
 
+## [1.42.1](https://github.com/alelk/tg-video-downloader/compare/v1.42.0...v1.42.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* fail fast at start and read allow-lists from env ([08eeb0f](https://github.com/alelk/tg-video-downloader/commit/08eeb0f207a42cd890e15d94d3b2bc32de7343ad))
+* make job cancel, stop and restart reliable ([1fdf4ee](https://github.com/alelk/tg-video-downloader/commit/1fdf4ee89115395ed11b0fe886ac53d9b830ce81))
+
 # [1.42.0](https://github.com/alelk/tg-video-downloader/compare/v1.41.0...v1.42.0) (2026-09-24)
 
 
