@@ -1,7 +1,7 @@
 ---
 status: stable
 owner: Alex (alelk)
-updated: 2026-09-29
+updated: 2026-09-30
 related: [ ../step-01-refactoring.md ]
 ---
 
@@ -25,7 +25,7 @@ related: [ ../step-01-refactoring.md ]
 | 01.10 | [Доставка: Docker и CI](01.10-delivery.md)                        | done        |
 | 01.11 | [Клиент и оболочка](01.11-client-and-shell.md)                    | done        |
 | 01.12 | [ScreenModel для Preview/Settings](01.12-screen-models.md)        | done        |
-| 01.13 | [Закрытие шага](01.13-close-out.md)                               | not started |
+| 01.13 | [Закрытие шага](01.13-close-out.md)                               | done        |
 
 Statuses: `not started` → `done`; `waiting` — заблокировано вопросом к владельцу.
 

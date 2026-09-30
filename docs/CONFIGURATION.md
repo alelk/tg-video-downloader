@@ -1,7 +1,7 @@
 ---
 status: stable
 owner: Alex (alelk)
-updated: 2026-09-29
+updated: 2026-09-30
 related: [ DEPLOYMENT.md, SECURITY.md, ../server/app/src/main/resources/application.yaml ]
 ---
 
@@ -15,12 +15,16 @@ related: [ DEPLOYMENT.md, SECURITY.md, ../server/app/src/main/resources/applicat
 
 - **Library**: Hoplite
 - **Format**: YAML
-- **Files**: `application.yaml`, `application-{profile}.yaml`
+- **Files**: `application.yaml` (classpath, committed defaults), optional `application-{profile}.yaml`
+  (classpath; none is committed), optional external file `APP_CONFIG` (compose inline config)
 - **Environment variables**: Supported via Hoplite
 
 ---
 
 ## 2. Full Schema
+
+Example values (the committed defaults are in `server/app/src/main/resources/application.yaml`; the
+code defaults are the data classes in `server/infra/.../config/`).
 
 ```yaml
 # Server
@@ -67,9 +71,9 @@ storage:
 # yt-dlp
 ytDlp:
   path: "yt-dlp"                        # or absolute path (e.g. "./yt-dlp")
-  timeout: "30m"
-  retries: 3
-  fragmentRetries: 10
+  timeout: "30m"                       # read, NOT used (no process timeout is applied)
+  retries: 3                           # code default 5
+  fragmentRetries: 10                  # code default 30
   allowUpdate: true                    # allow update via UI
   updateChannel: "stable"              # stable | nightly
   autoDownload: true                   # automatically download yt-dlp on startup if binary not found
@@ -82,6 +86,9 @@ ytDlp:
   writeAutoSubs: true                  # also download generated captions
   preferredSubtitleLanguages: ["ru", "en"] # download only these languages
   sleepSubtitles: 3                    # --sleep-subtitles: pause before each subtitle download when both writeSubs and writeAutoSubs are on (avoids YouTube 429)
+  cookiesFromBrowser: "${YTDLP_COOKIES_FROM_BROWSER:-}"
+  cookiesFile: "${YTDLP_COOKIES_FILE:-}"
+  # … more yt-dlp options (formats, rate limits, player client, extractorOverrides, …) — see YtDlpConfig.kt
 
 # The merge container (--merge-output-format) always follows the extension of the chosen
 # Output format for that rule/output — there is no separate global or per-rule override.
@@ -99,9 +106,17 @@ ytDlp:
 # ffmpeg
 ffmpeg:
   path: "ffmpeg"                        # path to ffmpeg, or just "ffmpeg" if in PATH
-  timeout: "60m"
+  timeout: "60m"                        # read, NOT used (no process timeout is applied)
+  renderDevice: null                    # optional hardware render device for encoding
   # ffprobe is resolved from the same directory: path.replace("ffmpeg", "ffprobe")
   # Used to determine actual source resolution before conversion.
+
+# Post-processing defaults
+postProcess:
+  taggingTool: "FFMPEG"                 # FFMPEG | ATOMICPARSLEY | MP4BOX
+  embedThumbnail: true
+  embedMetadata: true
+  normalizeAudio: false
 
 # Jobs
 jobs:
@@ -115,7 +130,7 @@ logging:
   level: "INFO"
   format: "JSON"                        # JSON | TEXT
 
-# LLM (Optional) — for smart metadata extraction
+# LLM (Optional) — read, NOT used: no LLM adapter exists, UnconfiguredLlmPort is always bound
 llm:
   provider: "GEMINI"                    # GEMINI | OPENAI | NONE
   apiKey: "AIza..."                     # REQUIRED if provider != NONE, via env
@@ -127,129 +142,52 @@ proxy:
   type: "HTTP"                          # HTTP | SOCKS5
   host: "127.0.0.1"
   port: 8080
-  username: null                        # optional, via env
-  password: null                        # optional, via env
+  username: null                        # optional
+  password: null                        # optional
+# Note: once settings are saved through `PUT /system/settings`, the stored `ytDlp` and `proxy`
+# sections (table `system_settings`) replace these two sections entirely at start (§4).
+
+# CORS for the Mini App origin
+cors:
+  enabled: true
+  anyHost: false
+  allowCredentials: false
+  hosts: ["localhost:8081"]
+  headers: ["Content-Type", "X-Telegram-Init-Data", "X-Workspace-Id"]
+  exposeHeaders: ["X-Correlation-Id"]
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+  allowNonSimpleContentTypes: true
 ```
 
 ---
 
 ## 3. Data Classes
 
+`server/infra/src/main/kotlin/io/github/alelk/tgvd/server/infra/config/` — one file per section
+(`AppConfig`, `ServerConfig`, `TelegramConfig`, `DbConfig`, `StorageConfig`, `YtDlpConfig`,
+`FfmpegConfig`, `PostProcessConfig`, `JobsConfig`, `LoggingConfig`, `LlmConfig`, `ProxyConfig`,
+`CorsConfig`). The KDoc of each field is the reference; the files are not repeated here.
+
 ```kotlin
 data class AppConfig(
-    val server: ServerConfig,
-    val telegram: TelegramConfig,
-    val db: DbConfig,
-    val storage: StorageConfig,
-    val ytDlp: YtDlpConfig,
-    val ffmpeg: FfmpegConfig,
-    val jobs: JobsConfig,
-    val logging: LoggingConfig,
+    val server: ServerConfig,              // port 8080, host 0.0.0.0, baseUrl "http://localhost:8080"
+    val telegram: TelegramConfig,          // botToken is required (may be empty only with devMode)
+    val db: DbConfig,                      // url, user, password required; poolSize 10, minIdle 2
+    val storage: StorageConfig,            // baseDirectories required
+    val ytDlp: YtDlpConfig = YtDlpConfig(),
+    val ffmpeg: FfmpegConfig = FfmpegConfig(),
+    val postProcess: PostProcessConfig = PostProcessConfig(),
+    val jobs: JobsConfig = JobsConfig(),
+    val logging: LoggingConfig = LoggingConfig(),
     val llm: LlmConfig = LlmConfig(),
     val proxy: ProxyConfig = ProxyConfig(),
+    val cors: CorsConfig = CorsConfig(),
 )
-
-data class ServerConfig(
-    val port: Int = 8080,
-    val host: String = "0.0.0.0",
-    val baseUrl: String,
-)
-
-data class TelegramConfig(
-    val botToken: String,
-    val allowedUserIds: List<String> = emptyList(),
-    val allowedUsernames: List<String> = emptyList(),
-    val devMode: Boolean = false,
-    val miniAppAutoReply: TelegramMiniAppAutoReplyConfig = TelegramMiniAppAutoReplyConfig(),
-)
-
-data class TelegramMiniAppAutoReplyConfig(
-    val enabled: Boolean = false,
-    val botUsername: String? = null,
-    /** Mini App short name — last segment of https://t.me/{botUsername}/{appShortName} */
-    val appShortName: String? = null,
-    val buttonText: String = "Open Mini App",
-    val replyText: String = "Got your link. Open Mini App to continue.",
-    /** List of regex patterns to filter URLs. Empty = respond to any URL */
-    val urlPatterns: List<String> = emptyList(),
-    val pollingTimeoutSeconds: Int = 60,
-)
-
-data class DbConfig(
-    val url: String,
-    val user: String,
-    val password: String,
-    val poolSize: Int = 10,
-    val minIdle: Int = 2,
-)
-
-data class StorageConfig(
-    val baseDirectories: List<String>,
-    val tempDirectory: String = "/tmp/tgvd",
-)
-
-data class YtDlpConfig(
-    val path: String = "yt-dlp",
-    val timeout: Duration = 30.minutes,
-    val retries: Int = 3,
-    val fragmentRetries: Int = 10,
-    val allowUpdate: Boolean = true,
-    val updateChannel: String = "stable",
-    /** --legacy-server-connect: workaround for SSL EOF errors (e.g. RuTube) */
-    val legacyServerConnect: Boolean = false,
-    /** --no-check-certificate: disable TLS validation (use with caution!) */
-    val noCheckCertificate: Boolean = false,
-)
-
-data class FfmpegConfig(
-    val path: String = "ffmpeg",
-    val timeout: Duration = 60.minutes,
-)
-// Note: ffprobe is resolved automatically from the same directory (path.replace("ffmpeg","ffprobe")).
-// Encoding settings (codec, CRF, preset, hardware acceleration) are defined per-output in rules
-// via VideoEncodeSettings, not globally.
-
-data class JobsConfig(
-    val maxConcurrentDownloads: Int = 2,
-    val maxAttempts: Int = 3,
-    val pollIntervalMs: Long = 5000,
-    val retryDelayMs: Long = 30000,
-)
-
-data class LoggingConfig(
-    val level: String = "INFO",
-    val format: String = "JSON",
-)
-
-data class LlmConfig(
-    val provider: LlmProvider = LlmProvider.NONE,
-    val apiKey: String? = null,
-    val model: String? = null,
-) {
-    enum class LlmProvider { GEMINI, OPENAI, NONE }
-}
-
-data class ProxyConfig(
-    val enabled: Boolean = false,
-    val type: ProxyType = ProxyType.HTTP,
-    val host: String = "127.0.0.1",
-    val port: Int = 8080,
-    val username: String? = null,
-    val password: String? = null,
-) {
-    enum class ProxyType { HTTP, SOCKS5 }
-    
-    fun toUrl(): String? {
-        if (!enabled) return null
-        val auth = if (username != null && password != null) "$username:$password@" else ""
-        val scheme = when (type) {
-            ProxyType.HTTP -> "http"
-            ProxyType.SOCKS5 -> "socks5"
-        }
-        return "$scheme://$auth$host:$port"
-    }
-}
 ```
+
+Encoding settings (codec, CRF, preset, hardware acceleration) are defined per output in rules via
+`VideoEncodeSettings`, not globally. ffprobe is resolved from the ffmpeg path
+(`path.replace("ffmpeg", "ffprobe")`).
 
 ---
 
@@ -257,15 +195,23 @@ data class ProxyConfig(
 
 `server/app/.../config/ConfigLoader.kt`. Sources, first wins:
 
-1. environment variables (Hoplite env source: `A_B` → `a.b`, e.g. `SERVER_PORT` → `server.port`);
+1. environment variables (Hoplite 2.9 env source with `useUnderscoresAsSeparator`: a **double**
+   underscore nests, a single underscore joins words in camelCase — `SERVER__PORT` → `server.port`,
+   `DB__PASSWORD` → `db.password`, `TELEGRAM__BOT_TOKEN` → `telegram.botToken`; a name with single
+   underscores only, such as `SERVER_PORT`, becomes `serverPort` — no such key, ignored);
 2. the external file `APP_CONFIG` (default `/app/config/application.yaml`, optional — in Docker it is
    the compose `configs.server-config`);
 3. `application-<APP_PROFILE>.yaml` on the classpath (default profile `local`, optional);
 4. `application.yaml` on the classpath — committed defaults.
 
 `${VAR:-default}` placeholders inside the YAML are resolved from the process environment. This is how
-`TELEGRAM_*` variables reach camelCase keys (`telegram.botToken`, `telegram.allowedUserIds`): the env
-source alone would map `TELEGRAM_BOT_TOKEN` to `telegram.bot.token`, which is no key.
+the single-underscore variables (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USER_IDS`, `YTDLP_COOKIES_FILE`, …)
+reach their keys: the env source alone would map `TELEGRAM_BOT_TOKEN` to `telegramBotToken`, which is
+no key. A placeholder in the external compose config wins over the classpath `application.yaml`.
+
+After loading, `SystemSettingsHolder` reads the `ytdlp` and `proxy` rows of `system_settings`; when a
+row exists (settings were once saved through `PUT /system/settings`), it **replaces** the configured
+`ytDlp` / `proxy` section as a whole (including `path`, `timeout`, `retries`, `allowUpdate`).
 
 ```kotlin
 fun loadConfig(env: Map<String, String> = System.getenv()): AppConfig =
@@ -288,80 +234,42 @@ variable is an **empty** list (never `[""]`, which would lock everybody out with
 
 ## 5. Environment Variables
 
-Environment variables the server reads (see §4 for how each one reaches its key):
+Variables that reach the config through a `${…}` placeholder (in `application.yaml`, the compose
+inline config, or both):
 
-| Env Variable                                    | Config Path                                       |
-|-------------------------------------------------|---------------------------------------------------|
-| `SERVER_PORT`                                   | `server.port`                                     |
-| `TELEGRAM_BOT_TOKEN`                            | `telegram.botToken` (via `${…}` in the YAML)      |
-| `TELEGRAM_ALLOWED_USER_IDS`                     | `telegram.allowedUserIds` (comma-separated, `${…}`) |
-| `TELEGRAM_ALLOWED_USERNAMES`                    | `telegram.allowedUsernames` (comma-separated, `${…}`) |
-| `TELEGRAM_DEV_MODE`                             | `telegram.devMode` (compose inline config only)   |
-| `DB_URL`                                        | `db.url`                                          |
-| `DB_USER`                                       | `db.user`                                         |
-| `DB_PASSWORD`                                   | `db.password`                                     |
-| `LLM_API_KEY`                                   | `llm.apiKey`                                      |
-| `PROXY_PASSWORD`                                | `proxy.password`                                  |
-| `TELEGRAM_BOT_MINI_APP_ENABLED`                 | `telegram.miniAppAutoReply.enabled`               |
-| `TELEGRAM_BOT_USERNAME`                         | `telegram.miniAppAutoReply.botUsername`           |
-| `TELEGRAM_BOT_MINI_APP_SHORT_NAME`              | `telegram.miniAppAutoReply.appShortName`          |
-| `TELEGRAM_BOT_MINI_APP_BUTTON_TEXT`             | `telegram.miniAppAutoReply.buttonText`            |
-| `TELEGRAM_BOT_MINI_APP_REPLY_TEXT`              | `telegram.miniAppAutoReply.replyText`             |
-| `TELEGRAM_BOT_MINI_APP_POLLING_TIMEOUT_SECONDS` | `telegram.miniAppAutoReply.pollingTimeoutSeconds` |
-| `YTDLP_LEGACY_SERVER_CONNECT`                   | `ytDlp.legacyServerConnect`                       |
-| `YTDLP_NO_CHECK_CERTIFICATE`                    | `ytDlp.noCheckCertificate`                        |
+| Env Variable                                    | Config Path                                       | Where the placeholder is |
+|-------------------------------------------------|---------------------------------------------------|--------------------------|
+| `TELEGRAM_BOT_TOKEN`                            | `telegram.botToken`                               | both                     |
+| `TELEGRAM_ALLOWED_USER_IDS`                     | `telegram.allowedUserIds` (comma-separated)       | both                     |
+| `TELEGRAM_ALLOWED_USERNAMES`                    | `telegram.allowedUsernames` (comma-separated)     | both                     |
+| `TELEGRAM_DEV_MODE`                             | `telegram.devMode`                                | compose only             |
+| `TELEGRAM_BOT_MINI_APP_ENABLED`                 | `telegram.miniAppAutoReply.enabled`               | both                     |
+| `TELEGRAM_BOT_USERNAME`                         | `telegram.miniAppAutoReply.botUsername`           | both                     |
+| `TELEGRAM_BOT_MINI_APP_SHORT_NAME`              | `telegram.miniAppAutoReply.appShortName`          | both                     |
+| `TELEGRAM_BOT_MINI_APP_BUTTON_TEXT`             | `telegram.miniAppAutoReply.buttonText`            | both                     |
+| `TELEGRAM_BOT_MINI_APP_REPLY_TEXT`              | `telegram.miniAppAutoReply.replyText`             | both                     |
+| `TELEGRAM_BOT_MINI_APP_POLLING_TIMEOUT_SECONDS` | `telegram.miniAppAutoReply.pollingTimeoutSeconds` | `application.yaml` only (compose hardcodes `60`) |
+| `YTDLP_COOKIES_FROM_BROWSER`                    | `ytDlp.cookiesFromBrowser`                        | `application.yaml`       |
+| `YTDLP_COOKIES_FILE`                            | `ytDlp.cookiesFile`                               | `application.yaml`       |
+
+Read by the loader itself: `APP_CONFIG` (external file, default `/app/config/application.yaml`) and
+`APP_PROFILE` (classpath profile file, default `local`). `BGUTIL_HTTP_ENDPOINT` is not a config key:
+the bgutil yt-dlp plugin in the server image reads it from the process environment.
+
+Any other key can be set with the double-underscore form (§4), e.g. `DB__URL`, `DB__USER`,
+`DB__PASSWORD`, `SERVER__PORT`, `PROXY__PASSWORD`. Names such as `DB_URL`, `DB_PASSWORD`,
+`SERVER_PORT`, `LLM_API_KEY` or `PROXY_PASSWORD` do **not** reach the config.
 
 ---
 
 ## 6. Profiles
 
-### 6.1 local
-
-`application-local.yaml`:
-
-```yaml
-telegram:
-  devMode: true
-
-db:
-  url: "jdbc:postgresql://localhost:5432/tgvd"
-  user: "tgvd"
-  password: "tgvd"
-
-storage:
-  baseDirectories:
-    - "/Users/you/Downloads/videos"
-  tempDirectory: "/tmp/tgvd-local"
-
-logging:
-  level: "DEBUG"
-  format: "TEXT"
-```
-
-### 6.2 production
-
-`application-production.yaml`:
-
-```yaml
-telegram:
-  devMode: false
-  botToken: "${TELEGRAM_BOT_TOKEN}"
-
-db:
-  url: "${DB_URL}"
-  user: "${DB_USER}"
-  password: "${DB_PASSWORD}"
-
-storage:
-  baseDirectories:
-    - "/media/Music Videos"
-    - "/media/TV"
-  tempDirectory: "/data/tgvd-temp"
-
-logging:
-  level: "INFO"
-  format: "JSON"
-```
+No profile file is committed. `application-<APP_PROFILE>.yaml` (default profile `local`) is an
+optional classpath resource; a developer may add a git-ignored `application-local.yaml` under
+`server/app/src/main/resources/` to override the defaults for `./gradlew :server:app:run` — for
+example the database of `docker compose up -d db` (host port `5433`, password `tgvd`) and
+`telegram.devMode: true`. In Docker the external file `APP_CONFIG` (the compose inline config) plays
+this role.
 
 ---
 
@@ -383,7 +291,9 @@ Logged at start (not errors):
 
 - `telegram.devMode = true` → `WARN`: `X-Telegram-Init-Data: dev` is accepted without a signature.
 - both allow-lists empty → `WARN`: access is open to any Telegram user; otherwise `INFO` with the
-  number of ids/usernames (never the values).
+  number of ids/usernames (never the values). A non-numeric entry in `allowedUserIds` is counted here
+  but silently dropped by the auth plugin — if all entries are such, access is open to everyone (open
+  question in `project-status.md`).
 
 ### 7.1 Keys that are read but not used
 
@@ -391,7 +301,12 @@ Accepted for compatibility (G1: every key keeps its meaning and default), with n
 
 - `jobs.maxAttempts`, `jobs.retryDelayMs` — there are no automatic retries (a failed job is retried
   by the user).
-- `logging.level`, `logging.format` — logging is configured by `logback.xml`.
+- `logging.level`, `logging.format` — logging is configured by `logback.xml` (text lines; a JSON
+  appender is defined there but not referenced).
+- `ytDlp.timeout`, `ffmpeg.timeout` — no timeout is applied to the external processes.
+- `storage.baseDirectories`, `storage.tempDirectory`, `server.baseUrl` — bound, but nothing reads them
+  (output paths come from rule path templates).
+- `llm.*` — no LLM adapter exists; `UnconfiguredLlmPort` is always bound.
 
 ---
 
@@ -425,27 +340,9 @@ Job processing and the lifecycle (ARCHITECTURE §5.3):
 
 ## 9. Docker Environment
 
-```dockerfile
-ENV SERVER_PORT=8080
-ENV TELEGRAM_BOT_TOKEN=""
-ENV DB_URL="jdbc:postgresql://postgres:5432/tgvd"
-ENV DB_USER="tgvd"
-ENV DB_PASSWORD=""
-ENV LLM_API_KEY=""
-ENV APP_PROFILE="production"
-```
-
-```yaml
-# docker-compose.yml
-services:
-  app:
-    environment:
-      - SERVER_PORT=8080
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - DB_URL=jdbc:postgresql://postgres:5432/tgvd
-      - DB_USER=tgvd
-      - DB_PASSWORD=${DB_PASSWORD}
-      - LLM_API_KEY=${LLM_API_KEY}
-      - PROXY_PASSWORD=${PROXY_PASSWORD}
-      - APP_PROFILE=production
-```
+The Dockerfiles set only `JAVA_OPTS` (and runtime paths); configuration comes from the compose file.
+`docker-compose.yaml`, service `server`: `APP_CONFIG=/app/config/application.yaml` points at the inline
+config `configs.server-config` (database `db:5432`, `devMode` from `TELEGRAM_DEV_MODE`, default `true`),
+and the environment passes `TELEGRAM_BOT_TOKEN` (default `dev-token`), `TELEGRAM_ALLOWED_USER_IDS`,
+`TELEGRAM_ALLOWED_USERNAMES`, `TELEGRAM_DEV_MODE`, `YTDLP_COOKIES_FILE`, `BGUTIL_HTTP_ENDPOINT` and the
+`TELEGRAM_BOT_MINI_APP_*` variables from `.env`. See [`DEPLOYMENT.md`](DEPLOYMENT.md).

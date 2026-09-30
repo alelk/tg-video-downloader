@@ -1,7 +1,7 @@
 ---
-status: draft               # draft → stable (после ревью владельцем) → done
+status: done                # draft → stable (после ревью владельцем) → done
 owner: Alex (alelk)
-updated: 2026-09-29
+updated: 2026-09-30
 related: [ step-01/README.md, ../project-status.md, ../ADR/009-engineering-skills-baseline.md ]
 ---
 

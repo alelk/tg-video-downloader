@@ -1,7 +1,7 @@
 ---
 status: stable
 owner: Alex (alelk)
-updated: 2026-09-29
+updated: 2026-09-30
 related: [ PROJECT_CONTEXT.md, ../AGENTS.md, ADR/009-engineering-skills-baseline.md ]
 ---
 
@@ -41,7 +41,7 @@ The project uses **Kotlin Multiplatform** to share code between the server (JVM)
 |--------------------|--------------------------|-------------|--------------------------------------------------------|
 | `domain`           | `tgvd.kmp`               | `jvm`, `js` | Domain models shared between server and clients        |
 | `api:contract`     | `tgvd.kmp.serialization` | `jvm`, `js` | DTOs shared via kotlinx.serialization                  |
-| `api:mapping`      | `tgvd.kmp`               | `jvm`, `js` | Mapping needed on both server and in features          |
+| `api:mapping`      | `tgvd.kmp`               | `jvm`, `js` | Mapping is pure Kotlin; used by `server:transport` (`features` does not use it today) |
 | `api:client`       | `tgvd.kmp.serialization` | `jvm`, `js` | HTTP client works on both platforms                    |
 | `features`         | `tgvd.compose`           | `jvm`, `js` | Compose UI shared between shell applications           |
 | `tgminiapp`        | `tgvd.compose.js`        | `js`        | Telegram-specific shell, browser only                  |
@@ -106,8 +106,8 @@ Test support:
 - `channel/` — `Channel`, `ChannelRepository` port, `ListChannelsUseCase` (`ChannelFilter`), `ListChannelTagsUseCase`, `GetChannelUseCase`, `CreateChannelUseCase`, `UpdateChannelUseCase`, `DeleteChannelUseCase`, request models
 - `video/` — `VideoSource`, `VideoInfo`, `VideoInfoExtractor` port, `VideoInfoCache` port, `VideoDownloader` port
 - `rule/` — `Rule`, `RuleMatch` (sealed, incl. `HasTag`, `CategoryEquals`), `MatchContext`, `MatchResult`, `RuleMatchingService`, `RuleRepository` port, `ListRulesUseCase`, `GetRuleUseCase`, `CreateRuleUseCase`, `UpdateRuleUseCase`, `DeleteRuleUseCase`, request models
-- `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `MetadataTemplateMerger`, `MetadataResolver`, `LlmPort` (never nullable: `UnconfiguredLlmPort` in infra when no LLM)
-- `storage/` — `StoragePlan`, `OutputRule`, `OutputFormat` (sealed), `PathTemplateEngine`, `VideoDownloader` port, `validateStoragePaths()`
+- `metadata/` — `ResolvedMetadata` (sealed), `MetadataTemplate` (sealed), `mergeTemplates()`, `MetadataResolver`, `LlmPort` (never nullable: `UnconfiguredLlmPort` in infra when no LLM)
+- `storage/` — `StoragePlan`, `OutputRule`, `OutputFormat` (sealed), `PathTemplateEngine`, `validateStoragePaths()` (the `VideoDownloader` port lives in `video/`)
 - `job/` — `Job`, `JobStatus`, `CreateJobUseCase` (validation + `saveAsRule`), `ListJobsUseCase`, `GetJobUseCase`, `CancelJobUseCase`, `RetryJobUseCase`, `JobRepository` port, `CreateJobRequest` + `toJob()`
 - `preview/` — `UserOverrides` (sealed), `PreviewUseCase` (orchestrator), `PreviewVideoUseCase` (what `POST …/preview` returns)
 - `track/` — `AudioTrackSelector`, `SubtitleSelector`, `TrackSelectionSettings`, `TrackSelectionSettingsProvider` port
@@ -143,7 +143,7 @@ Test support:
 
 **Contains**: Request/Response DTOs, sealed DTOs with `type` discriminator, `ApiErrorDto`.
 
-**Dependencies**: Kotlin stdlib, kotlinx.serialization.
+**Dependencies**: Kotlin stdlib, kotlinx.serialization, kotlinx-datetime, Ktor Resources (`resource/ApiV1.kt`).
 
 ---
 
@@ -153,7 +153,7 @@ Test support:
 
 **Dependencies**: `domain`, `api:contract`, Arrow.
 
-> Mapping lives in a KMP module because it is used on both the server (`server:transport`) and the client (`features`).
+> Mapping lives in a KMP module so that any client could reuse it; today only the server (`server:transport`) uses it — `features` works with DTOs from `api:contract` directly.
 
 ---
 
@@ -211,9 +211,13 @@ follow it; the other screens still call the client from composition and are list
 │   │   ├── CreateWorkspaceDialog.kt ← dialog for creating a new workspace
 │   │   ├── WorkspaceSelector.kt     ← dropdown for workspace selection
 │   │   └── InfoRow.kt
+│   ├── UiState.kt                   ← older sealed Loading/Content/Error holder, used by the not yet migrated screens
 │   ├── persistence/
-│   │   ├── PreferencesStorage.kt    ← KMP interface for persisting settings
-│   │   └── WorkspaceState.kt        ← shared state: workspaces + selectedWorkspace + persistence
+│   │   └── PreferencesStorage.kt    ← KMP interface for persisting settings
+│   ├── state/
+│   │   ├── WorkspaceState.kt        ← shared state: workspaces + selectedWorkspace + persistence
+│   │   └── LocaleState.kt
+│   ├── icon/, util/
 │   └── theme/
 ├── navigation/
 │   └── AppNavigation.kt             ← Scaffold with TopBar (workspace) + BottomBar (tabs)
@@ -221,6 +225,7 @@ follow it; the other screens still call the client from composition and are list
 │   ├── model/                       ← PreviewEditorValues, media options (pure)
 │   └── screen/                      ← UrlInputScreen; PreviewScreen (Voyager screen) → PreviewEntry →
 │                                      PreviewContent + sections; PreviewScreenModel, PreviewUiState, PreviewEvent
+├── channels/                        ← ChannelsTab, ChannelListScreen, ChannelEditorScreen
 ├── jobs/
 ├── rules/
 ├── settings/
@@ -309,7 +314,7 @@ jobs. yt-dlp and ffmpeg processes die with the job's coroutine (`process/Cancell
 | Module             | May depend on                                          | Must NOT depend on             |
 |--------------------|--------------------------------------------------------|--------------------------------|
 | `domain`           | Kotlin stdlib, Arrow, kotlinx-coroutines               | Everything else                |
-| `api:contract`     | Kotlin stdlib, kotlinx.serialization                   | domain, server:*, features     |
+| `api:contract`     | Kotlin stdlib, kotlinx.serialization, kotlinx-datetime, Ktor Resources | domain, server:*, features     |
 | `api:mapping`      | domain, api:contract, Arrow                            | server:*, api:client, features |
 | `api:client`       | api:contract, Ktor Client, Arrow                       | domain, server:*, features     |
 | `features`         | domain, api:contract, api:client, Compose, Koin        | server:*                       |
@@ -325,7 +330,9 @@ jobs. yt-dlp and ffmpeg processes die with the job's coroutine (`process/Cancell
 ### 3.1 Error Handling
 
 - **In domain** (`commonMain`): `Either<DomainError, T>` — no exceptions for business errors.
-- **In transport** (JVM): catch `DomainError`, map to HTTP status + `ApiErrorDto`.
+- **In transport** (JVM): routes fold the `Either` (`util/respondEither.kt`); a `Left` is mapped to HTTP
+  status + `ApiErrorDto` by `error/DomainErrorOpts.kt`; exceptions (malformed input, bugs) are handled
+  by `StatusPages`.
 
 See [ADR/004-error-handling.md](./ADR/004-error-handling.md).
 
@@ -333,7 +340,8 @@ See [ADR/004-error-handling.md](./ADR/004-error-handling.md).
 
 - All I/O operations are `suspend fun`
 - `kotlinx-coroutines` is used in all KMP modules
-- Job execution uses a `CoroutineDispatcher` from DI
+- Job execution runs in the `JobProcessor`'s own scope (`SupervisorJob() + Dispatchers.Default`); blocking
+  process I/O is moved to `Dispatchers.IO`
 
 ### 3.3 Transactions
 
@@ -374,7 +382,8 @@ Do NOT use JVM-only classes in `commonMain`:
 
 Build logic lives in the included build [`convention-plugins/`](../convention-plugins/)
 (precompiled script plugins, id prefix `tgvd.`). A module's `plugins {}` block names one convention
-and its build file lists only dependencies (plus module-specific bits such as the `features`
+(`server:infra` adds `java-test-fixtures`; `server:app` applies Ktor and Shadow by id, §4.2) and its
+build file lists only dependencies (plus module-specific bits such as the `features`
 `BuildConfig` generator or the `tgminiapp` webpack output name). The root `build.gradle.kts` only
 sets `group` and `version` (from `app.version`); repositories are declared once, in
 `settings.gradle.kts`.
@@ -450,6 +459,7 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotest.framework.engine)
             implementation(libs.kotest.assertions.core)
+            implementation(libs.kotest.property)
             implementation(projects.domain.domainTestFixtures)
         }
         jvmTest.dependencies {
@@ -464,12 +474,18 @@ kotlin {
 ```kotlin
 plugins {
     id("tgvd.jvm.serialization")
+    `java-test-fixtures`
 }
 
 dependencies {
     api(projects.domain)
     api(libs.bundles.exposed)
+    api(libs.postgresql)
+    api(libs.hikari)
     api(libs.flyway.core)
+    api(libs.flyway.database.postgresql)
+    // … kotlinx-serialization-json, kotlin-logging, Ktor client (see the file)
+    testFixturesApi(libs.testcontainers.postgresql)   // PostgresTestContainer, shared with server:app
     testImplementation(libs.bundles.testing)
     testImplementation(libs.bundles.testcontainers)
 }
@@ -486,7 +502,8 @@ the product version lives only in [`app.version`](../app.version). This document
 
 ### 5.1 Preview Flow
 
-Preview is an **interactive dialog** between the frontend and backend. The user can refine the category and metadata fields — each change re-invokes `POST /preview` with `overrides`. `VideoInfo` is cached in PostgreSQL — `yt-dlp` is called only once per URL.
+Preview is an **interactive dialog** between the frontend and backend. The user can refine the category and metadata fields — each change re-invokes `POST /preview` with `overrides`. `VideoInfo` is cached in PostgreSQL (`video_info_cache`, 24 h TTL) — `yt-dlp` is called once per URL
+while the entry is fresh; `force: true` in the request bypasses the cache.
 
 ```
 ┌─────────┐                                              ┌─────────────────┐
@@ -522,7 +539,7 @@ JobProcessor.pollOnce ── JobRepository.claimNext()  (PENDING → DOWNLOADING
        │
        ▼
 JobProcessor.processJob
-       ├──▶ YtDlpDownloader.download()  (+ proxy, + thumbnail)
+       ├──▶ VideoDownloader.download() = YtDlpRunner  (+ proxy, + thumbnail)
        │         │
        │         ▼
        │    downloaded file (webm/mkv — maximum quality)
@@ -581,10 +598,14 @@ Status table (`domain/job/JobStatus.kt`, tested pair by pair in `JobStatusTest`)
 | `CANCELLED`       | `PENDING`                                                             | `RetryJobUseCase` (`attempt + 1`)     |
 | `COMPLETED`       | —                                                                     |                                       |
 
+`POST_PROCESSING` is allowed by the table but not written by today's processor: conversion runs while
+the job is `DOWNLOADING` with progress phase `CONVERT`.
+
 Rules:
 
 - **Every status write is a compare-and-set**: `JobRepository.transition(id, expected, to, patch)` is one
-  `UPDATE … WHERE id = ? AND status IN (expected)`; no matching row → `JobStatusConflict` (use-cases
+  `UPDATE … WHERE id = ? AND status IN (expected)`; no matching row → `JobStatusConflict` when the job
+exists in another status, `JobNotFound` when it does not (use-cases
   report it as the existing `JobCannotBeCancelled`/`JobCannotBeRetried`, same HTTP answer). There is no
   unconditional status write (`updateStatus` is gone).
 - **Claim**: `claimNext()` — `SELECT … WHERE status = 'pending' ORDER BY created_at LIMIT 1 FOR UPDATE

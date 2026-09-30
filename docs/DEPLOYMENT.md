@@ -1,7 +1,7 @@
 ---
 status: stable
 owner: Alex (alelk)
-updated: 2026-09-29
+updated: 2026-09-30
 related: [ CONFIGURATION.md, SECURITY.md, ../docker-compose.yaml ]
 ---
 
@@ -17,10 +17,10 @@ related: [ CONFIGURATION.md, SECURITY.md, ../docker-compose.yaml ]
 
 | Dockerfile               | Image / use                                                          | Build                               |
 |--------------------------|----------------------------------------------------------------------|-------------------------------------|
-| `server/app/Dockerfile`  | server, used by `docker-compose.yaml` (`server`)                     | multi-stage, from source            |
-| `Dockerfile.tgvd-server` | server with the bgutil plugin, Intel variant by default              | multi-stage, from source            |
+| `server/app/Dockerfile`  | server with the bgutil plugin, used by `docker-compose.yaml` (`server`); `GPU_VARIANT=base` by default | multi-stage, from source |
+| `Dockerfile.tgvd-server` | the same server image, `GPU_VARIANT=intel` by default                | multi-stage, from source            |
 | `tgminiapp/Dockerfile`   | Mini App (nginx), used by `docker-compose.yaml` (`webapp`)           | multi-stage, from source            |
-| `server/app/Dockerfile.ci` | `ghcr.io/<owner>/tg-video-downloader-server` (+ `-intel` tags)     | runtime only, takes `tgvd-server.jar` |
+| `server/app/Dockerfile.ci` | `ghcr.io/<owner>/tg-video-downloader-server` (+ `-intel` tags) — **without** python/the bgutil plugin | runtime only, takes `tgvd-server.jar` |
 | `tgminiapp/Dockerfile.ci`  | `ghcr.io/<owner>/tg-video-downloader-webapp`                       | runtime only, takes `tgvd-webapp.tar.gz` |
 
 **Builder stage** (the three multi-stage files): `eclipse-temurin:21-jdk` (Debian/Ubuntu — the Node.js
@@ -90,8 +90,9 @@ not reach the config at all, so an installation that sets them now **narrows** i
 
 Variables in `.env.example`: `GITHUB_USER`, `GITHUB_TOKEN` (image build), `TELEGRAM_BOT_TOKEN`,
 `TELEGRAM_ALLOWED_USER_IDS`, `TELEGRAM_ALLOWED_USERNAMES`, `TELEGRAM_DEV_MODE`, `API_BASE_URL`,
-`TGVD_MEDIA_DIR`, `TGVD_TEMP_DIR`, `YTDLP_COOKIES_FILE`. Further optional ones are listed in the header
-of `docker-compose.yaml` and in [CONFIGURATION.md](CONFIGURATION.md).
+`TGVD_MEDIA_DIR`, `TGVD_TEMP_DIR`, `YTDLP_COOKIES_FILE`. The compose `server` service also passes
+`BGUTIL_HTTP_ENDPOINT` and `TELEGRAM_BOT_MINI_APP_*` (see its `environment:` block and
+[CONFIGURATION.md §5](CONFIGURATION.md)).
 
 ---
 
@@ -106,6 +107,10 @@ docker compose up -d db
 # Run the application locally
 ./gradlew :server:app:run
 ```
+
+The committed `application.yaml` points at `localhost:5432` with password `1234`; to use the compose
+database add a git-ignored `server/app/src/main/resources/application-local.yaml` (port `5433`,
+password `tgvd`, `telegram.devMode: true`) or set `DB__URL` / `DB__PASSWORD` (CONFIGURATION.md §4, §6).
 
 ### 3.2 Single host (compose)
 
@@ -232,20 +237,9 @@ Public (no Telegram auth), `server/transport/.../route/HealthRoutes.kt`:
 
 Every line carries the request's correlation id (`%X{correlationId}` in `logback.xml`; the same id is
 in the `X-Correlation-Id` response header and in every error body). `logging.level` / `logging.format`
-in the config are read but not used. Production logs in JSON format (example):
-
-```yaml
-# logback.xml
-<configuration>
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="net.logstash.logback.encoder.LogstashEncoder" />
-    </appender>
-    
-    <root level="INFO">
-        <appender-ref ref="STDOUT" />
-    </root>
-</configuration>
-```
+in the config are read but not used. The root logger writes text lines (`STDOUT`); `logback.xml` also
+defines a `JSON` appender (`LogstashEncoder`) that nothing references — JSON logs need a change of the
+`root` appender in `logback.xml`, there is no config switch.
 
 ---
 
@@ -260,7 +254,7 @@ in the config are read but not used. Production logs in JSON format (example):
 BACKUP_DIR=/backups/tgvd
 DATE=$(date +%Y%m%d_%H%M%S)
 
-docker exec tgvd-postgres pg_dump -U tgvd tgvd | gzip > $BACKUP_DIR/tgvd_$DATE.sql.gz
+docker exec tgvd-db pg_dump -U tgvd tgvd | gzip > $BACKUP_DIR/tgvd_$DATE.sql.gz
 
 # Keep last 7 days
 find $BACKUP_DIR -name "*.sql.gz" -mtime +7 -delete
@@ -283,7 +277,7 @@ find $BACKUP_DIR -name "*.sql.gz" -mtime +7 -delete
 - [ ] `db.password` via environment variable
 - [ ] `TELEGRAM_ALLOWED_USER_IDS` and/or `TELEGRAM_ALLOWED_USERNAMES` set (no "open to any Telegram user" `WARN` in the log)
 - [ ] HTTPS via reverse proxy
-- [ ] Logs in JSON format
+- [ ] Logs collected (text lines with correlation id; JSON needs a `logback.xml` change, §6.3)
 - [ ] Health check configured
 - [ ] Backup configured
 
@@ -299,54 +293,50 @@ find $BACKUP_DIR -name "*.sql.gz" -mtime +7 -delete
 
 - [ ] Alerts on health check failures
 - [ ] Alerts on error log entries
-- [ ] Disk space monitoring for /media
+- [ ] Disk space monitoring for the media directory (`TGVD_MEDIA_DIR`, `/data/media` in the container)
 
 ---
 
 ## 9. Troubleshooting
 
+Compose service names: `server`, `db`, `webapp`, `bgutil` (containers `tgvd-server`, `tgvd-db`, …).
+
 ### 9.1 Application Won't Start
 
 ```bash
-# Check logs
-docker compose logs app
+# Check logs (config validation, database and migration errors are logged before exit code 1)
+docker compose logs server
 
-# Check environment variables
-docker compose exec app env | grep -E "(DB_|TELEGRAM_)"
+# Check the Telegram-related environment
+docker compose exec server env | grep TELEGRAM_
 
-# Check DB connectivity
-docker compose exec app sh -c "nc -zv postgres 5432"
+# Check DB readiness
+docker compose exec db pg_isready
 ```
 
 ### 9.2 Database Unavailable
 
 ```bash
-# Check PostgreSQL status
-docker compose exec postgres pg_isready
-
-# Check PostgreSQL logs
-docker compose logs postgres
+docker compose exec db pg_isready
+docker compose logs db
+curl -s localhost:8080/health/ready
 ```
 
 ### 9.3 yt-dlp Errors
 
+yt-dlp is not on `PATH`: the server downloads it to `/app/bin/yt-dlp` at start (`YtDlpBootstrap`) and
+updates it through `POST /api/v1/system/yt-dlp/update` (or the Settings screen).
+
 ```bash
-# Check yt-dlp version
-docker compose exec app yt-dlp --version
-
-# Update yt-dlp
-docker compose exec app pip3 install -U yt-dlp
-
-# Test run
-docker compose exec app yt-dlp --dump-json "https://youtube.com/watch?v=dQw4w9WgXcQ"
+docker compose exec server /app/bin/yt-dlp --version
+docker compose exec server /app/bin/yt-dlp --dump-json "https://youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
-### 9.4 Permissions on /media
+### 9.4 Permissions on the media directory
 
 ```bash
-# Check permissions
-docker compose exec app ls -la /media
+docker compose exec server ls -la /data/media
 
-# Fix permissions (on host)
-sudo chown -R 1000:1000 /media
+# Fix permissions on the host: appuser is uid/gid 1001
+sudo chown -R 1001:1001 "${TGVD_MEDIA_DIR:-./data/media}"
 ```

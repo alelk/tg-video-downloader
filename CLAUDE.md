@@ -6,11 +6,12 @@
 
 ## Current phase
 
-**Step 01 — backward-compatible refactoring to the engineering-ai-skills baseline.**
-Plan: [`docs/plans/step-01-refactoring.md`](docs/plans/step-01-refactoring.md); stages and their
-statuses: [`docs/plans/step-01/README.md`](docs/plans/step-01/README.md) — the next stage is the
-first one not `done`. Executing a stage = follow the **Executor protocol** in that README exactly
-(strict order, no decisions beyond the plan, no drive-by fixes, executor notes, green build).
+**None.** Step 01 (backward-compatible refactoring to the engineering-ai-skills baseline) is closed —
+summary, open questions for the owner and known issues in
+[`docs/project-status.md`](docs/project-status.md). The next step starts with a new plan in
+`docs/plans/` (`step-02-….md` + `step-02/` stages, the same executor protocol as
+[`docs/plans/step-01/README.md`](docs/plans/step-01/README.md)) once the owner has approved it; until
+then, work only on explicit requests.
 
 Project history and known issues: [`docs/project-status.md`](docs/project-status.md) — read it
 before implementation work (not needed for a doc edit or a point fix).

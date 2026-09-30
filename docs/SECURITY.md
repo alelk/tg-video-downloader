@@ -1,6 +1,14 @@
+---
+status: stable
+owner: Alex (alelk)
+updated: 2026-09-30
+related: [ CONFIGURATION.md, DEPLOYMENT.md, API_CONTRACT.md, ADR/006-workspaces.md, ADR/009-engineering-skills-baseline.md ]
+---
+
 # Security
 
-> **Purpose**: Authorization via Telegram initData, allowlist, and protection against common attacks.
+> **Purpose**: Authorization via Telegram initData, allow-list, workspace membership, and the
+> protections that exist in the code today (and the ones that do not).
 
 ---
 
@@ -12,6 +20,9 @@
 - User data (user)
 - Timestamp (auth_date)
 - HMAC signature (hash)
+
+The client sends it on **every** request in the header `X-Telegram-Init-Data` (read from
+`Telegram.WebApp.initData` at request time). There are no sessions or tokens (ADR-009, Fork 4).
 
 ### 1.2 Format
 
@@ -26,114 +37,21 @@ URL-encoded parameters separated by `&`.
 
 ### 1.3 Validation Algorithm
 
-```kotlin
-class TelegramAuthValidator(
-    private val botToken: String,
-    private val devMode: Boolean = false,
-    private val maxAgeSeconds: Long = 86400, // 24 hours
-    private val clock: Clock = Clock.systemUTC(),
-) {
-    
-    fun validate(initData: String): Either<AuthError, TelegramUser> {
-        if (devMode && initData == "dev") {
-            return TelegramUser(
-                id = TelegramUserId(0),
-                firstName = "Dev User",
-                lastName = null,
-                username = "dev",
-            ).right()
-        }
-        
-        val params = parseInitData(initData)
-        val hash = params.remove("hash") 
-            ?: return AuthError.MissingHash.left()
-        
-        // Validate auth_date
-        val authDate = params["auth_date"]?.toLongOrNull()
-            ?: return AuthError.InvalidAuthDate.left()
-        
-        val age = clock.instant().epochSecond - authDate
-        if (age > maxAgeSeconds) {
-            return AuthError.Expired.left()
-        }
-        
-        // Compute expected hash
-        val dataCheckString = params.entries
-            .sortedBy { it.key }
-            .joinToString("\n") { "${it.key}=${it.value}" }
-        
-        val secretKey = hmacSha256("WebAppData".toByteArray(), botToken.toByteArray())
-        val expectedHash = hmacSha256(secretKey, dataCheckString.toByteArray())
-            .toHexString()
-        
-        // Timing-safe comparison
-        if (!MessageDigest.isEqual(hash.toByteArray(), expectedHash.toByteArray())) {
-            return AuthError.InvalidHash.left()
-        }
-        
-        // Parse user
-        val userJson = params["user"] 
-            ?: return AuthError.MissingUser.left()
-        
-        return try {
-            val user = json.decodeFromString<TelegramUserDto>(userJson)
-            TelegramUser(
-                id = TelegramUserId(user.id),
-                firstName = user.firstName,
-                lastName = user.lastName,
-                username = user.username,
-            ).right()
-        } catch (e: Exception) {
-            AuthError.InvalidUser.left()
-        }
-    }
-    
-    private fun parseInitData(initData: String): MutableMap<String, String> {
-        return initData.split("&")
-            .associate { 
-                val (key, value) = it.split("=", limit = 2)
-                key to URLDecoder.decode(value, Charsets.UTF_8)
-            }
-            .toMutableMap()
-    }
-    
-    private fun hmacSha256(key: ByteArray, data: ByteArray): ByteArray {
-        val mac = Mac.getInstance("HmacSHA256")
-        mac.init(SecretKeySpec(key, "HmacSHA256"))
-        return mac.doFinal(data)
-    }
-    
-    private fun ByteArray.toHexString(): String =
-        joinToString("") { "%02x".format(it) }
-    
-    sealed interface AuthError {
-        data object MissingHash : AuthError
-        data object InvalidHash : AuthError
-        data object InvalidAuthDate : AuthError
-        data object Expired : AuthError
-        data object MissingUser : AuthError
-        data object InvalidUser : AuthError
-    }
-}
-```
+`server/transport/.../auth/TelegramAuthValidator.kt` — `TelegramAuthValidator(botToken, devMode,
+maxAgeSeconds = 86400)`, `validate(initData): Either<AuthError, TelegramUser>`:
 
-### 1.4 DTO
+1. `devMode` and `initData == "dev"` → the dev user (`TelegramUserId(1)`, username `dev`), no check.
+2. Parse `key=value` pairs (pairs without `=` are skipped, values URL-decoded); take out `hash`
+   (missing → `MissingHash`).
+3. `auth_date` must parse (`InvalidAuthDate`) and be at most `maxAgeSeconds` (24 h) old (`Expired`);
+   the age is computed from the system clock (`System.currentTimeMillis()`, not an injected `Clock`).
+4. Data-check string: the remaining pairs sorted by key, `key=value` joined with `\n`.
+   `secret = HMAC-SHA256(key = "WebAppData", data = botToken)`,
+   `expected = hex(HMAC-SHA256(key = secret, data = dataCheckString))`.
+5. Compare with `MessageDigest.isEqual` (constant time) → `InvalidHash` on mismatch.
+6. Decode `user` JSON (`MissingUser`, `InvalidUser`) into `TelegramUser(id, firstName, lastName, username)`.
 
-```kotlin
-@Serializable
-data class TelegramUserDto(
-    val id: Long,
-    @SerialName("first_name")
-    val firstName: String,
-    @SerialName("last_name")
-    val lastName: String? = null,
-    val username: String? = null,
-    @SerialName("language_code")
-    val languageCode: String? = null,
-    @SerialName("is_premium")
-    val isPremium: Boolean? = null,
-)
-```
+A `Left` is answered `401 UNAUTHORIZED` with the message `Invalid initData: <AuthError>`.
 
 ---
 
@@ -141,126 +59,75 @@ data class TelegramUserDto(
 
 ### 2.1 TelegramAuthPlugin
 
-```kotlin
-val TelegramAuthPlugin = createRouteScopedPlugin(
-    name = "TelegramAuth",
-    createConfiguration = ::TelegramAuthConfig,
-) {
-    val validator = pluginConfig.validator
-    val allowedUsers = pluginConfig.allowedUserIds
-    
-    onCall { call ->
-        val initData = call.request.headers["X-Telegram-Init-Data"]
-        
-        if (initData == null) {
-            call.respond(HttpStatusCode.Unauthorized, ApiErrorDto(
-                error = ApiErrorDto.ErrorDetail(
-                    code = "UNAUTHORIZED",
-                    message = "Missing X-Telegram-Init-Data header",
-                    correlationId = call.correlationId,
-                )
-            ))
-            return@onCall
-        }
-        
-        when (val result = validator.validate(initData)) {
-            is Either.Left -> {
-                call.respond(HttpStatusCode.Unauthorized, ApiErrorDto(
-                    error = ApiErrorDto.ErrorDetail(
-                        code = "UNAUTHORIZED",
-                        message = "Invalid initData: ${result.value}",
-                        correlationId = call.correlationId,
-                    )
-                ))
-            }
-            is Either.Right -> {
-                val user = result.value
-                
-                // Check allowlist
-                if (allowedUsers.isNotEmpty() && user.id.value !in allowedUsers) {
-                    call.respond(HttpStatusCode.Forbidden, ApiErrorDto(
-                        error = ApiErrorDto.ErrorDetail(
-                            code = "FORBIDDEN",
-                            message = "User not allowed",
-                            correlationId = call.correlationId,
-                        )
-                    ))
-                    return@onCall
-                }
-                
-                // Store user in call attributes
-                call.attributes.put(TelegramUserKey, user)
-            }
-        }
-    }
-}
+`server/transport/.../auth/TelegramAuthPlugin.kt`, a route-scoped plugin with
+`TelegramAuthConfig(validator, allowedUserIds: Set<Long>, allowedUsernames: Set<String>)`:
 
-class TelegramAuthConfig {
-    lateinit var validator: TelegramAuthValidator
-    var allowedUserIds: Set<Long> = emptySet()
-}
+- no `X-Telegram-Init-Data` → `401 UNAUTHORIZED` "Missing X-Telegram-Init-Data header";
+- invalid initData → `401 UNAUTHORIZED`;
+- valid, but not allowed → `403 FORBIDDEN` "User not allowed". Allowed means: **both lists empty**,
+  or the user id is in `allowedUserIds`, or the lower-cased username is in `allowedUsernames`
+  (lower-cased, leading `@` stripped);
+- otherwise the user is stored in the call attributes (`RoutingCall.telegramUser`).
 
-val TelegramUserKey = AttributeKey<TelegramUser>("TelegramUser")
-
-val ApplicationCall.telegramUser: TelegramUser
-    get() = attributes[TelegramUserKey]
-
-val ApplicationCall.telegramUserOrNull: TelegramUser?
-    get() = attributes.getOrNull(TelegramUserKey)
-```
+Error bodies are `ApiErrorDto` with the call's correlation id (`call.callId`, header
+`X-Correlation-Id`). The plugin logs nothing about the outcome.
 
 ### 2.2 Usage in Routing
 
-```kotlin
-fun Application.configureRouting() {
-    routing {
-        route("/api/v1") {
-            install(TelegramAuthPlugin) {
-                validator = get<TelegramAuthValidator>()
-                allowedUserIds = config.telegram.allowedUserIds.map { it.toLong() }.toSet()
-            }
+`server/app/.../Application.kt`, `configureRouting(telegramConfig)`: the health routes (`/health`,
+`/health/live`, `/health/ready`) are mounted **before** and outside the plugin (public); everything
+else is under `route("/") { install(TelegramAuthPlugin) { … } }`:
 
-            workspaceRoutes()
-            previewRoutes()
-            jobRoutes()
-            ruleRoutes()
-            systemRoutes()
-        }
-    }
+```kotlin
+install(TelegramAuthPlugin) {
+    validator = authValidator
+    allowedUserIds = telegramConfig.allowedUserIds.mapNotNull { it.toLongOrNull() }.toSet()
+    allowedUsernames = telegramConfig.allowedUsernames.toSet()
 }
+workspaceRoutes(); previewRoutes(); jobRoutes(); ruleRoutes(); channelRoutes(); systemRoutes()
 ```
 
 ---
 
 ## 3. Two-Level Authorization
 
-### 3.1 Level 1: Global Allowlist
+### 3.1 Level 1: Global Allow-list
 
-Determines who can access the service at all.
+Determines who can use the service at all (`TELEGRAM_ALLOWED_USER_IDS`, `TELEGRAM_ALLOWED_USERNAMES`,
+comma-separated; CONFIGURATION.md §4–§5):
 
 ```yaml
 telegram:
-  allowedUserIds:
-    - "123456789"
-    - "987654321"
+  allowedUserIds: "123456789, 987654321"
+  allowedUsernames: "my_username"
 ```
 
-- Empty list = **everyone is denied** (fail-safe)
-- Valid initData, but user not in list → `403 FORBIDDEN`
+- **Both lists empty = any Telegram user with valid initData gets in** (the server logs a `WARN` at
+  start). This is the compatible default (ADR-009, G4).
+- Valid initData, but the user is in neither list → `403 FORBIDDEN`.
+- A non-numeric entry in `allowedUserIds` is dropped silently; if every entry is such, the list is
+  effectively empty and access is open (open question in `project-status.md`).
 
 ### 3.2 Level 2: Workspace Membership
 
 Determines which resources a user can access.
 
-All domain resources (jobs, rules, preview) are scoped to a workspace via path:
-`/api/v1/workspaces/{workspaceId}/...`
+All domain resources (jobs, rules, channels, preview) are scoped to a workspace via the path:
+`/api/v1/workspaces/{workspaceSlug}/...`
 
-The server verifies that the current user is a member of the workspace.
-If not — `403 WORKSPACE_ACCESS_DENIED`.
+The use-case verifies (inside its transaction, `WorkspaceAccess.requireMember`) that the current user
+is a member of the workspace — not a member → `403 FORBIDDEN`; unknown slug → `404 NOT_FOUND`; a
+resource id of another workspace → `404 NOT_FOUND`.
 
 Roles:
 - **OWNER** — can manage members (add/remove)
 - **MEMBER** — full access to all workspace resources
+
+Known risk: `POST /workspaces` with a slug that already exists adds the caller as `MEMBER` (the client
+relies on it to reconnect) — anyone who passes Level 1 and knows a slug can join that workspace.
+
+System settings (`/api/v1/system/*`) are not workspace-scoped: every allowed user can read and change
+them (yt-dlp update can be disabled with `ytDlp.allowUpdate: false`).
 
 See also: [ADR/006-workspaces.md](./ADR/006-workspaces.md)
 
@@ -275,199 +142,101 @@ telegram:
   devMode: true  # LOCAL DEVELOPMENT ONLY!
 ```
 
+`docker-compose.yaml` and `.env.example` default `TELEGRAM_DEV_MODE=true` (local-dev compose,
+DEPLOYMENT.md §2.2).
+
 ### 4.2 Behavior
 
 When `devMode = true`:
-- `initData = "dev"` is accepted without validation
-- A fake user with id=0 is returned
+- `initData = "dev"` is accepted without validation;
+- the dev user (id `1`, username `dev`) is returned; the allow-list still applies to it;
+- the validator and the server start log a `WARN`.
 
-### 4.3 Safety Guard
-
-```kotlin
-init {
-    if (devMode) {
-        val logger = KotlinLogging.logger {}
-        logger.warn { "⚠️ TelegramAuthValidator running in DEV MODE - DO NOT USE IN PRODUCTION" }
-    }
-}
-```
-
-In production:
-- `devMode` must be `false`
-- Consider adding an environment variable check as an additional guard
+With `devMode = false` the server refuses to start without a real bot token (empty, `test-token` or
+`dev-token` → exit code 1, CONFIGURATION.md §7).
 
 ---
 
 ## 5. Path Security
 
-### 5.1 Path Traversal Protection
+### 5.1 Path traversal
 
-```kotlin
-fun validatePath(path: Path, allowedRoots: List<Path>): Either<DomainError, Path> {
-    val normalized = path.normalize().toAbsolutePath()
-    
-    val isWithinAllowed = allowedRoots.any { root ->
-        normalized.startsWith(root.normalize().toAbsolutePath())
-    }
-    
-    return if (isWithinAllowed) {
-        normalized.right()
-    } else {
-        DomainError.PathTraversalAttempt(path.toString()).left()
-    }
-}
-```
+- User-supplied storage paths (`POST …/jobs` storage plan, rule output templates) go through
+  `validateStoragePaths()` (`domain/storage/`): any `..` or a forbidden character in a segment →
+  `400 VALIDATION_ERROR`.
+- File-name components rendered from video metadata go through `PathTemplateEngine`, which calls
+  `FileNameValidator.sanitize` (§5.3).
+- `DomainError.PathTraversalAttempt` exists and is mapped to `400`, but nothing produces it today.
 
-### 5.2 Allowed Directory Configuration
+### 5.2 Allowed directories
 
-```yaml
-storage:
-  baseDirectories:
-    - "/media/Music Videos"
-    - "/media/TV"
-    - "/media/Videos"
-  tempDirectory: "/tmp/tgvd"
-```
+`storage.baseDirectories` is bound from the config but **not enforced**: nothing checks that an output
+path lies inside those directories. In Docker the process can only write to its volumes
+(`/data/media`, `/data/temp`) and `/app/bin`.
 
-### 5.3 Filename Sanitization
+### 5.3 File-name sanitisation
 
-```kotlin
-fun sanitizeFilename(name: String): String {
-    return name
-        // Remove forbidden characters
-        .replace(Regex("[/\\\\:*?\"<>|]"), "_")
-        // Remove control characters
-        .replace(Regex("[\\x00-\\x1F\\x7F]"), "")
-        // Collapse whitespace
-        .replace(Regex("\\s+"), " ")
-        // Trim
-        .trim()
-        // Limit length
-        .take(180)
-        // Prevent empty filename
-        .ifBlank { "unnamed" }
-}
-```
+`domain/common/FileNameValidator.kt`:
+
+- `sanitize(value)` replaces `/ \ : * ? " < > |` with `_` and trims (no length limit, no control
+  character removal);
+- `validate(field, value)` / `isSafe(value)` reject blank values, those characters, `..` and a
+  leading dot.
 
 ---
 
 ## 6. External Process Security
 
-### 6.1 Launching yt-dlp
-
-```kotlin
-class YtDlpRunner(
-    private val ytDlpPath: String,
-    private val timeout: Duration = 30.minutes,
-) {
-    
-    suspend fun run(args: List<String>): ProcessResult {
-        // Do NOT build the command as a string!
-        // Always use a list of arguments to prevent shell injection
-        val command = listOf(ytDlpPath) + args
-        
-        val process = ProcessBuilder(command)
-            .redirectErrorStream(true)
-            .start()
-        
-        return withTimeout(timeout) {
-            val output = process.inputStream.bufferedReader().use { it.readText() }
-            val exitCode = process.waitFor()
-            ProcessResult(exitCode, output.takeLast(MAX_OUTPUT_SIZE))
-        }
-    }
-    
-    companion object {
-        private const val MAX_OUTPUT_SIZE = 100_000  // 100KB
-    }
-}
-```
-
-### 6.2 Resource Limits
-
-```kotlin
-data class ProcessLimits(
-    val maxOutputSize: Int = 100_000,
-    val timeout: Duration = 30.minutes,
-    val maxConcurrent: Int = 3,
-)
-```
+- yt-dlp and ffmpeg are started with an **argument list** (`ProcessBuilder(listOf(...))`), never a
+  shell string (`YtDlpRunner`, `FfmpegRunner`, `YtDlpBootstrap`).
+- Cancelling a job kills the whole process tree (`process/CancellableProcess.kt`: `SIGTERM`, up to
+  5 s, then `SIGKILL`).
+- **No timeout** is applied to the processes (`ytDlp.timeout` / `ffmpeg.timeout` are read but unused)
+  and there is no output-size limit; concurrency is bounded by `jobs.maxConcurrentDownloads`.
 
 ---
 
 ## 7. Security Logging
 
-### 7.1 What to Log
+Rules:
 
-✅ Log:
-- Successful and failed authorization attempts
-- User ID on authentication
-- Correlation ID
-- Path traversal attempts
-
-❌ Do NOT log:
-- Full initData
-- Bot token
-- Full hash value
-
-### 7.2 Example
-
-```kotlin
-// Good
-logger.info { "Auth success: userId=${user.id}" }
-logger.warn { "Auth failed: reason=InvalidHash, hashPrefix=${hash.take(8)}..." }
-
-// Bad
-logger.info { "Auth with initData=$initData" }  // ❌ Full initData exposed
-```
+- never log the full `initData`, the bot token or the hash; the start log reports only the **number**
+  of allow-listed ids/usernames;
+- every log line carries the correlation id (`%X{correlationId}` in `logback.xml`), which is also in
+  the `X-Correlation-Id` response header and in every error body;
+- `CallLogging` logs requests; the auth plugin logs neither success nor failure.
 
 ---
 
 ## 8. Security Headers
 
+Set for every response in `Application.kt` (`configureHttp`):
+
 ```kotlin
-fun Application.configureSecurityHeaders() {
-    install(DefaultHeaders) {
-        header("X-Content-Type-Options", "nosniff")
-        header("X-Frame-Options", "DENY")
-        header("X-XSS-Protection", "1; mode=block")
-    }
+install(DefaultHeaders) {
+    header("X-Content-Type-Options", "nosniff")
+    header("X-Frame-Options", "DENY")
+    header("X-XSS-Protection", "1; mode=block")
 }
 ```
+
+CORS: an allow-list of hosts from `cors.hosts` (`anyHost: false` by default), headers
+`Content-Type`, `X-Telegram-Init-Data`, `X-Workspace-Id`; exposes `X-Correlation-Id`.
 
 ---
 
-## 9. Rate Limiting (optional)
+## 9. Rate Limiting
 
-```kotlin
-val RateLimitPlugin = createRouteScopedPlugin("RateLimit") {
-    val limiter = RateLimiter.create(10.0)  // 10 requests/sec per user
-    
-    onCall { call ->
-        val userId = call.telegramUserOrNull?.id?.value ?: return@onCall
-        
-        if (!limiter.tryAcquire(userId)) {
-            call.respond(HttpStatusCode.TooManyRequests, ApiErrorDto(
-                error = ApiErrorDto.ErrorDetail(
-                    code = "RATE_LIMIT",
-                    message = "Too many requests",
-                    correlationId = call.correlationId,
-                )
-            ))
-        }
-    }
-}
-```
+Not implemented: no `RateLimit` plugin is installed. Access is limited by the allow-list and by
+Telegram's signature; a reverse proxy may add rate limits.
 
 ---
 
 ## 10. Security Checklist
 
 - [ ] Bot token not in the repository (use env/secrets)
-- [ ] `devMode = false` in production
-- [ ] Allowlist is configured
+- [ ] `TELEGRAM_DEV_MODE=false` for any installation reachable from outside
+- [ ] Allow-list configured (no "open to any Telegram user" `WARN` at start)
 - [ ] initData is never logged in full
-- [ ] Path traversal protection is active
 - [ ] External processes launched via argument list, not shell string
-- [ ] Timeout set on all external processes
 - [ ] HTTPS in production (via reverse proxy)

@@ -1,7 +1,7 @@
 ---
 status: stable
 owner: Alex (alelk)
-updated: 2026-09-29
+updated: 2026-09-30
 related: [ ARCHITECTURE.md, DEPLOYMENT.md ]
 ---
 
@@ -87,27 +87,27 @@ data class ApiErrorDto(
     "code": "VALIDATION_ERROR",
     "message": "Field 'url' is required",
     "correlationId": "550e8400-e29b-41d4-a716-446655440000",
-    "details": {
-      "field": "url"
-    }
+    "details": null
   }
 }
 ```
+
+The server currently always sends `details: null` (`server/transport/.../error/apiError.kt`); the
+field is reserved for structured details.
 
 ### 2.3 Error Codes
 
 | Code                      | HTTP Status | Description                                          |
 |---------------------------|-------------|------------------------------------------------------|
 | `VALIDATION_ERROR`        | 400         | Input validation error; also a malformed request — a body that is not valid JSON for the DTO, a path/query parameter that does not convert, a broken id, or a value a domain type rejects (a blank id, a malformed tag, an invalid regex, a non-positive user id) in a body or query (G10; jobs since 01.6, rules, channels and members since 01.7). `POST /workspaces` with a bad slug keeps its legacy body `{"error": …}` |
-| `INVALID_URL`             | 400         | Invalid video URL                                    |
-| `UNAUTHORIZED`            | 401         | Invalid initData                                     |
-| `FORBIDDEN`               | 403         | User not in allowlist                                |
-| `WORKSPACE_ACCESS_DENIED` | 403         | User is not a member of the workspace                |
-| `NOT_FOUND`               | 404         | Resource not found                                   |
-| `CONFLICT`                | 409         | Conflict (e.g. a job already exists for this video)  |
+| `INVALID_URL`             | 400         | Invalid video URL (`DomainError.InvalidUrl`; mapped, but no use-case produces it today — a URL yt-dlp cannot handle is `VIDEO_UNAVAILABLE`) |
+| `UNAUTHORIZED`            | 401         | Missing or invalid initData                          |
+| `FORBIDDEN`               | 403         | User not in the allow-list, or not a member of the workspace (`WorkspaceAccessDenied`), or not its owner for member management |
+| `NOT_FOUND`               | 404         | Resource not found (also a workspace slug that does not exist, and a resource of another workspace) |
+| `CONFLICT`                | 409         | Conflict: an active job already exists for this video, the job cannot be cancelled/retried in its current status, the workspace slug is taken |
 | `UPDATE_DISABLED`         | 403         | yt-dlp update is disabled in configuration           |
-| `VIDEO_UNAVAILABLE`       | 422         | Video is unavailable                                 |
-| `LLM_ERROR`               | 502         | Error calling the LLM provider                       |
+| `VIDEO_UNAVAILABLE`       | 422         | Video is unavailable or yt-dlp extraction failed     |
+| `LLM_ERROR`               | 502         | Error calling the LLM provider (mapped; not produced today — without an LLM adapter preview falls back to `MetadataResolver`) |
 | `INTERNAL_ERROR`          | 500         | Internal server error (also a database failure — `DomainError.DatabaseFailed`, same body since 01.8) |
 
 ---
@@ -265,6 +265,7 @@ sealed interface ResolvedMetadataDto {
     data class MusicVideo(
         val artist: String,
         override val title: String,
+        val album: String? = null,
         override val releaseDate: String? = null,
         override val tags: List<String> = emptyList(),
         override val comment: String? = null,
@@ -370,6 +371,7 @@ Get a metadata preview for a URL.
 data class PreviewRequestDto(
     val url: String,
     val overrides: UserOverridesDto? = null,
+    val force: Boolean = false,   // true: bypass the yt-dlp result cache and re-extract
 )
 ```
 
@@ -409,6 +411,17 @@ data class PreviewResponseDto(
     val storagePlan: StoragePlanDto,
     val appliedOverrides: UserOverridesDto? = null,
     val warnings: List<String> = emptyList(),
+    val previousDownloads: List<DownloadHistoryEntryDto> = emptyList(), // finished jobs for the same video
+    val defaultMediaSelection: MediaSelectionDto? = null,               // default audio/subtitle choice
+)
+
+@Serializable
+data class DownloadHistoryEntryDto(
+    val jobId: String,
+    val status: String,               // UPPERCASE enum name, e.g. "COMPLETED" (unlike JobDto.status)
+    val finishedAt: String? = null,
+    val maxQuality: VideoQualityDto? = null,
+    val formatSummary: String,
 )
 ```
 
@@ -462,8 +475,8 @@ data class PreviewResponseDto(
 
 #### Errors
 
-- `400 INVALID_URL` — invalid URL
-- `422 VIDEO_UNAVAILABLE` — video is unavailable
+- `422 VIDEO_UNAVAILABLE` — video is unavailable or yt-dlp cannot extract the URL
+- `403 FORBIDDEN` — not a member of the workspace; `404 NOT_FOUND` — unknown workspace slug
 
 ---
 
@@ -479,19 +492,27 @@ Create a download job.
 @Serializable
 data class CreateJobRequestDto(
     val source: VideoSourceDto,
-    val ruleId: String?,
-    val category: String,
+    val ruleId: String? = null,
+    val category: CategoryDto,              // not read by the server: the category follows from `metadata`
     val videoInfo: VideoInfoDto,
     val metadata: ResolvedMetadataDto,
+    val metadataSource: MetadataSourceDto = MetadataSourceDto.RULE,
     val storagePlan: StoragePlanDto,
     val saveAsRule: SaveAsRuleDto? = null,  // optional: save current settings as a rule
+    val mediaSelection: MediaSelectionDto? = null,
+)
+
+@Serializable
+data class MediaSelectionDto(
+    val audioFormatIds: List<String>? = null,
+    val subtitleLanguages: List<String>? = null,
 )
 
 @Serializable
 data class SaveAsRuleDto(
     val enabled: Boolean = true,
     val matchBy: String = "channelId",   // channelId | channelName
-    val includeCategory: Boolean = true,
+    val includeCategory: Boolean = true,   // accepted but ignored (known issue, project-status.md)
     val includeMetadataTemplate: Boolean = true,
     val includeStoragePolicy: Boolean = true,
 )
@@ -521,24 +542,27 @@ data class SaveAsRuleDto(
 
 #### Response
 
+`201 Created` with a `JobDto`:
+
 ```kotlin
 @Serializable
 data class JobDto(
     val id: String,
-    val status: String,
+    val status: String,       // pending | downloading | post_processing | completed | failed | cancelled
     val source: VideoSourceDto,
-    val ruleId: String?,
-    val category: String,
+    val videoInfo: VideoInfoDto,
+    val ruleId: String? = null,
+    val category: CategoryDto,
     val metadata: ResolvedMetadataDto,
     val storagePlan: StoragePlanDto,
-    val progress: JobProgressDto?,
-    val error: JobErrorDto?,
-    val attempt: Int,
-    val createdBy: String?,   // Telegram user ID of the creator
+    val progress: JobProgressDto? = null,
+    val error: JobErrorDto? = null,
+    val attempt: Int = 1,
+    val createdBy: String? = null,   // Telegram user ID of the creator
     val createdAt: String,  // ISO-8601
     val updatedAt: String,
-    val startedAt: String?,
-    val finishedAt: String?,
+    val startedAt: String? = null,
+    val finishedAt: String? = null,
 )
 ```
 
@@ -549,7 +573,8 @@ data class JobDto(
 - `409 CONFLICT` — an active job for this videoId already exists
 
 Download progress covers the selected media streams and stays below 100% until
-the job finishes. A subtitle download error fails the job. The preview response
+the job finishes. Subtitles are best-effort (`--ignore-errors`): a subtitle track that fails to
+download does not fail the job. The preview response
 contains available audio formats, subtitle languages, and `defaultMediaSelection`
 from server settings and the matched rule. The create-job request accepts
 `mediaSelection.audioFormatIds` and `mediaSelection.subtitleLanguages`; an empty
@@ -568,7 +593,7 @@ List jobs in the current workspace.
 
 | Param    | Type   | Default | Description       |
 |----------|--------|---------|-------------------|
-| `status` | string | —       | Filter by status  |
+| `status` | string | —       | Filter by status (`JobDto.status` value, case-insensitive) |
 | `limit`  | int    | 20      | Maximum records   |
 | `offset` | int    | 0       | Offset            |
 
@@ -615,6 +640,24 @@ Cancel a job.
 
 ---
 
+### 6.5a POST /api/v1/workspaces/{slug}/jobs/{id}/retry
+
+Retry a finished job (`failed` or `cancelled`): it goes back to `pending` with `attempt + 1`, keeping
+its media selection.
+
+**Resource**: `ApiV1.Workspaces.ById.Jobs.ById.Retry`
+
+#### Response
+
+`JobDto` with updated status.
+
+#### Errors
+
+- `404 NOT_FOUND`
+- `409 CONFLICT` — the job cannot be retried in its current status
+
+---
+
 ### 6.6 GET /api/v1/workspaces/{slug}/rules
 
 List rules.
@@ -652,37 +695,40 @@ data class CreateRuleRequestDto(
 
 #### Response
 
-`RuleDto`
+`201 Created` with a `RuleDto`.
 
 ---
 
 ### 6.8 GET /api/v1/workspaces/{slug}/rules/{id}
 
-Get a rule by ID.
+Get a rule by ID. `404 NOT_FOUND` for an unknown id or a rule of another workspace.
 
 ---
 
 ### 6.9 PUT /api/v1/workspaces/{slug}/rules/{id}
 
-Update a rule.
+Update a rule. Body: `CreateRuleRequestDto` (the whole rule); response: `RuleDto`.
 
 ---
 
 ### 6.10 DELETE /api/v1/workspaces/{slug}/rules/{id}
 
-Delete (or deactivate) a rule.
+Delete a rule (hard delete). Response: `204 No Content`; `404 NOT_FOUND` if there is no such rule
+in the workspace.
 
 ---
 
 ### 6.11 GET /api/v1/workspaces/{slug}/channels
 
-List channels in a workspace. Optionally filter by tag.
+List channels in a workspace. Optionally filter by platform channel id or by tag.
 
 #### Query Parameters
 
-| Parameter | Type   | Description               |
-|-----------|--------|---------------------------|
-| `tag`     | string | (optional) Filter by tag  |
+| Parameter   | Type   | Description                                                                 |
+|-------------|--------|-----------------------------------------------------------------------------|
+| `channelId` | string | (optional) Platform channel id; used only together with `extractor` → at most one channel |
+| `extractor` | string | (optional) yt-dlp extractor; used only together with `channelId`           |
+| `tag`       | string | (optional) Filter by tag; ignored when `channelId` + `extractor` are given  |
 
 #### Response
 
@@ -804,12 +850,14 @@ data class VideoInfoDto(
     val title: String,
     val channelId: String,
     val channelName: String,
-    val uploadDate: String?,  // YYYY-MM-DD
+    val uploadDate: String? = null,  // YYYY-MM-DD
     val durationSeconds: Int, // mapping: domain Duration ↔ DTO Int
     val webpageUrl: String,
     val thumbnails: List<ThumbnailDto> = emptyList(),
     val description: String? = null,
     val availableFormats: List<VideoFormatDto> = emptyList(),
+    val actualFormat: VideoFormatDto? = null,          // the format actually downloaded
+    val subtitleTracks: List<SubtitleTrackDto> = emptyList(),
 )
 
 @Serializable
@@ -825,6 +873,18 @@ data class VideoFormatDto(
     val formatNote: String? = null,
     val filesize: Long? = null,
     val filesizeApprox: Long? = null,
+    val language: String? = null,
+    val languagePreference: Int? = null,
+    val audioChannels: Int? = null,
+    val audioTrackName: String? = null,
+    val isOriginalAudio: Boolean = false,
+)
+
+@Serializable
+data class SubtitleTrackDto(
+    val language: String,
+    val automatic: Boolean,
+    val name: String? = null,
 )
 
 @Serializable
@@ -1041,12 +1101,12 @@ enum class EncodePresetDto {
 ### 7.9 OutputFormatDto
 
 ```kotlin
-@Serializable(with = OutputFormatDtoSerializer::class)
+@Serializable(with = OutputFormatDto.Serializer::class)   // no @SerialName on the subclasses
 sealed interface OutputFormatDto {
-    @SerialName("original") data class OriginalVideo(val container: MediaContainerDto) : OutputFormatDto
-    @SerialName("video")    data class ConvertedVideo(val container: MediaContainerDto) : OutputFormatDto
-    @SerialName("audio")    data class Audio(val format: AudioFormatDto)               : OutputFormatDto
-    @SerialName("image")    data class Thumbnail(val format: ImageFormatDto)           : OutputFormatDto
+    data class OriginalVideo(val container: MediaContainerDto) : OutputFormatDto          // "original/<ext>"
+    data class ConvertedVideo(val container: MediaContainerDto) : OutputFormatDto         // "video/<ext>"
+    data class Audio(val format: AudioFormatDto) : OutputFormatDto                        // "audio/<ext>"
+    data class Thumbnail(val format: ImageFormatDto = ImageFormatDto.JPG) : OutputFormatDto // "image/<ext>"
 }
 
 @Serializable
@@ -1093,7 +1153,8 @@ enum class ImageFormatDto { @SerialName("jpg") JPG, @SerialName("png") PNG,
     "maxQuality": "best",
     "downloadSubtitles": null,
     "subtitleLanguages": [],
-    "writeThumbnail": false
+    "writeThumbnail": false,
+    "audioLanguages": null
   },
   "outputs": [
     {
@@ -1141,21 +1202,22 @@ Module: `api:mapping`
 
 ```
 api/mapping/src/commonMain/kotlin/io/github/alelk/tgvd/api/mapping/
-├── common/
-│   └── CategoryMapping.kt
-├── rule/
-│   ├── toDto.kt
-│   └── toDomain.kt
-├── metadata/
-│   ├── ...
-├── video/
-│   ├── ...
-├── storage/
-│   ├── ...
-├── preview/
-│   └── UserOverridesMapping.kt
-└── ...
+├── common/    Parse.kt (parseId, parseValue → Either), toDomain.kt, toDto.kt
+├── channel/   ChannelRequestMapping.kt, toDto.kt
+├── job/       CreateJobRequestMapping.kt, toDto.kt
+├── metadata/  toDomain.kt, toDto.kt
+├── preview/   toDomain.kt, toDto.kt
+├── rule/      RuleRequestMapping.kt, toDomain.kt, toDto.kt
+├── storage/   toDomain.kt, toDto.kt
+├── system/    SystemSettingsMapping.kt, YtDlpMapping.kt
+├── video/     MediaSelectionMapping.kt, toDomain.kt, toDto.kt
+└── workspace/ WorkspaceRequestParsing.kt, toDto.kt
 ```
+
+> §8.3–8.6 are **sketches of the shape** (domain → DTO is total; DTO → domain returns `Either` and
+> never throws). The real functions live in the files above (e.g. `rule/toDto.kt`,
+> `rule/toDomain.kt`) and differ in detail (value classes are built through `parseValue`, errors
+> are accumulated with the Arrow `either {}` DSL).
 
 ### 8.3 RuleMatchToDto.kt
 
@@ -1190,6 +1252,7 @@ fun RuleMatch.toDto(): RuleMatchDto = when (this) {
     is RuleMatch.TitleRegex -> toDto()
     is RuleMatch.UrlRegex -> toDto()
     is RuleMatch.CategoryEquals -> RuleMatchDto.CategoryEquals(category.toDto())
+    is RuleMatch.HasTag -> RuleMatchDto.HasTag(tag.value)
 }
 ```
 
@@ -1232,6 +1295,7 @@ fun RuleMatchDto.toDomain(): Either<DomainError.ValidationError, RuleMatch> = wh
     is RuleMatchDto.TitleRegex -> toDomain()
     is RuleMatchDto.UrlRegex -> toDomain()
     is RuleMatchDto.CategoryEquals -> RuleMatch.CategoryEquals(category.toDomain()).right()
+    is RuleMatchDto.HasTag -> parseValue("tag") { Tag(tag) }.map { RuleMatch.HasTag(it) }  // blank/invalid tag → ValidationError("tag")
 }
 ```
 
@@ -1332,37 +1396,26 @@ fun ResolvedMetadataDto.toDomain(): Either<DomainError.ValidationError, Resolved
 
 ### 8.7 Error Mapping
 
-```kotlin
-fun DomainError.toApiError(correlationId: String): Pair<HttpStatusCode, ApiErrorDto> = when (this) {
-    is DomainError.ValidationError -> 
-        HttpStatusCode.BadRequest to ApiErrorDto(
-            error = ApiErrorDto.ErrorDetail(
-                code = "VALIDATION_ERROR",
-                message = message,
-                correlationId = correlationId,
-                details = buildJsonObject { put("field", field) }
-            )
-        )
-    is DomainError.InvalidUrl -> 
-        HttpStatusCode.BadRequest to ApiErrorDto(...)
-    is DomainError.Unauthorized -> 
-        HttpStatusCode.Unauthorized to ApiErrorDto(...)
-    is DomainError.Forbidden -> 
-        HttpStatusCode.Forbidden to ApiErrorDto(...)
-    is DomainError.WorkspaceAccessDenied -> 
-        HttpStatusCode.Forbidden to ApiErrorDto(...)
-    is DomainError.RuleNotFound, is DomainError.JobNotFound, is DomainError.WorkspaceNotFound -> 
-        HttpStatusCode.NotFound to ApiErrorDto(...)
-    is DomainError.JobAlreadyExists -> 
-        HttpStatusCode.Conflict to ApiErrorDto(...)
-    is DomainError.VideoUnavailable -> 
-        HttpStatusCode.UnprocessableEntity to ApiErrorDto(...)
-    is DomainError.LlmError ->
-        HttpStatusCode.BadGateway to ApiErrorDto(...)
-    else -> 
-        HttpStatusCode.InternalServerError to ApiErrorDto(...)
-}
-```
+`server/transport/.../error/DomainErrorOpts.kt` — `DomainError.toHttpResponse(correlationId)`, an
+exhaustive `when` without `else` (a new `DomainError` variant does not compile until it is mapped);
+`details` is always `null`:
+
+| `DomainError`                                                                 | HTTP | `code`              |
+|-------------------------------------------------------------------------------|------|---------------------|
+| `ValidationError`, `PathTraversalAttempt`                                     | 400  | `VALIDATION_ERROR`  |
+| `InvalidUrl`                                                                  | 400  | `INVALID_URL`       |
+| `Unauthorized`                                                                | 401  | `UNAUTHORIZED`      |
+| `Forbidden`, `WorkspaceAccessDenied`                                          | 403  | `FORBIDDEN`         |
+| `YtDlpUpdateDisabled`                                                         | 403  | `UPDATE_DISABLED`   |
+| `RuleNotFound`, `JobNotFound`, `ChannelNotFound`, `WorkspaceNotFound`, `WorkspaceNotFoundBySlug` | 404 | `NOT_FOUND` |
+| `JobAlreadyExists`, `JobCannotBeCancelled`, `JobCannotBeRetried`, `JobStatusConflict`, `WorkspaceSlugConflict` | 409 | `CONFLICT` |
+| `VideoUnavailable`, `VideoExtractionFailed`                                   | 422  | `VIDEO_UNAVAILABLE` |
+| `LlmError`                                                                    | 502  | `LLM_ERROR`         |
+| `StorageFailed`, `DownloadFailed`, `PostProcessingFailed`                     | 500  | `INTERNAL_ERROR`    |
+| `DatabaseFailed`                                                              | 500  | `INTERNAL_ERROR` (fixed message "Internal server error"; detail only in the log) |
+
+Exceptions (not `DomainError`) are handled by `StatusPages` (`DomainErrorHandling.kt`): malformed
+input → 400 `VALIDATION_ERROR`, anything else → 500 `INTERNAL_ERROR`.
 
 ---
 
@@ -1413,6 +1466,7 @@ data class WorkspaceListResponseDto(
 @Serializable
 data class WorkspaceDto(
     val id: String,
+    val slug: String,
     val name: String,
     val role: String,       // "owner" | "member"
     val createdAt: String,  // ISO-8601
@@ -1421,7 +1475,9 @@ data class WorkspaceDto(
 
 ### 10.2 POST /api/v1/workspaces
 
-Create a workspace. The creator automatically becomes OWNER.
+Create a workspace. The creator automatically becomes OWNER. If the slug is already taken, the
+caller is added to that workspace as MEMBER instead (the client uses this to reconnect; a known
+access risk, see `project-status.md`).
 
 **Resource**: `ApiV1.Workspaces`
 
@@ -1430,13 +1486,16 @@ Create a workspace. The creator automatically becomes OWNER.
 ```kotlin
 @Serializable
 data class CreateWorkspaceRequestDto(
+    val slug: String,   // ^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$
     val name: String,
 )
 ```
 
-#### Response (201 Created)
+#### Response
 
-`WorkspaceDto`
+`201 Created` with `WorkspaceDto` (`role: "owner"`) for a new workspace; `200 OK` with
+`WorkspaceDto` (`role: "member"`) when the slug already exists. A malformed slug → `400` with the
+legacy body `{"error": "…"}` (not `ApiErrorDto`).
 
 ### 10.3 GET /api/v1/workspaces/{slug}/members
 
@@ -1512,13 +1571,13 @@ Get the current yt-dlp version and update availability.
 
 ### 11.2 POST /api/v1/system/yt-dlp/update
 
-Trigger the yt-dlp update process.
+Run the yt-dlp update. The call returns after the update has finished.
 
 **Response (202 Accepted):**
 ```json
 {
-  "status": "UPDATING",
-  "message": "Update process started"
+  "status": "UPDATED",
+  "message": "Updated to version 2024.02.18"
 }
 ```
 
@@ -1536,8 +1595,9 @@ When `ytDlp.allowUpdate: false`.
 
 ### 11.3 GET/PUT /api/v1/system/settings
 
-Reads or replaces runtime system settings. The `ytDlp` object includes the
-multi-audio policy:
+Reads or replaces runtime system settings (`PUT` replaces the whole `ytDlp` object, including
+`extractorOverrides`; the response echoes the request with `proxy.password` set to `null`). The
+`ytDlp` object includes the multi-audio policy:
 
 ```json
 {

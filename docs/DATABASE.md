@@ -1,7 +1,7 @@
 ---
 status: stable
 owner: Alex (alelk)
-updated: 2026-09-29
+updated: 2026-09-30
 related: [ ARCHITECTURE.md, PROJECT_CONTEXT.md ]
 ---
 
@@ -23,14 +23,21 @@ related: [ ARCHITECTURE.md, PROJECT_CONTEXT.md ]
 
 ## 2. Schema
 
+The effective schema after `V1…V8`, condensed. `COMMENT ON` texts are paraphrased in English (the
+migrations have their own, partly Russian, texts); the migration files in
+`server/infra/src/main/resources/db/migration/` are the source of truth.
+
 ### 2.1 Table `workspaces`
 
 ```sql
 CREATE TABLE workspaces (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug       TEXT NOT NULL CHECK (slug ~ '^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$'),
     name       TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX idx_workspaces_slug ON workspaces(slug);
 ```
 
 ### 2.2 Table `workspace_members`
@@ -117,7 +124,7 @@ COMMENT ON COLUMN channels.metadata_overrides IS 'MetadataTemplatePm JSON — me
 CREATE TABLE jobs (
     id                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id               UUID NOT NULL REFERENCES workspaces(id),
-    status                     TEXT NOT NULL DEFAULT 'queued',
+    status                     TEXT NOT NULL DEFAULT 'queued',  -- legacy default; the server always writes the status
     video_id                   TEXT NOT NULL,
     source_url                 TEXT NOT NULL,
     source_extractor           TEXT NOT NULL,  -- "youtube", "rutube", "vk", ...
@@ -126,7 +133,8 @@ CREATE TABLE jobs (
     raw_info                   JSONB NOT NULL,
     metadata                   JSONB NOT NULL,
     storage_plan               JSONB NOT NULL,
-    media_selection            JSONB,
+    metadata_source            TEXT NOT NULL DEFAULT 'rule',   -- V3: rule | llm | manual
+    media_selection            JSONB,                          -- V6
     progress                   JSONB,
     error                      JSONB,
     attempt                    INTEGER NOT NULL DEFAULT 0,
@@ -142,21 +150,20 @@ CREATE INDEX idx_jobs_workspace ON jobs(workspace_id);
 CREATE INDEX idx_jobs_status ON jobs(status);
 CREATE INDEX idx_jobs_video_id ON jobs(video_id);
 CREATE INDEX idx_jobs_created_at ON jobs(created_at DESC);
-CREATE INDEX idx_jobs_queued ON jobs(created_at) WHERE status = 'queued';
+CREATE INDEX idx_jobs_pending ON jobs(created_at) WHERE status = 'pending';   -- V3 (was idx_jobs_queued)
 CREATE INDEX idx_jobs_user ON jobs(created_by_telegram_user_id);
 
 -- Partial unique index to prevent duplicate active jobs
 CREATE UNIQUE INDEX idx_jobs_active_video 
     ON jobs(video_id) 
-    WHERE status IN ('queued', 'running', 'post-processing');
+    WHERE status IN ('pending', 'downloading', 'post-processing');   -- V3; across all workspaces
 
--- Comments
-COMMENT ON TABLE jobs IS 'Download jobs';
-COMMENT ON COLUMN jobs.status IS 'queued, running, post-processing, done, failed, cancelled';
-COMMENT ON COLUMN jobs.metadata IS 'ResolvedMetadataDto JSON with type discriminator';
-COMMENT ON COLUMN jobs.storage_plan IS 'StoragePlanDto JSON';
-COMMENT ON COLUMN jobs.created_by_telegram_user_id IS 'Telegram user id (BIGINT)';
+COMMENT ON COLUMN jobs.status IS 'pending, downloading, post-processing, completed, failed, cancelled';  -- V3
 ```
+
+> `metadata` stores `ResolvedMetadataPm`, `storage_plan` — `StoragePlanPm` (§4), not API DTOs. V3
+> renamed the stored statuses `queued/running/done` → `pending/downloading/completed`; the mapping
+> still reads the legacy values.
 
 ### 2.6 Table `job_outputs` (optional)
 
@@ -173,9 +180,6 @@ CREATE TABLE job_outputs (
 );
 
 CREATE INDEX idx_job_outputs_job_id ON job_outputs(job_id);
-
-COMMENT ON TABLE job_outputs IS 'Output files produced by a job';
-COMMENT ON COLUMN job_outputs.format IS 'OutputFormat: original/ext, video/ext, audio/ext, image/ext';
 ```
 
 ### 2.7 Table `video_info_cache`
@@ -186,15 +190,29 @@ Cache for VideoInfo from yt-dlp to avoid redundant calls during interactive prev
 CREATE TABLE video_info_cache (
     url         TEXT PRIMARY KEY,
     video_info  JSONB NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ                -- V3; NULL = no expiry
 );
 
-COMMENT ON TABLE video_info_cache IS 'VideoInfo cache from yt-dlp to avoid redundant calls';
-COMMENT ON COLUMN video_info_cache.video_info IS 'VideoInfoPm JSON';
+CREATE INDEX idx_video_info_cache_expires_at ON video_info_cache(expires_at);   -- V3
 ```
 
 > PK on `url` — simple text key. `video_info` stores `VideoInfoPm` (same model as `jobs.raw_info`).
-> No TTL — records are stored indefinitely.
+> TTL: `VideoInfoCacheImpl` writes `expires_at = now + 24 h` and ignores expired rows on read;
+> `evictExpired` exists but nothing calls it, so expired rows are not deleted (known issue).
+> V5 emptied the cache once (new audio-language fields).
+
+### 2.8 Table `system_settings` (V4)
+
+Runtime-editable settings that survive restarts (`SystemSettingsHolder`, `PUT /system/settings`).
+
+```sql
+CREATE TABLE system_settings (
+    key        TEXT PRIMARY KEY,           -- 'ytdlp' | 'proxy'
+    value      TEXT NOT NULL,              -- JSON (YtDlpConfig / ProxyConfig)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
 
 ---
 
@@ -384,9 +402,11 @@ Exposed table definitions are located in `server/infra/src/main/kotlin/.../db/ta
 | `WorkspacesTable.kt`       | `UuidTable("workspaces")`                       |
 | `WorkspaceMembersTable.kt` | `Table("workspace_members")`, composite PK      |
 | `RulesTable.kt`            | `UuidTable("rules")`, JSONB columns             |
+| `ChannelsTable.kt`         | `UuidTable("channels")`, `TEXT[]` tags, JSONB   |
 | `JobsTable.kt`             | `UuidTable("jobs")`, JSONB columns              |
 | `JobOutputsTable.kt`       | `UuidTable("job_outputs")`                      |
 | `VideoInfoCacheTable.kt`   | `Table("video_info_cache")`, text PK            |
+| `SystemSettingsTable.kt`   | `Table("system_settings")`, text PK             |
 
 **DB ↔ Domain mapping approach:**
 - Columns store primitive types (`String`, `Long`, `Boolean`)
@@ -417,6 +437,16 @@ server/infra/src/main/resources/db/migration/
 > Initial schema: `server/infra/src/main/resources/db/migration/V1__initial_schema.sql`.
 > Creates tables: `workspaces`, `workspace_members`, `rules`, `jobs`, `job_outputs`, `video_info_cache` with indexes.
 
+`V2__channel_directory.sql` creates the `channels` table (channel directory).
+
+`V3__fix_job_statuses_and_cache_ttl.sql` renames stored job statuses (`queued/running/done` →
+`pending/downloading/completed`), rebuilds `idx_jobs_active_video` and replaces `idx_jobs_queued` with
+`idx_jobs_pending`, adds `jobs.metadata_source` and `video_info_cache.expires_at` (+ index).
+
+`V4__system_settings.sql` creates `system_settings`.
+
+`V5__invalidate_video_info_cache_for_audio_languages.sql` empties `video_info_cache` (derived data).
+
 `V6__job_media_selection.sql` adds a nullable per-job media selection and clears
 cached video info so previews include available subtitles.
 
@@ -429,21 +459,10 @@ per-channel audio/subtitle overrides.
 
 ### 5.3 Flyway Configuration
 
-```kotlin
-// DatabaseFactory.kt
-class DatabaseFactory(private val config: DbConfig) {
-    fun create(): Database {
-        val dataSource = HikariDataSource(HikariConfig().apply { ... })
-        Flyway.configure()
-            .dataSource(dataSource)
-            .locations("classpath:db/migration")
-            .baselineOnMigrate(true)
-            .load()
-            .migrate()
-        return Database.connect(dataSource)
-    }
-}
-```
+`DatabaseFactory.open(): OpenDatabase` (called eagerly by `Application.module()` before Koin and
+routing): builds the Hikari pool, runs Flyway (`classpath:db/migration`, `baselineOnMigrate(true)`),
+and returns `OpenDatabase(database, dataSource)` — `AutoCloseable`, closed on `ApplicationStopped`. If
+Flyway fails, the pool is closed and the exception stops the start (exit code 1).
 
 ---
 
@@ -471,7 +490,7 @@ Rules every repository follows (stage 01.8):
   produced by `db/mapping/*` (`JobStatus.toDbString()`), never written as literals in queries. The
   stored values are unchanged.
 - **Database errors through `catchingDb`** (`db/RepositorySupport.kt`) in every method whose port
-  returns `Either`: see §7.3.
+  returns `Either`: see §7.4.
 
 ---
 
@@ -495,13 +514,13 @@ yt-dlp, ffmpeg, LLM and HTTP calls never run inside a transaction.
 
 `jobs.status` is never written unconditionally (Stage 01.9, ARCHITECTURE §5.3):
 `JobRepositoryImpl.transition` is `UPDATE jobs … WHERE id = ? AND status IN (expected)` (0 rows →
-`JobStatusConflict`); `claimNext` is `SELECT id … WHERE status = 'pending' ORDER BY created_at LIMIT 1
+`JobStatusConflict`, or `JobNotFound` if the row does not exist); `claimNext` is `SELECT id … WHERE status = 'pending' ORDER BY created_at LIMIT 1
 FOR UPDATE SKIP LOCKED` + update of that row — served by the existing partial index `idx_jobs_pending`
 (V3), so no new migration; `requeueInterrupted` updates only `downloading`/`post-processing` rows.
 
 > `newSuspendedTransaction()` is deprecated in Exposed 1.0.0; `suspendTransaction()` is used.
 
-### 7.2 Nesting and the "`Left` commits" trap
+### 7.3 Nesting and the "`Left` commits" trap
 
 Pinned by `ExposedTransactionRunnerTest`:
 
@@ -510,7 +529,7 @@ Pinned by `ExposedTransactionRunnerTest`:
 - The runner **commits whatever the block returns — a `Left` included.** Only an exception (or
   `catchingDb`, below) rolls back. Use-cases therefore run every check before the first write.
 
-### 7.3 Database errors: `catchingDb`
+### 7.4 Database errors: `catchingDb`
 
 - Catches only `SQLException` (Exposed's `ExposedSQLException` is one); `CancellationException` and
   everything else propagate.
@@ -520,8 +539,8 @@ Pinned by `ExposedTransactionRunnerTest`:
   `idx_workspaces_slug` → `WorkspaceSlugConflict` (409), `idx_jobs_active_video` → `JobAlreadyExists`
   (409). Anything else → `DomainError.DatabaseFailed` → `500 INTERNAL_ERROR` "Internal server error"
   (the same response an unhandled `SQLException` got before; the detail goes to the log only).
-- Methods whose port returns a plain value (finders, `delete`, `removeMember`, `saveAll`, cache
-  methods) let the exception propagate: the runner rolls back and `StatusPages` answers
+- Methods whose port returns a plain value (finders, `delete`, `removeMember`, `saveAll`,
+  `claimNext`, `requeueInterrupted`, cache methods) let the exception propagate: the runner rolls back and `StatusPages` answers
   `500 INTERNAL_ERROR`.
 
 ---

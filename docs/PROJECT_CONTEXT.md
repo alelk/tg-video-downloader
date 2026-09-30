@@ -1,14 +1,14 @@
 ---
 status: stable
 owner: Alex (alelk)
-updated: 2026-09-29
+updated: 2026-09-30
 related: [ ../AGENTS.md, ../CLAUDE.md, project-status.md, ADR/009-engineering-skills-baseline.md, plans/step-01-refactoring.md ]
 ---
 
 # Project Context (for agents and people)
 
-> The one working context. Everything here is confirmed by the repository (as of Step 01, stage
-> 01.1). Module map and commands: [`AGENTS.md`](../AGENTS.md). Code rules: `.claude/skills/` +
+> The one working context. Everything here is confirmed by the repository (re-checked at the close
+> of Step 01, 2026-09-30). Module map and commands: [`AGENTS.md`](../AGENTS.md). Code rules: `.claude/skills/` +
 > exceptions in [ADR-009](ADR/009-engineering-skills-baseline.md) — not here.
 
 ## 1. What this is
@@ -73,8 +73,9 @@ command.
   `inRoTransaction {}`; no yt-dlp/ffmpeg/LLM/HTTP inside a transaction. Only the runner opens a
   transaction (repositories run in the current one); a `Left` returned from the block commits, so
   checks come before writes; database errors go through `catchingDb` (`DATABASE.md` §7).
-- **Isolation:** every resource belongs to a workspace; the API path carries the workspace id
-  (`/api/v1/workspaces/{workspaceId}/…`); membership must be checked before access.
+- **Isolation:** every resource belongs to a workspace; the API path carries the workspace slug
+  (`/api/v1/workspaces/{workspaceSlug}/…`); membership is checked in the use-case before access, a
+  resource of another workspace is `404`.
 - **Ids and values:** value classes (`JobId`, `RuleId`, `WorkspaceId`, `ChannelDirectoryEntryId`,
   `Tag`, `Url`, `FilePath`, `LocalDate`…); `commonMain` never uses `java.*`.
 - **Persistence:** JSONB columns use `*Pm` models in `server:infra`, separate from DTOs;
@@ -136,9 +137,11 @@ and frozen JSONB fixtures pin the wire and the stored data (fix the code, never 
 ## 10. Common traps
 
 - `.claude/skills/` is a git-ignored copy: never edit it; exceptions go to ADR-009.
-- Hoplite's env source nests on `_` (`TELEGRAM_BOT_TOKEN` → `telegram.bot.token`, no such key): `TELEGRAM_*`
-  variables reach camelCase keys only through `${VAR:-}` placeholders in `application.yaml` and the
-  compose inline config. A new variable needs such a placeholder in both places.
+- Hoplite's env source nests on a **double** underscore and camel-cases single ones (`DB__PASSWORD` →
+  `db.password`; `TELEGRAM_BOT_TOKEN` → `telegramBotToken`, no such key): the documented
+  single-underscore variables (`TELEGRAM_*`, `YTDLP_COOKIES_*`) reach their keys only through
+  `${VAR:-}` placeholders in `application.yaml` and the compose inline config. A new variable needs
+  such a placeholder in both places (CONFIGURATION.md §4–§5).
 - `docker-compose.yaml` and `.env.example` default `TELEGRAM_DEV_MODE=true` (local-dev compose).
 - Known issues and their status: [`project-status.md`](project-status.md#known-issues).
 

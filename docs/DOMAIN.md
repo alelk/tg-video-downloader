@@ -1,7 +1,7 @@
 ---
 status: stable
 owner: Alex (alelk)
-updated: 2026-09-29
+updated: 2026-09-30
 related: [ ARCHITECTURE.md, PROJECT_CONTEXT.md ]
 ---
 
@@ -44,7 +44,7 @@ domain/src/commonMain/kotlin/io/github/alelk/tgvd/domain/
 ├── rule/               # Rule, RuleMatch, MatchResult, RuleMatchingService, RuleRepository port
 │                       # + ListRulesUseCase, GetRuleUseCase, CreateRuleUseCase, UpdateRuleUseCase, DeleteRuleUseCase
 │                       # + CreateRuleRequest, UpdateRuleRequest
-├── metadata/           # ResolvedMetadata, MetadataResolver, MetadataTemplate, MetadataTemplateMerger, LlmPort
+├── metadata/           # ResolvedMetadata, MetadataResolver, MetadataTemplate, mergeTemplates(), LlmPort
 ├── storage/            # StoragePlan, OutputRule, OutputFormat, PathTemplateEngine, validateStoragePaths()
 ├── job/                # Job, JobStatus, JobRepository port
 │                       # + CreateJobUseCase, ListJobsUseCase, GetJobUseCase, CancelJobUseCase, RetryJobUseCase
@@ -756,7 +756,7 @@ domain/metadata/
 ├── ResolvedMetadata.kt        # sealed interface
 ├── MetadataSource.kt          # enum
 ├── MetadataTemplate.kt
-├── MetadataTemplateMerger.kt  # mergeTemplates(base, overlay)
+├── mergeTemplates.kt          # mergeTemplates(base, overlay)
 ├── MetadataResolver.kt
 ├── LlmSuggestion.kt
 └── LlmPort.kt                # port
@@ -953,7 +953,7 @@ class MetadataResolver {
 }
 ```
 
-### 6.5 MetadataTemplateMerger
+### 6.5 mergeTemplates (template merging)
 
 ```kotlin
 /**
