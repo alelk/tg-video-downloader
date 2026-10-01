@@ -7,6 +7,11 @@
         <compositeConfiguration>
           <compositeBuild compositeDefinitionSource="SCRIPT">
             <builds>
+              <build path="$PROJECT_DIR$/convention-plugins" name="convention-plugins">
+                <projects>
+                  <project path="$PROJECT_DIR$/convention-plugins" />
+                </projects>
+              </build>
               <build path="$PROJECT_DIR$/../tg-mini-app" name="tg-mini-app">
                 <projects>
                   <project path="$PROJECT_DIR$/../tg-mini-app" />
@@ -31,6 +36,7 @@
             <option value="$PROJECT_DIR$/api/client" />
             <option value="$PROJECT_DIR$/api/contract" />
             <option value="$PROJECT_DIR$/api/mapping" />
+            <option value="$PROJECT_DIR$/convention-plugins" />
             <option value="$PROJECT_DIR$/domain" />
             <option value="$PROJECT_DIR$/domain/domain-test-fixtures" />
             <option value="$PROJECT_DIR$/features" />

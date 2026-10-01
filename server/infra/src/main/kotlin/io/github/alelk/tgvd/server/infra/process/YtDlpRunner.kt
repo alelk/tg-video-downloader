@@ -613,6 +613,12 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
                 "download"
             }
             logger.error { "yt-dlp $phase failed (exit=$exitCode):\n$output" }
+            if (phase == "postprocessing/merge") {
+                // The formats were already fully downloaded; only ffmpeg's merge step failed. Left in
+                // place, these per-format files would be reused as-is on retry — if they are the reason
+                // the merge failed (a corrupt/incomplete fragment), every retry would fail identically.
+                cleanupFailedMergeArtifacts(outputPath)
+            }
             throw RuntimeException("yt-dlp $phase failed (exit=$exitCode): ${output.takeLast(4000)}")
         }
         logger.info { "yt-dlp download completed successfully: ${outputPath.value}" }
@@ -624,6 +630,26 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
         }
         emit(DownloadEvent.Completed(actualFormat))
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * Deletes yt-dlp's per-format intermediate files left behind by a failed merge/postprocessing step
+     * (e.g. "Title.f270.mp4", "Title.f139-drc.m4a" for a "Title.mkv" target), so a retry re-downloads the
+     * formats instead of re-merging the same — possibly corrupt or incomplete — files forever.
+     */
+    internal fun cleanupFailedMergeArtifacts(outputPath: FilePath) {
+        val expected = java.io.File(outputPath.value)
+        val dir = expected.parentFile ?: return
+        val baseName = expected.nameWithoutExtension
+        dir.listFiles()
+            ?.filter { it.isFile && isMergeArtifactFileName(it.name, baseName) }
+            ?.forEach { file ->
+                if (file.delete()) {
+                    logger.info { "Deleted stale merge artifact after failed postprocessing: ${file.name}" }
+                } else {
+                    logger.warn { "Failed to delete stale merge artifact: ${file.name}" }
+                }
+            }
+    }
 
     private fun resolveActualFormat(formatId: String, availableFormats: List<VideoInfo.Format>): VideoInfo.Format? {
         if (!formatId.contains("+")) {
@@ -659,6 +685,15 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
     } else {
         null
     }
+}
+
+/**
+ * True for yt-dlp's per-format intermediate file names (e.g. "Title.f270.mp4", "Title.f139-drc.m4a")
+ * produced for a merge target named "Title.<ext>" ([baseName] = "Title") before its formats are merged.
+ */
+internal fun isMergeArtifactFileName(fileName: String, baseName: String): Boolean {
+    val suffix = fileName.removePrefix("$baseName.f")
+    return suffix != fileName && suffix.isNotEmpty() && suffix[0].isDigit()
 }
 
 /** yt-dlp reports 0..100 separately for each selected media stream. */
