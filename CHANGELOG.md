@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+## [1.42.2](https://github.com/alelk/tg-video-downloader/compare/v1.42.1...v1.42.2) (2026-10-01)
+
+
+### Bug Fixes
+
+* file merge fix ([d23a4d7](https://github.com/alelk/tg-video-downloader/commit/d23a4d7752c2cbf056170899af2efc558b1d391f))
+
 ## [1.42.1](https://github.com/alelk/tg-video-downloader/compare/v1.42.0...v1.42.1) (2026-09-30)
 
 
