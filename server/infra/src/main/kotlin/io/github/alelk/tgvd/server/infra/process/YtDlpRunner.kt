@@ -469,6 +469,9 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
                 add("--fragment-retries")
                 add(config.fragmentRetries.toString())
                 add("--no-playlist")
+                // Without it, yt-dlp hides ffmpeg's own stderr on a postprocessor failure (e.g. a failed
+                // merge) behind a generic "Conversion failed!" — this surfaces the real cause in `output`.
+                add("--verbose")
                 addCookiesArgs()
                 addSslArgs(url.value)
                 addFormatArgs(policy, videoInfo, mediaSelection)
@@ -544,6 +547,10 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
             add("--fragment-retries")
             add(config.fragmentRetries.toString())
             add("--no-playlist")
+            // Without it, yt-dlp hides ffmpeg's own stderr on a postprocessor failure (e.g. a failed
+            // merge) behind a generic "Conversion failed!" — this surfaces the real cause in the logged
+            // output tail below.
+            add("--verbose")
             addCookiesArgs()
             addSslArgs(url.value)
             addFormatArgs(policy, videoInfo, mediaSelection)
