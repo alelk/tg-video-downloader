@@ -232,19 +232,24 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
     internal fun effectiveContainer(outputPath: FilePath): String? = outputPath.extension.takeIf { it.isNotBlank() }
 
     /**
-     * Append `--merge-output-format` plus a workaround for a real yt-dlp/ffmpeg merge failure: some
-     * YouTube DASH video streams (observed on itag 270 via the `tv_embedded` player client) arrive with
-     * no PTS on their first packet, so ffmpeg's stream-copy merge aborts ("Can't write packet with
-     * unknown timestamp"). `-fflags +genpts` on the video input (always the first, `ffmpeg_i1`) makes
-     * ffmpeg regenerate it.
+     * Always merge into mp4, then (if the user asked for a different container) remux — still a stream
+     * copy, no re-encode — to [effectiveContainer]'s result, which stays the only source of truth for
+     * the final file's extension.
+     *
+     * Works around a real ffmpeg bug: its matroska muxer rejects some YouTube h264 streams delivered
+     * via an HLS manifest (observed on itag 270) with "Can't write packet with unknown timestamp" on a
+     * direct stream-copy merge — confirmed by merging the very same two source files into mp4 instead,
+     * which works cleanly (`-fflags +genpts`/`+igndts` on the merge did not help). mp4's muxer tolerates
+     * the stream; a later mp4 → mkv remux of the already-merged file does not hit the same bug.
      */
     private fun MutableList<String>.addMergeArgs(outputPath: FilePath) {
         val container = effectiveContainer(outputPath) ?: return
-        if (container.isBlank()) return
         add("--merge-output-format")
-        add(container)
-        add("--postprocessor-args")
-        add("Merger+ffmpeg_i1:-fflags +genpts")
+        add("mp4")
+        if (container != "mp4") {
+            add("--remux-video")
+            add(container)
+        }
     }
 
     /** Append retry/resilience arguments for robust downloads on slow/unstable networks. */
