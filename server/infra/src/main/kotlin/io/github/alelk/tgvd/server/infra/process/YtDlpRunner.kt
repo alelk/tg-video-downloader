@@ -231,6 +231,22 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
     // sole source of truth for the merge container — never silently substitute a different one.
     internal fun effectiveContainer(outputPath: FilePath): String? = outputPath.extension.takeIf { it.isNotBlank() }
 
+    /**
+     * Append `--merge-output-format` plus a workaround for a real yt-dlp/ffmpeg merge failure: some
+     * YouTube DASH video streams (observed on itag 270 via the `tv_embedded` player client) arrive with
+     * no PTS on their first packet, so ffmpeg's stream-copy merge aborts ("Can't write packet with
+     * unknown timestamp"). `-fflags +genpts` on the video input (always the first, `ffmpeg_i1`) makes
+     * ffmpeg regenerate it.
+     */
+    private fun MutableList<String>.addMergeArgs(outputPath: FilePath) {
+        val container = effectiveContainer(outputPath) ?: return
+        if (container.isBlank()) return
+        add("--merge-output-format")
+        add(container)
+        add("--postprocessor-args")
+        add("Merger+ffmpeg_i1:-fflags +genpts")
+    }
+
     /** Append retry/resilience arguments for robust downloads on slow/unstable networks. */
     private fun MutableList<String>.addResilienceArgs() {
         // Retry individual fragment downloads more aggressively
@@ -479,11 +495,7 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
                 addNetworkArgs()
                 addSubtitleArgs(policy, mediaSelection)
                 addSiteArgs()
-                val container = effectiveContainer(outputPath)
-                container?.takeIf { it.isNotBlank() }?.let {
-                    add("--merge-output-format")
-                    add(it)
-                }
+                addMergeArgs(outputPath)
                 effectiveProxyUrl(url.value)?.let {
                     add("--proxy")
                     add(it)
@@ -558,11 +570,7 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
             addNetworkArgs()
             addSubtitleArgs(policy, mediaSelection)
             addSiteArgs()
-            val container = effectiveContainer(outputPath)
-            container?.takeIf { it.isNotBlank() }?.let {
-                add("--merge-output-format")
-                add(it)
-            }
+            addMergeArgs(outputPath)
 
             if (policy.writeThumbnail) {
                 add("--write-thumbnail")
