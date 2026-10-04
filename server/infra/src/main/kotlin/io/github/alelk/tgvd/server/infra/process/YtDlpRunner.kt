@@ -168,48 +168,54 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
         if (!preferredFormats.isNullOrBlank() && mediaSelection?.audioFormatIds == null) {
             add("-f")
             add(preferredFormats)
-            val sortStr = config.formatSort?.takeIf { it.isNotBlank() } ?: qualitySortString(quality)
-            add("-S")
-            add(sortStr)
+            addFormatSortArgs(quality)
             return
         }
 
         val container = outputPath?.let { effectiveContainer(it) }
         val formats = videoInfo?.availableFormats?.restrictedToContainer(container)
-        if (formats != null && formats.isNotEmpty()) {
-            val selection = selectFormats(formats, policy, mediaSelection)
-            val bestFormatId = selection.formatSelector
-            if (bestFormatId != null) {
-                logger.info {
-                    "Selected formats: video=${selection.video?.formatId ?: selection.combined?.formatId}, " +
-                        "originalAudio=${selection.originalAudio?.formatId}:" +
-                        "${selection.originalAudio?.language ?: "unknown"}, " +
-                        "additionalAudio=${selection.additionalAudio.joinToString {
-                            "${it.formatId}:${it.language ?: "unknown"}"
-                        }}"
-                }
-                add("-f")
-                add(bestFormatId)
-                if (selection.audioTracks.size > 1) {
-                    add("--audio-multistreams")
-                    // The original audio is deliberately the first selected audio stream.
-                    add("--postprocessor-args")
-                    add("Merger+ffmpeg_o:-disposition:a 0 -disposition:a:0 default")
-                }
-                val sortStr = config.formatSort?.takeIf { it.isNotBlank() } ?: qualitySortString(quality)
-                add("-S")
-                add(sortStr)
-                return
-            }
+        val selection = formats?.takeIf { it.isNotEmpty() }?.let { selectFormats(it, policy, mediaSelection) }
+        val bestFormatId = selection?.formatSelector
+        if (selection != null && bestFormatId != null) {
+            logSelectedFormats(selection)
+            add("-f")
+            add(bestFormatId)
+            addMultistreamArgsIfNeeded(selection)
+            addFormatSortArgs(quality)
+            return
         }
 
         // Fallback to general strategy
         add("-f")
         add("bestvideo*+bestaudio/bestvideo*")
         if (config.checkFormats) add("--check-formats")
+        addFormatSortArgs(quality)
+    }
+
+    private fun MutableList<String>.addFormatSortArgs(quality: DownloadPolicy.VideoQuality) {
         val sortStr = config.formatSort?.takeIf { it.isNotBlank() } ?: qualitySortString(quality)
         add("-S")
         add(sortStr)
+    }
+
+    private fun logSelectedFormats(selection: AudioTrackSelector.Selection) {
+        logger.info {
+            "Selected formats: video=${selection.video?.formatId ?: selection.combined?.formatId}, " +
+                "originalAudio=${selection.originalAudio?.formatId}:" +
+                "${selection.originalAudio?.language ?: "unknown"}, " +
+                "additionalAudio=${selection.additionalAudio.joinToString {
+                    "${it.formatId}:${it.language ?: "unknown"}"
+                }}"
+        }
+    }
+
+    /** The original audio is deliberately the first selected audio stream. */
+    private fun MutableList<String>.addMultistreamArgsIfNeeded(selection: AudioTrackSelector.Selection) {
+        if (selection.audioTracks.size > 1) {
+            add("--audio-multistreams")
+            add("--postprocessor-args")
+            add("Merger+ffmpeg_o:-disposition:a 0 -disposition:a:0 default")
+        }
     }
 
     private fun qualitySortString(quality: DownloadPolicy.VideoQuality): String = when (quality) {
