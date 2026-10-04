@@ -48,6 +48,10 @@ import kotlin.uuid.ExperimentalUuidApi
 
 private val logger = KotlinLogging.logger {}
 
+/** yt-dlp/ffmpeg `vcodec`/`acodec` prefixes WebM's muxer accepts; anything else makes it refuse the file outright. */
+private val WEBM_VIDEO_CODECS = setOf("vp8", "vp9", "vp09", "av01", "av1")
+private val WEBM_AUDIO_CODECS = setOf("opus", "vorbis")
+
 class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
     VideoInfoExtractor,
     VideoDownloader {
@@ -156,6 +160,7 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
         policy: DownloadPolicy,
         videoInfo: VideoInfo? = null,
         mediaSelection: MediaSelection? = null,
+        outputPath: FilePath? = null,
     ) {
         val quality = policy.maxQuality
         // Global override from settings takes highest priority
@@ -169,7 +174,8 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
             return
         }
 
-        val formats = videoInfo?.availableFormats
+        val container = outputPath?.let { effectiveContainer(it) }
+        val formats = videoInfo?.availableFormats?.restrictedToContainer(container)
         if (formats != null && formats.isNotEmpty()) {
             val selection = selectFormats(formats, policy, mediaSelection)
             val bestFormatId = selection.formatSelector
@@ -230,6 +236,26 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
     // The user's chosen Output format (rendered into the literal output path extension) is the
     // sole source of truth for the merge container — never silently substitute a different one.
     internal fun effectiveContainer(outputPath: FilePath): String? = outputPath.extension.takeIf { it.isNotBlank() }
+
+    /**
+     * WebM's muxer accepts only VP8/VP9/AV1 video and Vorbis/Opus audio — ffmpeg refuses to even open a
+     * webm output otherwise ("Could not write header (incorrect codec parameters?)"). [AudioTrackSelector]
+     * has no notion of the output container, so a video whose only language-tagged audio track is AAC
+     * (while an untagged Opus track also exists) would still have the AAC one picked by language match.
+     * For a webm target, format candidates with an incompatible codec are dropped before selection.
+     */
+    internal fun List<VideoInfo.Format>.restrictedToContainer(container: String?): List<VideoInfo.Format> {
+        if (container != "webm") return this
+        return filter { format ->
+            (format.vcodec.isAbsentOr(WEBM_VIDEO_CODECS)) && (format.acodec.isAbsentOr(WEBM_AUDIO_CODECS))
+        }
+    }
+
+    private fun String?.isAbsentOr(allowedPrefixes: Set<String>): Boolean {
+        val codec = this?.lowercase()
+        if (codec.isNullOrBlank() || codec == "none") return true
+        return allowedPrefixes.any { codec.startsWith(it) }
+    }
 
     /**
      * Always merge into mp4, then (if the user asked for a different container) remux — still a stream
@@ -495,7 +521,7 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
                 add("--verbose")
                 addCookiesArgs()
                 addSslArgs(url.value)
-                addFormatArgs(policy, videoInfo, mediaSelection)
+                addFormatArgs(policy, videoInfo, mediaSelection, outputPath)
                 addResilienceArgs()
                 addNetworkArgs()
                 addSubtitleArgs(policy, mediaSelection)
@@ -570,7 +596,7 @@ class YtDlpRunner(private val settingsHolder: SystemSettingsHolder) :
             add("--verbose")
             addCookiesArgs()
             addSslArgs(url.value)
-            addFormatArgs(policy, videoInfo, mediaSelection)
+            addFormatArgs(policy, videoInfo, mediaSelection, outputPath)
             addResilienceArgs()
             addNetworkArgs()
             addSubtitleArgs(policy, mediaSelection)

@@ -120,6 +120,20 @@ class YtDlpRunnerTest :
             runner.effectiveContainer(FilePath("/tmp/video")) shouldBe null
         }
 
+        test("restrictedToContainer drops AAC-only audio for a webm target, keeping Opus") {
+            val formats = listOf(
+                VideoInfo.Format("625", "webm", height = 2160, vcodec = "vp9", acodec = "none"),
+                VideoInfo.Format("139", "m4a", vcodec = "none", acodec = "mp4a.40.2", language = "en"),
+                VideoInfo.Format("251", "webm", vcodec = "none", acodec = "opus"),
+            )
+
+            with(runner) {
+                formats.restrictedToContainer("webm").map { it.formatId } shouldBe listOf("625", "251")
+                formats.restrictedToContainer("mkv") shouldBe formats
+                formats.restrictedToContainer(null) shouldBe formats
+            }
+        }
+
         test("isMergeArtifactFileName matches yt-dlp per-format intermediate files") {
             isMergeArtifactFileName("Title.f270.mp4", "Title") shouldBe true
             isMergeArtifactFileName("Title.f139-drc.m4a", "Title") shouldBe true
