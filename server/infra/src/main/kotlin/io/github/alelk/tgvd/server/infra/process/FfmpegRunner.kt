@@ -204,6 +204,7 @@ class FfmpegRunner(private val config: FfmpegConfig) {
         maxWidth: Int? = null,
         maxHeight: Int? = null,
         encodeSettings: VideoEncodeSettings? = null,
+        embedSubtitles: Boolean = false,
     ): Either<DomainError, FilePath> {
         val rawSettings = encodeSettings ?: VideoEncodeSettings()
 
@@ -244,6 +245,7 @@ class FfmpegRunner(private val config: FfmpegConfig) {
             add("0:a?")
             add("-map_metadata")
             add("0")
+            addSubtitleArgs(container, embedSubtitles)
 
             if (needsTranscode) {
                 // Video scaling — fit within maxWidth x maxHeight box, preserving aspect ratio.
@@ -309,6 +311,7 @@ class FfmpegRunner(private val config: FfmpegConfig) {
                 add("0:a?")
                 add("-map_metadata")
                 add("0")
+                addSubtitleArgs(container, embedSubtitles)
                 if (needsTranscode) {
                     val scaleFilter = buildScaleFilter(maxWidth, maxHeight)
                     add("-vf")
@@ -346,6 +349,22 @@ class FfmpegRunner(private val config: FfmpegConfig) {
         }
 
         return result.map { output }
+    }
+
+    /**
+     * Map any subtitle streams from the input onto the output when [embedSubtitles] is set. A target
+     * container whose subtitle codec is incompatible with the source's (e.g. webm only accepts
+     * WebVTT) gets its subtitles converted instead of copied; [MediaContainer.AVI] has no usable soft-
+     * subtitle support, so subtitles are dropped for it rather than producing a file ffmpeg would
+     * refuse to write.
+     */
+    private fun MutableList<String>.addSubtitleArgs(container: MediaContainer, embedSubtitles: Boolean) {
+        if (!embedSubtitles) return
+        val codec = subtitleCodecFor(container) ?: return
+        add("-map")
+        add("0:s?")
+        add("-c:s")
+        add(codec)
     }
 
     /**
@@ -712,4 +731,15 @@ class FfmpegRunner(private val config: FfmpegConfig) {
         AudioFormat.FLAC -> "flac"
         AudioFormat.WAV -> "pcm_s16le"
     }
+}
+
+/**
+ * The `-c:s` value to embed subtitles into [container], or `null` when the container has no usable
+ * soft-subtitle support (classic AVI) and subtitles should be dropped instead of attempted.
+ */
+internal fun subtitleCodecFor(container: MediaContainer): String? = when (container) {
+    MediaContainer.MP4, MediaContainer.MOV -> "mov_text" // the only subtitle codec the mp4/mov muxer accepts
+    MediaContainer.MKV -> "copy" // matroska accepts virtually any subtitle codec as-is
+    MediaContainer.WEBM -> "webvtt" // ffmpeg's webm muxer accepts only WebVTT subtitles
+    MediaContainer.AVI -> null
 }

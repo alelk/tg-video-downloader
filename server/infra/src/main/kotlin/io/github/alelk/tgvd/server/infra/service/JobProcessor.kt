@@ -478,6 +478,7 @@ class JobProcessor(
                     maxResolution?.first,
                     maxResolution?.second,
                     target.encodeSettings,
+                    target.embedSubtitles,
                 )
                     .fold(
                         { error ->
