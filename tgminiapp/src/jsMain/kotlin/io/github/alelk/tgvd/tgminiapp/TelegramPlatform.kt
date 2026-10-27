@@ -1,5 +1,6 @@
 package io.github.alelk.tgvd.tgminiapp
 
+import com.kirillNay.telegram.miniapp.webApp.HapticFeedback
 import com.kirillNay.telegram.miniapp.webApp.webApp
 import io.github.alelk.tgvd.features.common.theme.PlatformCallbacks
 
@@ -7,7 +8,7 @@ import io.github.alelk.tgvd.features.common.theme.PlatformCallbacks
 internal fun createPlatformCallbacks() = PlatformCallbacks(
     onHapticFeedback = {
         try {
-            webApp.hapticFeedback.impactOccurred("light")
+            webApp.hapticFeedback.impactOccurred(HapticFeedback.ImpactStyle.LIGHT)
         } catch (_: Throwable) {
         }
     },

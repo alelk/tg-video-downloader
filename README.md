@@ -59,7 +59,7 @@ A self-hosted service for downloading videos from YouTube, RuTube, VK Video, and
 
 | Area              | Technology                                  |
 |-------------------|---------------------------------------------|
-| Language          | Kotlin 2.3+ (Multiplatform)                 |
+| Language          | Kotlin 2.4+ (Multiplatform)                 |
 | JVM               | 21 LTS                                      |
 | Backend framework | Ktor 3.x                                    |
 | DI                | Koin 4.x                                    |

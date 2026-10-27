@@ -26,3 +26,9 @@ kotlin {
         }
     }
 }
+
+// Compose 1.12 verifies that the js target can bundle Compose UI tests (needs `binaries.executable()`).
+// The js test runner is disabled on purpose (tgvd.kmp, G11), so the check guards nothing here.
+tasks.matching { it.name == "checkComposeUiTestConfigurationForJs" }.configureEach {
+    enabled = false
+}
