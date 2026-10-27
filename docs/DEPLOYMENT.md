@@ -31,9 +31,9 @@ version catalogue), the build scripts, `convention-plugins/` and `app.version` a
 `./gradlew :server:app:shadowJar` or `./gradlew :tgminiapp:jsBrowserDistribution`. The Mini App build
 also copies `kotlin-js-store/` so the locked npm versions (`yarn.lock`) are installed.
 
-`GITHUB_USER` / `GITHUB_TOKEN` build args authenticate to GitHub Packages (`io.github.alelk:tg-mini-app`
-when `../tg-mini-app` is not next to the repository). They exist only in the builder stage; BuildKit
-secrets are deliberately not used (ADR-009).
+`GITHUB_USER` / `GITHUB_TOKEN` build args are a leftover from the private `io.github.alelk:tg-mini-app`
+(GitHub Packages); the Mini App now uses `io.github.kirillNay:tg-mini-app` from Maven Central, so they
+are no longer required for the build.
 
 **Runtime stage (server)**: `eclipse-temurin:21-jre-noble` + `ffmpeg`, non-root `appuser` (uid 1001),
 `EXPOSE 8080`, `HEALTHCHECK` on `/health`, writable `/data/media`, `/data/temp`, `/app/bin` (yt-dlp is

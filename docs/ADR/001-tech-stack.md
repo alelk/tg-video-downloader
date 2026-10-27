@@ -27,7 +27,7 @@ Requirements:
 
 | Component         | Choice                   | Alternatives          | Rationale                                    |
 |-------------------|--------------------------|-----------------------|----------------------------------------------|
-| **Language**      | Kotlin 2.3+ (KMP)        | Java, Scala           | KMP, sealed classes, coroutines              |
+| **Language**      | Kotlin 2.4+ (KMP)        | Java, Scala           | KMP, sealed classes, coroutines              |
 | **JVM**           | 21 LTS                   | 17                    | Performance improvements                     |
 | **Framework**     | Ktor 3.x                 | Spring Boot           | Lightweight, Kotlin-first, coroutines-native |
 | **DI**            | Koin 4.x                 | Kodein, Dagger        | Simple DSL, KMP-compatible                   |

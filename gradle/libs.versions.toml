@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.3.10"
+kotlin = "2.4.20"
 kotlinx-coroutines = "1.10.2"
 kotlinx-serialization-json = "1.10.0"
 kotlinx-datetime = "0.6.0"
@@ -27,14 +27,14 @@ testcontainers = "2.0.3"
 mockk = "1.14.9"
 
 # Compose Multiplatform
-composeMultiplatform = "1.10.0"
+composeMultiplatform = "1.12.1"
 androidx-lifecycle = "2.9.6"
 
 # Voyager (navigation)
 voyager = "1.1.0-beta03"
 
 # Telegram Mini App
-tgMiniApp = "1.0.0"
+tgMiniApp = "2.0.0"
 
 # Gradle plugins
 shadow = "9.3.1"
@@ -117,7 +117,7 @@ voyager-koin = { module = "cafe.adriel.voyager:voyager-koin", version.ref = "voy
 voyager-transitions = { module = "cafe.adriel.voyager:voyager-transitions", version.ref = "voyager" }
 
 # Telegram Mini App
-tg-mini-app = { module = "io.github.alelk:tg-mini-app", version.ref = "tgMiniApp" }
+tg-mini-app = { module = "io.github.kirillNay:tg-mini-app", version.ref = "tgMiniApp" }
 
 # Telegram Bot API
 tgbotapi = { module = "dev.inmo:tgbotapi", version.ref = "tgBotApi" }

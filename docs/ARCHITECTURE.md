@@ -401,12 +401,10 @@ dependencyResolutionManagement {
     repositories {
         mavenCentral()
         google()
-        // Node.js / Yarn distributions for Kotlin/JS (ivy), GitHub Packages for tg-mini-app,
-        // mavenLocal() last and only for io.github.alelk — see the file itself
+        // Node.js / Yarn distributions for Kotlin/JS (ivy) — see the file itself
     }
 }
 
-// ../tg-mini-app checked out next to this repo → composite build instead of the Maven artifact
 rootProject.name = "tg-video-downloader"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")   // projects.api.contract, never project(":…")
 
