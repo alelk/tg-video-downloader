@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+## [1.43.1](https://github.com/alelk/tg-video-downloader/compare/v1.43.0...v1.43.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* migrate to upstream tg-mini-app 2.0.0 and Kotlin 2.4.20 ([eeac23c](https://github.com/alelk/tg-video-downloader/commit/eeac23c875e6e61944b44f4de57594d96a6b43e6))
+
 # [1.43.0](https://github.com/alelk/tg-video-downloader/compare/v1.42.6...v1.43.0) (2026-10-04)
 
 
