@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -30,7 +28,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import io.github.alelk.tgvd.api.client.TgVideoDownloaderClient
 import io.github.alelk.tgvd.api.contract.preview.PreviewRequestDto
 import io.github.alelk.tgvd.features.common.component.ErrorCard
-import io.github.alelk.tgvd.features.common.icon.TgvdIcons
 import io.github.alelk.tgvd.features.common.theme.LocalPlatformCallbacks
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -49,8 +46,6 @@ class UrlInputScreen : Screen {
         var isLoading by remember { mutableStateOf(false) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
-
-        val readClipboard = platformCallbacks.readTextFromClipboard
 
         Column(
             modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -73,31 +68,6 @@ class UrlInputScreen : Screen {
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !isLoading,
-                trailingIcon = readClipboard?.let { onReadClipboard ->
-                    {
-                        IconButton(
-                            onClick = {
-                                onReadClipboard { text ->
-                                    if (!text.isNullOrBlank()) {
-                                        url = text.trim()
-                                        errorMessage = null
-                                    } else {
-                                        errorMessage =
-                                            "Clipboard is unavailable in this Telegram context. " +
-                                            "Try launching Mini App from attachment menu."
-                                    }
-                                }
-                            },
-                            enabled = !isLoading,
-                        ) {
-                            Icon(
-                                imageVector = TgvdIcons.ContentPaste,
-                                contentDescription = "Paste",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                },
             )
 
             Spacer(modifier = Modifier.height(16.dp))
