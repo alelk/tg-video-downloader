@@ -1,5 +1,13 @@
 # TGVD CHANGELOG
 
+## [1.43.2](https://github.com/alelk/tg-video-downloader/compare/v1.43.1...v1.43.2) (2026-10-30)
+
+
+### Bug Fixes
+
+* fix web input issue ([ab4bae0](https://github.com/alelk/tg-video-downloader/commit/ab4bae02328e80d198c5505f935032d1bfcc6c0b))
+* update resources ([483b3ca](https://github.com/alelk/tg-video-downloader/commit/483b3ca114f6006b75dc66b78c957408491c23de))
+
 ## [1.43.1](https://github.com/alelk/tg-video-downloader/compare/v1.43.0...v1.43.1) (2026-10-27)
 
 
