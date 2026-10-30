@@ -19,6 +19,18 @@ dependencyResolutionManagement {
     repositories {
         mavenCentral()
         google()
+        // io.github.alelk:tg-mini-app (when ../tg-mini-app is not checked out next to this repo).
+        maven {
+            name = "GitHubPackagesTgMiniApp"
+            url = uri("https://maven.pkg.github.com/alelk/tg-mini-app")
+            credentials {
+                username = providers.gradleProperty("gpr.user").orNull
+                    ?: System.getenv("GITHUB_USER")
+                    ?: "alelk"
+                password = providers.gradleProperty("gpr.token").orNull
+                    ?: System.getenv("GITHUB_TOKEN")
+            }
+        }
         // Node.js and Yarn distributions for the Kotlin/JS toolchain. The Kotlin plugin would add
         // these itself, which FAIL_ON_PROJECT_REPOS forbids; the tgvd.* conventions switch that off
         // (convention-plugins/.../JsToolingRepositories.kt) and they are declared here instead.
@@ -34,7 +46,23 @@ dependencyResolutionManagement {
             metadataSources { artifact() }
             content { includeModule("com.yarnpkg", "yarn") }
         }
+        // Last, and only for our own group: a locally published tg-mini-app build.
+        mavenLocal {
+            content { includeGroup("io.github.alelk") }
+        }
     }
+}
+
+val localTgMiniAppDir = File(rootDir.parent, "tg-mini-app")
+if (localTgMiniAppDir.exists() && localTgMiniAppDir.isDirectory) {
+    println("🔗 Local tg-mini-app found – using composite build")
+    includeBuild("../tg-mini-app") {
+        dependencySubstitution {
+            substitute(module("io.github.alelk:tg-mini-app"))
+        }
+    }
+} else {
+    println("🌐 Local tg-mini-app not found – will use Maven dependency (GitHub Packages)")
 }
 
 rootProject.name = "tg-video-downloader"

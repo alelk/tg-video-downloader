@@ -34,7 +34,7 @@ androidx-lifecycle = "2.9.6"
 voyager = "1.1.0-beta03"
 
 # Telegram Mini App
-tgMiniApp = "2.0.0"
+tgMiniApp = "1.1.2"
 
 # Gradle plugins
 shadow = "9.3.1"
@@ -117,7 +117,7 @@ voyager-koin = { module = "cafe.adriel.voyager:voyager-koin", version.ref = "voy
 voyager-transitions = { module = "cafe.adriel.voyager:voyager-transitions", version.ref = "voyager" }
 
 # Telegram Mini App
-tg-mini-app = { module = "io.github.kirillNay:tg-mini-app", version.ref = "tgMiniApp" }
+tg-mini-app = { module = "io.github.alelk:tg-mini-app", version.ref = "tgMiniApp" }
 
 # Telegram Bot API
 tgbotapi = { module = "dev.inmo:tgbotapi", version.ref = "tgBotApi" }

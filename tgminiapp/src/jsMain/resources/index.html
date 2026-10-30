@@ -15,12 +15,114 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }
         #root {
             width: 100%;
             height: 100%;
+            touch-action: manipulation;
         }
     </style>
+    <script>
+        (function() {
+            // === iOS Safari / WebKit Software Keyboard Bridge for Compose Multiplatform Web ===
+
+            // 1. Recursive activeElement getter:
+            // Compose Web creates its DOM inside a ShadowRoot attached to the viewport container.
+            // When an input is focused inside ShadowRoot, standard document.activeElement returns
+            // the host element (body/#root), not the input itself.
+            // This causes Compose to believe the element is not focused and repeatedly call
+            // requestAnimationFrame -> focus(). On iOS WebKit, programmatic focus in RAF drops
+            // the virtual keyboard because it is outside a synchronous user gesture.
+            try {
+                const originalActiveElement = Object.getOwnPropertyDescriptor(Document.prototype, 'activeElement') ||
+                                             Object.getOwnPropertyDescriptor(document, 'activeElement');
+                if (originalActiveElement && originalActiveElement.get) {
+                    Object.defineProperty(Document.prototype, 'activeElement', {
+                        get: function() {
+                            let el = originalActiveElement.get.call(this);
+                            while (el && el.shadowRoot && el.shadowRoot.activeElement) {
+                                el = el.shadowRoot.activeElement;
+                            }
+                            return el;
+                        },
+                        configurable: true,
+                        enumerable: true
+                    });
+                }
+            } catch (e) {
+                console.warn('[iOS Keyboard Bridge] Failed to patch document.activeElement:', e);
+            }
+
+            // 2. Inject styles into Compose's ShadowRoot:
+            // Compose sets backing inputs with z-index: -1 and opacity/colors transparent.
+            // In iOS 18 WebKit, inputs with negative z-index behind canvas are deemed non-interactive
+            // and virtual keyboard invocation is suppressed (WebKit Bug 279904).
+            // We ensure backing inputs have z-index: 10, pointer-events: auto, and non-zero opacity.
+            try {
+                const origAttachShadow = Element.prototype.attachShadow;
+                Element.prototype.attachShadow = function(init) {
+                    const shadowRoot = origAttachShadow.apply(this, arguments);
+                    try {
+                        const style = document.createElement('style');
+                        style.textContent = `
+                            input, textarea {
+                                z-index: 10 !important;
+                                pointer-events: auto !important;
+                                -webkit-user-select: text !important;
+                                user-select: text !important;
+                                opacity: 0.001 !important;
+                            }
+                        `;
+                        shadowRoot.appendChild(style);
+                    } catch (err) {
+                        console.warn('[iOS Keyboard Bridge] Failed to inject shadowRoot styles:', err);
+                    }
+                    return shadowRoot;
+                };
+            } catch (e) {
+                console.warn('[iOS Keyboard Bridge] Failed to patch attachShadow:', e);
+            }
+
+            // 3. User gesture preservation for WebKit on touch devices:
+            // When Compose processes touch events on canvas, it consumes them and calls event.preventDefault().
+            // In iOS WebKit, calling preventDefault() on touchstart or touchend cancels the native user gesture,
+            // which causes WebKit to refuse to open the on-screen software keyboard.
+            // We prevent preventDefault() from cancelling keyboard activation during touch taps.
+            let lastTouchTime = 0;
+            try {
+                const origPreventDefault = TouchEvent.prototype.preventDefault;
+                TouchEvent.prototype.preventDefault = function() {
+                    if (this.type === 'touchstart' || this.type === 'touchend') {
+                        lastTouchTime = Date.now();
+                        // Do not prevent default for touchstart/touchend so WebKit preserves the user gesture
+                        return;
+                    }
+                    return origPreventDefault.apply(this, arguments);
+                };
+            } catch (e) {
+                console.warn('[iOS Keyboard Bridge] Failed to patch TouchEvent.preventDefault:', e);
+            }
+
+            // 4. Suppress synthesized mouse events following touches:
+            // Because touchend.preventDefault() is bypassed, the browser synthesizes mousemove/mousedown/mouseup
+            // ~50ms later. We intercept and suppress these synthesized events so Compose does not receive duplicate
+            // clicks or switch keyboard mode from Virtual to Hardware.
+            const suppressSynthesizedMouse = function(e) {
+                if (Date.now() - lastTouchTime < 600) {
+                    e.stopImmediatePropagation();
+                    if (e.cancelable) {
+                        e.preventDefault();
+                    }
+                }
+            };
+            window.addEventListener('mousedown', suppressSynthesizedMouse, { capture: true, passive: false });
+            window.addEventListener('mouseup', suppressSynthesizedMouse, { capture: true, passive: false });
+            window.addEventListener('mousemove', suppressSynthesizedMouse, { capture: true, passive: false });
+            window.addEventListener('click', suppressSynthesizedMouse, { capture: true, passive: false });
+        })();
+    </script>
 </head>
 <body>
     <div id="root"></div>
@@ -34,4 +136,3 @@
     <script src="tgminiapp.js"></script>
 </body>
 </html>
-
