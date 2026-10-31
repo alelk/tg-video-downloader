@@ -1,8 +1,8 @@
 ---
 status: stable
 owner: Alex (alelk)
-updated: 2026-09-30
-related: [ ../AGENTS.md, ../CLAUDE.md, project-status.md, ADR/009-engineering-skills-baseline.md, plans/step-01-refactoring.md ]
+updated: 2026-10-31
+related: [ ../AGENTS.md, ../CLAUDE.md, project-status.md, ADR/009-engineering-skills-baseline.md, plans/step-01-refactoring.md, research/ios-telegram-keyboard.md, plans/step-02-ios-keyboard.md ]
 ---
 
 # Project Context (for agents and people)
@@ -151,6 +151,7 @@ and frozen JSONB fixtures pin the wire and the stored data (fix the code, never 
 |-------------------------------|-------------------------------------------------------|
 | Current phase, history, known issues | [`project-status.md`](project-status.md)       |
 | Step plans and stages         | [`plans/`](plans/)                                    |
+| iPhone Telegram keyboard incident (open) | [`research/ios-telegram-keyboard.md`](research/ios-telegram-keyboard.md); [Step 02 (device acceptance pending)](plans/step-02-ios-keyboard.md) |
 | Architecture, data flows      | [`ARCHITECTURE.md`](ARCHITECTURE.md)                  |
 | Domain model                  | [`DOMAIN.md`](DOMAIN.md)                              |
 | HTTP API                      | [`API_CONTRACT.md`](API_CONTRACT.md)                  |

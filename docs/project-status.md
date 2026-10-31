@@ -1,8 +1,8 @@
 ---
 status: stable
 owner: Alex (alelk)
-updated: 2026-09-30
-related: [ PROJECT_CONTEXT.md, ../CLAUDE.md, plans/step-01-refactoring.md, plans/step-01/README.md ]
+updated: 2026-10-31
+related: [ PROJECT_CONTEXT.md, ../CLAUDE.md, plans/step-01-refactoring.md, plans/step-01/README.md, research/ios-telegram-keyboard.md, plans/step-02-ios-keyboard.md ]
 ---
 
 # Project status
@@ -161,6 +161,20 @@ instead of select-then-write, and the known issues below (`includeCategory`, joi
   rewritten to the real auth/allow-list; TESTING.md examples replaced by the real tests); consolidated known
   issues and open questions; plan `done`, `CLAUDE.md` → no current phase.
 
+## iPhone Telegram keyboard investigation — 2026-10-31 (open)
+
+The owner reports that editable fields usually do not open the software keyboard, sometimes
+requiring about 20 taps. The October 30 HTML bridge (`ab4bae0`) did not resolve it. Research found
+an upstream iOS Safari 27.0 focus defect fixed in Compose 1.12.2; the project declares 1.12.1.
+The precise affected-device cause remains unverified, and the bridge itself changes global
+DOM/touch behavior. See the [evidence and source links](research/ios-telegram-keyboard.md).
+
+The owner authorized [Step 02](plans/step-02-ios-keyboard.md) on 2026-10-31, with iPhone
+checks deferred until after deployment. The first candidate upgrades Compose to 1.12.2 and
+removes the global HTML keyboard bridge. Production distribution and 518 JVM tests passed. Full build attempts lost the Gradle daemon,
+and server tests are blocked on the PostgreSQL image download. Device acceptance and deployment identity remain pending. The current phase is Step 02. The October 31 asset revalidation change (`ea506f1`) is separate
+from focus repair and does not prove the installed WebView loaded fresh assets.
+
 ## Known issues
 
 Deliberately not fixed in Step 01 (behaviour changes, out of its scope). The stage that found each one is
@@ -168,6 +182,8 @@ in brackets; details in its executor notes.
 
 **Behaviour and access**
 
+- iPhone Telegram software keyboard often fails to open: [investigation](research/ios-telegram-keyboard.md),
+  [approved recovery plan](plans/step-02-ios-keyboard.md). Open; no verified device fix yet.
 - `saveAsRule.includeCategory` is accepted in `POST …/jobs` but ignored: `api:mapping`
   (`SaveAsRuleDto.toDomain()`) drops it and the domain has no such parameter.
 - Joining a workspace by slug: `POST /workspaces` with a slug that is already taken adds the caller

@@ -27,7 +27,7 @@ testcontainers = "2.0.3"
 mockk = "1.14.9"
 
 # Compose Multiplatform
-composeMultiplatform = "1.12.1"
+composeMultiplatform = "1.12.2"
 androidx-lifecycle = "2.9.6"
 
 # Voyager (navigation)

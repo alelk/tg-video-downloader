@@ -6,12 +6,10 @@
 
 ## Current phase
 
-**None.** Step 01 (backward-compatible refactoring to the engineering-ai-skills baseline) is closed —
-summary, open questions for the owner and known issues in
-[`docs/project-status.md`](docs/project-status.md). The next step starts with a new plan in
-`docs/plans/` (`step-02-….md` + `step-02/` stages, the same executor protocol as
-[`docs/plans/step-01/README.md`](docs/plans/step-01/README.md)) once the owner has approved it; until
-then, work only on explicit requests.
+**Step 02 — iPhone Telegram keyboard repair.** The owner authorized the first candidate in
+[`docs/plans/step-02-ios-keyboard.md`](docs/plans/step-02-ios-keyboard.md) on 2026-10-31,
+with physical-device checks deferred until after deployment. Implement Compose 1.12.2 and
+remove the HTML keyboard bridge; keep device acceptance pending until the owner checks it.
 
 Project history and known issues: [`docs/project-status.md`](docs/project-status.md) — read it
 before implementation work (not needed for a doc edit or a point fix).
