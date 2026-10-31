@@ -1,5 +1,12 @@
 # TGVD CHANGELOG
 
+## [1.43.4](https://github.com/alelk/tg-video-downloader/compare/v1.43.3...v1.43.4) (2026-10-31)
+
+
+### Bug Fixes
+
+* disable web cache ([7602308](https://github.com/alelk/tg-video-downloader/commit/7602308727d90da3bf0295b326dfaff995528e6b))
+
 ## [1.43.3](https://github.com/alelk/tg-video-downloader/compare/v1.43.2...v1.43.3) (2026-10-31)
 
 
