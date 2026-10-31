@@ -21,6 +21,8 @@ COPY ${DIST_ARCHIVE} /tmp/webapp.tar.gz
 RUN tar -xzf /tmp/webapp.tar.gz -C /usr/share/nginx/html/ && \
     rm /tmp/webapp.tar.gz
 
+# Cache policy: no-cache for the non-hashed bundle (Telegram iOS caches heuristically for days)
+COPY tgminiapp/nginx.conf /etc/nginx/conf.d/default.conf
 COPY tgminiapp/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 

@@ -62,6 +62,8 @@ LABEL org.opencontainers.image.licenses="MIT"
 
 RUN rm -rf /usr/share/nginx/html/*
 COPY --from=builder /build/tgminiapp/build/dist/js/productionExecutable/ /usr/share/nginx/html/
+# Cache policy: no-cache for the non-hashed bundle (Telegram iOS caches heuristically for days)
+COPY tgminiapp/nginx.conf /etc/nginx/conf.d/default.conf
 COPY tgminiapp/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
