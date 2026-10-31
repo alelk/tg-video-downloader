@@ -11,7 +11,8 @@ related: [ PROJECT_CONTEXT.md, ../CLAUDE.md, plans/step-01-refactoring.md, plans
 > (shipped / the mine / deliberately not built / open questions) when it closes; while it runs,
 > each finished stage adds one line.
 
-## Step 01 — Backward-compatible refactoring to the engineering-ai-skills baseline (`plans/step-01-refactoring.md`, done 2026-09-30)
+## Step 01 — Backward-compatible refactoring to the engineering-ai-skills baseline (
+`plans/step-01-refactoring.md`, done 2026-09-30)
 
 **Started 2026-09-29** from commit `2b2ebff` (+ plan in `7610c61`); all 13 stages done, none deferred.
 Goal: order in build, layers, transactions and job processing, a test safety net, and truthful agent
@@ -20,16 +21,19 @@ docs — without changing anything a user, client or deployed installation sees 
 [`plans/step-01/README.md`](plans/step-01/README.md). JVM tests: 278 → 753.
 
 **Shipped.**
+
 - Build ([01.2](plans/step-01/01.2-build-conventions.md), [01.3](plans/step-01/01.3-static-analysis.md)):
   included build `convention-plugins/` (`tgvd.*`), catalogue-only versions, repositories only in
   settings, Kotest on the JVM via JUnit 5 (JS test runner off, `compileTestKotlinJs` is the purity
   gate), `shadowJar` outside `build`; Detekt + ktlint with per-module baselines that only shrink.
   `./gradlew build` is the one gate (Docker required).
-- Server start and lifecycle ([01.4](plans/step-01/01.4-safety-net.md), [01.5](plans/step-01/01.5-bootstrap-and-lifecycle.md)):
+- Server start and
+  lifecycle ([01.4](plans/step-01/01.4-safety-net.md), [01.5](plans/step-01/01.5-bootstrap-and-lifecycle.md)):
   testable `Application.module(config, eagerDatabase, startBackgroundServices, overrides)`; fail-fast
   config (`validateConfig`), Flyway before Koin/routing, exit 1 on failure; `/health/live`,
   `/health/ready`; `exec java` in the Dockerfiles; correlation id in logs.
-- Domain and transport ([01.6](plans/step-01/01.6-thin-transport-jobs-preview.md), [01.7](plans/step-01/01.7-thin-transport-rest.md)):
+- Domain and
+  transport ([01.6](plans/step-01/01.6-thin-transport-jobs-preview.md), [01.7](plans/step-01/01.7-thin-transport-rest.md)):
   every route is parse (`api:mapping`, `Either`) → use-case → respond; membership and ownership are
   checked in use-cases (`WorkspaceAccess`); `server:transport` no longer depends on `server:infra`;
   track selectors and system settings behind domain ports; `Clock` injected; `UnconfiguredLlmPort`.
@@ -73,6 +77,7 @@ instead of select-then-write, and the known issues below (`includeCategory`, joi
 `evictExpired`, `TELEGRAM_DEV_MODE=true` in compose, unused config keys).
 
 **Open questions for the owner** (raised by stage executors, not decided):
+
 1. Allow-list parsing (01.5): a non-numeric entry in `TELEGRAM_ALLOWED_USER_IDS` is silently dropped;
    if every entry is invalid the list becomes empty and access opens to every Telegram user (the start
    log still reports "1 user id"). Should `validateConfig` reject it (changes behaviour of old configs)?
@@ -80,21 +85,21 @@ instead of select-then-write, and the known issues below (`includeCategory`, joi
    `catchingDb`; finders, `delete`, `saveAll`, `claimNext`, cache methods throw on a DB error (→ the
    same `500`). Should they return `Either` too, as the `exposed-postgres` skill recommends (beyond the plan)?
 3. Delivery (01.10):
-   - the new CI has not run yet — push a branch / open a PR and check a green run;
-   - the published server image (`server/app/Dockerfile.ci`) lacks `python3-pip` and the bgutil
-     PO-token plugin that `server/app/Dockerfile` installs — which composition is intended?
-   - semantic-release runs on Node 20 (EOL) and is installed with `npm install --global` without a
-     lockfile (the skill suggests `release/package.json` + `npm ci`);
-   - `nginx:1.27-alpine` and `bgutil…:latest` are not pinned by minor/digest.
+    - the new CI has not run yet — push a branch / open a PR and check a green run;
+    - the published server image (`server/app/Dockerfile.ci`) lacks `python3-pip` and the bgutil
+      PO-token plugin that `server/app/Dockerfile` installs — which composition is intended?
+    - semantic-release runs on Node 20 (EOL) and is installed with `npm install --global` without a
+      lockfile (the skill suggests `release/package.json` + `npm ci`);
+    - `nginx:1.27-alpine` and `bgutil…:latest` are not pinned by minor/digest.
 4. UI (01.11, 01.12):
-   - the manual click-through in real Telegram (preview, create job, jobs list, settings) has not been
-     done — only headless before/after comparisons in a browser;
-   - behaviour change: Preview edits (metadata, tracks, storage path) now survive switching tabs and
-     visiting the channel editor (previously reset to the server answer). Keep it, or dispose the model
-     on leaving (one line in `PreviewEntry`)?
-   - saving settings from the UI sends `extractorOverrides = {}` and `UpdateSystemSettingsUseCase`
-     replaces the map wholesale, so overrides set another way are wiped on every UI save (behaviour
-     unchanged by the step). Fix?
+    - the manual click-through in real Telegram (preview, create job, jobs list, settings) has not been
+      done — only headless before/after comparisons in a browser;
+    - behaviour change: Preview edits (metadata, tracks, storage path) now survive switching tabs and
+      visiting the channel editor (previously reset to the server answer). Keep it, or dispose the model
+      on leaving (one line in `PreviewEntry`)?
+    - saving settings from the UI sends `extractorOverrides = {}` and `UpdateSystemSettingsUseCase`
+      replaces the map wholesale, so overrides set another way are wiped on every UI save (behaviour
+      unchanged by the step). Fix?
 5. The plan file was still `status: draft` when the step closed; 01.13 set it to `done` as its stage
    file instructs — revert if the plan is meant to stay unreviewed.
 
@@ -130,7 +135,8 @@ instead of select-then-write, and the known issues below (`includeCategory`, joi
   (`single<Clock> { Clock.System }`); `UnconfiguredLlmPort` instead of `LlmPort?`; `NoopTransactionRunner`
   moved to `domain-test-fixtures`; fitness tests `TransportSourceGuardTest`, `DomainPurityTest`;
   G10: broken tags/regex/blank ids/non-positive user ids in rule, channel and member input → 400.
-- 2026-09-29 — 01.8 done: only `TransactionRunner` opens transactions (the per-repository transaction helper removed; repositories run
+- 2026-09-29 — 01.8 done: only `TransactionRunner` opens transactions (the per-repository transaction helper removed;
+  repositories run
   in the current one; `JobProcessor` and `SystemSettingsHolder` use short runner transactions); nested runner
   joins the outer transaction and "a `Left` commits" pinned by tests; `catchingDb` (rollback, `23505` →
   `WorkspaceSlugConflict`/`JobAlreadyExists`, else `DatabaseFailed` → same `500 INTERNAL_ERROR`); repositories
@@ -147,7 +153,8 @@ instead of select-then-write, and the known issues below (`includeCategory`, joi
   into a read-only `ci` gate and a `release` job with write rights, `concurrency`, timeouts,
   `setup-gradle`; `docker-publish` with `packages: write` per job; compose `stop_grace_period: 20s`.
 - 2026-09-29 — 01.11 done: `TgVideoDownloaderClient` returns `Either<ApiError, T>` (`Http`/`Network`/`Decoding`,
-  one conversion point `ApiCall.kt`, cancellation rethrown), the client's exception type removed; all 23 `catch`/`runCatching`
+  one conversion point `ApiCall.kt`, cancellation rethrown), the client's exception type removed; all 23 `catch`/
+  `runCatching`
   sites in `features` fold the result with the same user-visible messages; `WorkspaceGate` and the root
   `TgvdApp` moved to `features/app`, the shell keeps `main`, Koin and Telegram/JS interop only
   (`ShellSourceGuardTest`); 727 JVM tests.
@@ -177,8 +184,8 @@ from focus repair and does not prove the installed WebView loaded fresh assets.
 
 ## Known issues
 
-Deliberately not fixed in Step 01 (behaviour changes, out of its scope). The stage that found each one is
-in brackets; details in its executor notes.
+The Step 01 findings below were deliberately not fixed in that step (behaviour changes, out of
+scope); their stage references point to executor notes. Later incidents link to their own records.
 
 **Behaviour and access**
 
