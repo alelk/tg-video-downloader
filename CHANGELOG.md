@@ -1,5 +1,13 @@
 # TGVD CHANGELOG
 
+## [1.43.3](https://github.com/alelk/tg-video-downloader/compare/v1.43.2...v1.43.3) (2026-10-31)
+
+
+### Bug Fixes
+
+* disable web cache ([ea506f1](https://github.com/alelk/tg-video-downloader/commit/ea506f1c7fdb0341f45282a8e045a84694b6870b))
+* update Compose and remove iOS keyboard bridge ([17703cb](https://github.com/alelk/tg-video-downloader/commit/17703cbc671d65e14138cf905c07639790afc004))
+
 ## [1.43.2](https://github.com/alelk/tg-video-downloader/compare/v1.43.1...v1.43.2) (2026-10-30)
 
 
